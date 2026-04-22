@@ -634,6 +634,12 @@ Criterio de aceptacion:
 
 ### Fase 2 - Inicializacion de monorepo ejecutable
 
+Estado:
+
+- completada como scaffold inicial ejecutable;
+- no incluye todavia migraciones, CRUD backend, contratos compartidos completos
+  ni integracion real con Google Places.
+
 Objetivo:
 
 - convertir la estructura inicial en un monorepo ejecutable.
@@ -663,6 +669,17 @@ Entregables:
 - comandos de arranque;
 - configuracion de entorno;
 - healthcheck o ruta equivalente de estado para API.
+
+Implementacion actual:
+
+- Next.js con TypeScript, SCSS y npm workspaces en `apps/web`;
+- ruta `GET /api/health` con validacion opcional de PostgreSQL;
+- dependencia `pg` para acceso futuro a PostgreSQL desde API routes;
+- entorno Python importable en `services/workers` con `pyproject.toml`;
+- dependencias Python iniciales para HTTP, settings, PostgreSQL y tests;
+- `.env.example` con placeholders sin secretos;
+- scripts en `scripts/dev` para web, worker y tests;
+- guia operativa en `docs/architecture/backend-runtime.md`.
 
 Criterio de aceptacion:
 

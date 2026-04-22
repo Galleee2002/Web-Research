@@ -29,6 +29,14 @@ Business Lead Finder is a web app and data pipeline for detecting local business
 - Duplicate businesses should be avoided by `name + address`.
 - Lead statuses are `new`, `reviewed`, `contacted`, and `discarded`.
 
+## Persistence Contract
+
+- PostgreSQL is the source of truth for persisted MVP data.
+- Frontend screens and dashboard flows must read and write through Next.js API routes, not direct database access from UI components.
+- Mocks are allowed only in tests, fixtures, or explicit local development harnesses; they must not become the frontend data source of record.
+- Frontend components must not duplicate backend business rules for website detection, deduplication, lead status persistence, or CSV generation.
+- Shared statuses, filters, and request/response shapes should live in `packages/shared` once implemented to keep frontend, API routes, and workers aligned.
+
 ## MVP Boundaries
 
 - The MVP includes business search, automated ingestion, website detection, lead dashboard, no-website filtering, lead status management, and CSV export.
@@ -37,4 +45,4 @@ Business Lead Finder is a web app and data pipeline for detecting local business
 
 ## Current Scope
 
-This repository currently contains only the initial folder structure and project memory. No application logic, dependency manifests, runtime configuration, or executable scaffolding has been added yet.
+This repository now contains the initial executable scaffold for the web app and workers. Business logic, database migrations, Google Places ingestion, and CRUD API routes are still implemented in later backend phases.
