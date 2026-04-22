@@ -1,149 +1,164 @@
-# PRD - Business Lead Finder (Sin Web)
+# PRD - Business Lead Finder (Arquitectura Hibrida)
 
-## 1. Resumen
-
-### 1.1 Overview
+## 1. Overview
 
 - **Nombre del producto:** Business Lead Finder
-- **Tipo:** Web App (Dashboard + Data Pipeline)
-- **Objetivo:** Detectar negocios locales que no poseen pagina web para generar oportunidades comerciales.
+- **Tipo:** Web App + Data Pipeline
+- **Arquitectura:** Next.js + Python Workers + PostgreSQL
 
-El sistema recolecta negocios por rubro y ubicacion, analiza si poseen sitio web, almacena la informacion y la presenta en un dashboard para gestion de leads.
+**Objetivo**
 
-### 1.2 Problema
+Detectar negocios locales sin pagina web y convertirlos en leads gestionables desde un dashboard.
 
-Muchos negocios locales:
+## 2. Problema
 
-- No tienen presencia web.
-- Solo usan redes sociales.
-- Pierden oportunidades de venta.
+Muchos negocios:
 
-Actualmente no existe una herramienta simple que:
+- No tienen sitio web.
+- Dependen solo de redes sociales.
+- No captan trafico organico.
 
-- Detecte automaticamente estos negocios.
-- Los centralice.
-- Permita gestionarlos como leads.
+Para agencias y developers, detectar estos negocios es:
 
-### 1.3 Solucion
+- Manual.
+- Lento.
+- Poco escalable.
+
+## 3. Solucion
 
 Una plataforma que:
 
-- Busca negocios por categoria y ubicacion.
-- Detecta si tienen sitio web.
-- Guarda los datos en una base estructurada.
-- Permite visualizarlos y gestionarlos desde un dashboard.
+- Descubre negocios por ubicacion y rubro.
+- Detecta si tienen web.
+- Almacena y normaliza datos.
+- Permite gestionar leads desde un panel.
+- Escala mediante workers automaticos.
 
-### 1.4 Usuario objetivo
+## 4. Arquitectura del sistema
 
-- Freelancers / Developers
+### 4.1 App principal
+
+- Next.js
+- UI + API routes
+- Dashboard de leads
+
+### 4.2 Workers
+
+- Python
+- Scraping / API ingestion
+- Enriquecimiento de datos
+
+### 4.3 Base de datos
+
+- PostgreSQL
+
+### 4.4 UI stack
+
+- Tailwind CSS
+- shadcn/ui
+
+## 5. Usuario objetivo
+
+- Freelancers
 - Agencias digitales
-- Vendedores B2B
-- Emprendedores que venden servicios web
+- Devs full stack
+- Equipos de ventas B2B
 
-## 2. Alcance
+## 6. Alcance (MVP)
 
-### 2.1 Incluye (MVP)
+### 6.1 Incluye
 
-- Busqueda de negocios por rubro + ciudad.
-- Almacenamiento en DB.
-- Deteccion de presencia web.
-- Dashboard con listado de negocios.
-- Filtro: sin web.
+- Busqueda de negocios.
+- Ingesta automatica de datos.
+- Deteccion de web.
+- Dashboard de leads.
+- Filtro sin web.
 - Estados de lead.
-- Exportacion a CSV.
+- Export CSV.
 
-### 2.2 No incluye (por ahora)
+### 6.2 No incluye
 
-- Automatizacion de contacto (emails/whatsapp).
-- IA scoring avanzado.
+- Automatizacion de outreach.
 - Multiusuario.
-- Integraciones CRM externas.
+- Integracion CRM.
+- IA avanzada.
 
-## 3. Flujo del sistema
+## 7. Flujo del sistema
 
-1. Usuario crea una busqueda.
-2. Backend consulta API de datos (Places / SERP).
-3. Se obtienen negocios.
-4. Se analiza si tienen web.
-5. Se guardan en DB.
-6. Frontend muestra resultados.
-7. Usuario gestiona leads.
+1. Usuario crea busqueda.
+2. Next.js registra `search_run`.
+3. Worker Python procesa la busqueda.
+4. Obtiene negocios desde APIs externas.
+5. Enriquecimiento:
+   - deteccion de website
+6. Persistencia en DB.
+7. Frontend consume datos.
+8. Usuario gestiona leads.
 
-## 4. Requisitos funcionales
+## 8. Requisitos funcionales
 
-### 4.1 Busqueda de negocios
+### 8.1 Creacion de busqueda
 
 - **Input:**
-	- `keyword` (ej: "dentistas")
-	- `ubicacion` (ej: "Caballito")
+  - `keyword`
+  - `ubicacion`
 - **Output:**
-	- Lista de negocios.
+  - Job en cola para procesamiento.
 
-### 4.2 Deteccion de sitio web
+### 8.2 Ingesta de datos (Worker)
 
-El sistema debe:
+Debe:
 
-- Identificar si el negocio tiene website.
-- Marcar `has_website = true/false`.
+- Consultar API externa.
+- Normalizar datos.
+- Evitar duplicados.
+- Guardar resultados.
 
-### 4.3 Almacenamiento
+### 8.3 Deteccion de website
 
-Cada negocio debe guardar:
+- Si no existe -> `has_website = false`
+- Si existe -> `has_website = true`
 
-- nombre
-- categoria
-- direccion
-- ciudad
-- telefono
-- lat/lng
-- website (nullable)
-- estado del lead
+### 8.4 Dashboard
 
-### 4.4 Dashboard
+El usuario puede:
 
-El usuario debe poder:
-
-- Ver lista de negocios.
+- Visualizar negocios.
 - Filtrar por:
-	- sin web
-	- categoria
-	- ubicacion
-- Ordenar resultados.
+  - sin web
+  - ciudad
+  - categoria
+- Ordenar.
 - Paginar.
 
-### 4.5 Gestion de leads
+### 8.5 Gestion de leads
 
-Estados posibles:
+Estados:
 
 - `new`
 - `reviewed`
 - `contacted`
 - `discarded`
 
-El usuario debe poder cambiar estado manualmente.
+### 8.6 Exportacion
 
-### 4.6 Exportacion
+- CSV descargable.
 
-- Exportar resultados a CSV.
+## 9. Logica de negocio
 
-## 5. Logica de negocio
+### 9.1 Lead valido
 
-### 5.1 Regla principal
+- `website == null` -> lead
 
-Un negocio es considerado lead valido si:
+### 9.2 Reglas
 
-- `website == null`
-- `has_website = false`
+- Redes sociales != website.
+- Evitar duplicados por `name + address`.
+- Permitir revision manual.
 
-### 5.2 Reglas secundarias
+## 10. Modelo de datos
 
-- Si solo tiene redes sociales, sigue siendo lead.
-- Si `website` existe, excluir de leads principales.
-- Evitar duplicados por: `nombre + direccion`.
-
-## 6. Modelo de datos
-
-### 6.1 Tabla `businesses`
+### 10.1 Tabla `businesses`
 
 - id
 - external_id
@@ -157,20 +172,20 @@ Un negocio es considerado lead valido si:
 - phone
 - website
 - has_website
-- google_maps_url
+- maps_url
 - created_at
 - updated_at
 
-### 6.2 Tabla `search_runs`
+### 10.2 Tabla `search_runs`
 
 - id
 - query
 - location
-- source
+- status
 - total_found
-- executed_at
+- created_at
 
-### 6.3 Tabla `business_status`
+### 10.3 Tabla `lead_status`
 
 - id
 - business_id
@@ -178,99 +193,119 @@ Un negocio es considerado lead valido si:
 - notes
 - updated_at
 
-## 7. Arquitectura
+## 11. Arquitectura tecnica
 
-### 7.1 Backend
+### 11.1 Next.js
 
-- Python
-- FastAPI
-- SQLAlchemy
+Responsable de:
 
-### 7.2 Data Pipeline
+- UI
+- API routes
+- Autenticacion (futuro)
+- Consumo de DB
 
-- Scripts Python
-- Workers (futuro: Celery + Redis)
+### 11.2 Python Workers
 
-### 7.3 Base de datos
+Responsable de:
 
-- PostgreSQL
+- Ingestion
+- Scraping / APIs
+- Validacion de datos
+- Enrichment
 
-### 7.4 Frontend
+### 11.3 Comunicacion entre servicios
 
-- React
-- Tailwind CSS
-- shadcn/ui
+- DB compartida
+- Queue (futuro):
+  - Redis
+  - RabbitMQ
 
-## 8. API Endpoints (MVP)
+## 12. API (Next.js)
 
 | Caso de uso | Metodo | Endpoint |
 | --- | --- | --- |
-| Buscar negocios | POST | `/search` |
-| Obtener negocios | GET | `/businesses` |
-| Filtrar sin web | GET | `/businesses?has_website=false` |
-| Actualizar estado | PATCH | `/businesses/{id}/status` |
-| Exportar CSV | GET | `/export` |
+| Crear busqueda | POST | `/api/search` |
+| Obtener negocios | GET | `/api/businesses` |
+| Filtrar sin web | GET | `/api/businesses?has_website=false` |
+| Actualizar estado | PATCH | `/api/businesses/:id` |
+| Exportar CSV | GET | `/api/export` |
 
-## 9. Metricas clave
+## 13. Metricas clave
 
-- Cantidad de leads detectados.
-- Porcentaje de negocios sin web.
-- Leads contactados.
-- Conversion (manual).
+- Leads detectados.
+- Porcentaje sin web.
+- Leads gestionados.
+- Ratio de conversion.
 
-## 10. Riesgos
+## 14. Riesgos
 
 - Dependencia de APIs externas.
-- Cambios en estructura de datos.
-- Falsos positivos (negocios con web no detectada).
 - Rate limits.
+- Datos incompletos.
+- Falsos positivos.
 
-## 11. Roadmap
+## 15. Roadmap
 
-### 11.1 MVP
+### 15.1 MVP
 
-- Busqueda.
-- Almacenamiento.
-- Dashboard basico.
-- Filtro sin web.
+- Pipeline basico.
+- Dashboard.
+- Filtros.
+- Export.
 
-### 11.2 V2
+### 15.2 V2
 
 - Deteccion de redes sociales.
 - Scoring de leads.
-- Enriquecimiento automatico.
 - Deduplicacion avanzada.
 
-### 11.3 V3
+### 15.3 V3
 
-- CRM integrado.
-- Automatizacion de outreach.
+- CRM interno.
+- Automatizacion de contacto.
 - Multiusuario.
-- Analytics avanzado.
 
-## 12. Testing
+## 16. Testing
 
-- Validacion de datos guardados.
-- Evitar duplicados.
+- Validacion de ingestion.
 - Test de endpoints.
-- Test de scraping/API ingestion.
+- Test de duplicados.
+- Test de UI.
 
-## 13. Consideraciones legales
+## 17. Consideraciones legales
 
-- No scrapear Google directamente.
-- Usar APIs oficiales o proveedores intermedios.
-- Respetar terminos de uso.
+- No scraping directo de Google.
+- Uso de APIs autorizadas.
+- Cumplimiento de terminos.
 
-## 14. Definicion de exito (MVP)
+## 18. Definicion de exito
 
-El producto es exitoso si:
+El MVP es exitoso si:
 
-- Permite detectar negocios sin web.
-- Muestra resultados correctamente.
-- Permite gestionar leads.
-- Funciona de punta a punta sin intervencion manual.
+- Detecta negocios sin web.
+- Permite visualizarlos.
+- Permite gestionarlos.
+- Funciona end-to-end automaticamente.
 
-## 15. Notas finales
+## 19. Estructura del proyecto
 
-Este documento es la fuente unica de verdad del proyecto.
-Cualquier cambio en logica, features o arquitectura debe reflejarse aca.
+```txt
+lead-finder/
+  apps/
+    web/        # Next.js
+  services/
+    workers/    # Python
+  packages/
+    db/         # schema / prisma (opcional)
+```
+
+## 20. Notas finales
+
+Este documento define:
+
+- Arquitectura
+- Logica de negocio
+- Alcance
+- Roadmap
+
+Es la fuente unica de verdad del proyecto.
