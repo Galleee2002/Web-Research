@@ -944,6 +944,15 @@ Siguiente paso recomendado:
 
 ### Fase 7 - Worker Python de Google Places y Geocoding
 
+Estado:
+
+- completada como clientes internos del worker para Google Places Text Search
+  (New) y Google Geocoding;
+- implementada sin exponer nuevos endpoints HTTP para frontend;
+- no persiste negocios ni actualiza `search_runs` todavia;
+- protege creditos con limite diario persistente combinado para Places y
+  Geocoding.
+
 Objetivo:
 
 - integrar Google Places API como proveedor externo inicial y Google Geocoding
@@ -960,18 +969,68 @@ Tareas:
 - manejar rate limits;
 - manejar errores de credenciales;
 - mockear proveedor en tests;
-- evitar llamadas reales en tests automatizados.
+- evitar llamadas reales en tests automatizados;
+- limitar consumo a 1000 requests diarios combinados por defecto.
 
 Entregables:
 
-- clientes externos de Google;
-- adaptador;
-- tests con payloads mock.
+- `services/workers/src/ingestion/google_places/client.py` con cliente
+  `GooglePlacesClient` para `POST /v1/places:searchText`;
+- `services/workers/src/ingestion/google_places/geocoding.py` con cliente
+  `GoogleGeocodingClient` para Geocoding API;
+- `services/workers/src/ingestion/google_places/quota.py` con contador diario
+  persistente;
+- `services/workers/src/ingestion/google_places/errors.py` con errores
+  tipados de proveedor, credenciales, cuota, timeout, rate limit y payload;
+- `services/workers/src/ingestion/google_places/adapter.py` con helpers para
+  extraer payload crudo;
+- settings de worker para API keys, timeout, limite diario y path de estado;
+- tests con `httpx.MockTransport`, sin red ni costo.
+
+Variables de entorno agregadas:
+
+- `GOOGLE_GEOCODING_API_KEY`: opcional; si falta, se usa
+  `GOOGLE_PLACES_API_KEY`;
+- `GOOGLE_REQUEST_TIMEOUT_SECONDS`: default `10`;
+- `GOOGLE_DAILY_REQUEST_LIMIT`: default `1000`;
+- `GOOGLE_QUOTA_STATE_PATH`: default `.worker-state/google-api-quota.json`.
+
+Field mask de Places Text Search (New):
+
+```txt
+places.id,
+places.displayName,
+places.formattedAddress,
+places.primaryType,
+places.primaryTypeDisplayName,
+places.types,
+places.location,
+places.nationalPhoneNumber,
+places.internationalPhoneNumber,
+places.websiteUri,
+places.googleMapsUri,
+nextPageToken
+```
+
+Alcance explicito:
+
+- Fase 7 obtiene payloads crudos del proveedor;
+- Fase 8 normaliza hacia `NormalizedBusiness`;
+- Fase 9 clasifica website propio;
+- Fase 10 deduplica;
+- Fase 11 orquesta `search_run -> worker -> persistencia`.
+
+Validacion local:
+
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests -q`
+  pasa tests de contratos, settings, cuota y clientes Google con mocks.
 
 Criterio de aceptacion:
 
 - el worker puede obtener resultados reales cuando las APIs de Google estan
   habilitadas y los tests pueden correr sin red ni costo.
+- el contador diario bloquea nuevas requests al llegar al limite configurado y
+  se reinicia automaticamente al cambiar el dia.
 
 ### Fase 8 - Normalizacion de datos externos
 

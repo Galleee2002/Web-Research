@@ -23,11 +23,21 @@ Variables definidas:
 - `APP_ENV`: entorno de ejecucion, default esperado `development`.
 - `DATABASE_URL`: conexion PostgreSQL.
 - `GOOGLE_PLACES_API_KEY`: API key de Google Places, no requerida para tests.
+- `GOOGLE_GEOCODING_API_KEY`: API key opcional para Geocoding. Si queda vacia,
+  el worker usa `GOOGLE_PLACES_API_KEY`.
+- `GOOGLE_REQUEST_TIMEOUT_SECONDS`: timeout por request a Google, default `10`.
+- `GOOGLE_DAILY_REQUEST_LIMIT`: limite diario combinado para Places y
+  Geocoding, default `1000`.
+- `GOOGLE_QUOTA_STATE_PATH`: archivo local para persistir el contador diario,
+  default `.worker-state/google-api-quota.json`.
 - `DEFAULT_PAGE_SIZE`: paginacion default.
 - `MAX_PAGE_SIZE`: limite maximo de paginacion.
 - `LOG_LEVEL`: nivel de logging.
 
 Los secretos reales no deben versionarse.
+
+El directorio `.worker-state/` es local y no debe versionarse. Si se elimina,
+el contador diario del worker se reinicia.
 
 ## Comandos
 
