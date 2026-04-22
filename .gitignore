@@ -12,6 +12,7 @@ next-env.d.ts
 # Production builds
 dist/
 build/
+*.tsbuildinfo
 
 # Python
 __pycache__/

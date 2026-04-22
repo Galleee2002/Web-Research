@@ -5,6 +5,8 @@
     "apps/web"
   ],
   "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
     "web:dev": "npm --workspace apps/web run dev",
     "web:build": "npm --workspace apps/web run build",
     "web:test": "npm --workspace apps/web run test",

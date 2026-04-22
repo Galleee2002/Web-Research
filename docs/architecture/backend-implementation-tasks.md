@@ -16,6 +16,7 @@ El backend debe permitir:
 
 - registrar busquedas por rubro y ubicacion;
 - consultar Google Places API desde workers Python;
+- complementar datos de ubicacion con Google Geocoding API cuando haga falta;
 - normalizar negocios externos a un modelo interno estable;
 - detectar negocios sin sitio web propio;
 - persistir busquedas y negocios en PostgreSQL;
@@ -59,7 +60,9 @@ La arquitectura oficial del repositorio es hibrida:
 
 #### `services/workers`
 
-- Consumir Google Places API.
+- Consumir Google Places API como proveedor principal.
+- Consumir Google Geocoding API como complemento para normalizar o enriquecer
+  ubicaciones cuando Google Places no entregue datos suficientes.
 - Normalizar respuestas externas.
 - Detectar presencia real de website.
 - Aplicar deduplicacion e idempotencia.
@@ -493,21 +496,25 @@ Flujo esperado:
 1. recibir o leer un `search_run` en estado `pending`;
 2. marcarlo como `processing`;
 3. consultar Google Places API;
-4. obtener resultados crudos;
-5. normalizar cada resultado;
-6. detectar website propio;
-7. deduplicar contra PostgreSQL;
-8. insertar o actualizar negocios;
-9. actualizar `search_runs.total_found`;
-10. marcar `search_run` como `completed`;
-11. si falla una dependencia externa, registrar error y marcar `failed`.
+4. consultar Google Geocoding API solo si se necesita complementar ubicacion;
+5. obtener resultados crudos;
+6. normalizar cada resultado;
+7. detectar website propio;
+8. deduplicar contra PostgreSQL;
+9. insertar o actualizar negocios;
+10. actualizar `search_runs.total_found`;
+11. marcar `search_run` como `completed`;
+12. si falla una dependencia externa, registrar error y marcar `failed`.
 
-### Cliente Google Places
+### Clientes Google
 
 Responsabilidades:
 
 - construir requests;
 - inyectar `GOOGLE_PLACES_API_KEY`;
+- usar `GOOGLE_GEOCODING_API_KEY` solo si se decide separar credenciales; por
+  defecto puede usarse la misma API key de Google Cloud con Places API y
+  Geocoding API habilitadas;
 - configurar timeouts;
 - manejar errores 4xx, 5xx y rate limits;
 - devolver payload crudo sin contaminar el modelo interno.
@@ -527,6 +534,8 @@ Errores contemplados:
 Responsabilidades:
 
 - mapear la respuesta de Google Places a `NormalizedBusiness`;
+- usar Google Geocoding como complemento para completar ciudad, region, pais o
+  coordenadas cuando sea necesario;
 - aislar nombres de campos propios del proveedor;
 - permitir sumar otro proveedor futuro sin cambiar API routes ni schema central.
 
@@ -535,6 +544,7 @@ Interfaz logica:
 ```txt
 search_businesses(query, location) -> list[raw_business]
 get_business_details(external_id) -> raw_business_details
+geocode_location(address_or_location) -> raw_geocoding_result
 normalize_external_business(raw_item) -> NormalizedBusiness
 ```
 
@@ -659,6 +669,7 @@ Variables minimas:
 - `APP_ENV`;
 - `DATABASE_URL`;
 - `GOOGLE_PLACES_API_KEY`;
+- `GOOGLE_GEOCODING_API_KEY` opcional si se separan credenciales de Google;
 - `DEFAULT_PAGE_SIZE`;
 - `MAX_PAGE_SIZE`;
 - `LOG_LEVEL`.
@@ -666,7 +677,11 @@ Variables minimas:
 Entregables:
 
 - manifiestos de dependencias;
+- `package.json` versionado para Next.js/API routes con scripts oficiales;
+- manifiesto Python versionado para workers, como `pyproject.toml` o
+  `requirements.txt`;
 - comandos de arranque;
+- comandos oficiales de test y typecheck;
 - configuracion de entorno;
 - healthcheck o ruta equivalente de estado para API.
 
@@ -685,86 +700,199 @@ Criterio de aceptacion:
 
 - el proyecto puede instalar dependencias y arrancar localmente con una base
   PostgreSQL configurada.
+- un entorno limpio puede reproducir los comandos de test y typecheck sin
+  depender de `node_modules` o caches locales preexistentes.
+
+### Decision pendiente - Manifiestos y comandos oficiales
+
+Antes de implementar Fase 5 conviene versionar la configuracion minima de
+desarrollo para que las API routes y sus tests sean reproducibles.
+
+Pendiente recomendado:
+
+- crear `package.json` en el alcance que se defina para el monorepo o
+  `apps/web`;
+- agregar scripts oficiales como `test`, `typecheck`, `dev` y `build`;
+- definir manifiesto Python para workers con dependencias de runtime y test;
+- documentar comandos equivalentes a:
+  - `npm install`;
+  - `npm test`;
+  - `npm run typecheck`;
+  - `pytest`;
+- mantener secrets fuera del repo usando `.env.example` con placeholders.
+
+Motivo:
+
+- Fase 4 pudo validarse con comandos puntuales porque existen dependencias
+  locales instaladas, pero esa situacion no garantiza que otro entorno pueda
+  reproducir la instalacion y los tests desde cero.
+
+Relacion con Fase 5:
+
+- las API routes de Fase 5 deben nacer con tests reproducibles;
+- los contratos de `packages/shared` deben poder typecheckearse desde un script
+  oficial;
+- los workers deben poder correr tests sin depender de configuracion manual no
+  documentada.
 
 ### Fase 3 - Base de datos, migraciones y seeds
+
+Estado:
+
+- completada como schema persistente inicial del MVP;
+- usa SQL plano versionado, sin framework de migraciones todavia;
+- deja datos demo deterministas para desarrollo local y futuras API routes;
+- aplicada y validada localmente contra PostgreSQL con `DATABASE_URL`.
 
 Objetivo:
 
 - crear el schema persistente del MVP.
 
-Tareas:
-
-- crear migracion para `search_runs`;
-- crear migracion para `businesses`;
-- agregar indices minimos;
-- agregar restricciones de estado;
-- definir seed con negocios con y sin website;
-- documentar comando para correr migraciones;
-- documentar comando para cargar seeds.
-
 Entregables:
 
-- migraciones en `database/migrations`;
-- seeds en `database/seeds`;
-- notas de schema en `database/docs`.
+- migracion `database/migrations/001_create_mvp_schema.sql`;
+- seed `database/seeds/001_mvp_demo_data.sql`;
+- notas de schema en `database/docs/mvp-schema.md`.
+
+Implementacion actual:
+
+- tablas `search_runs` y `businesses` con UUIDs generados por `pgcrypto`;
+- constraints para estados, fuente, campos requeridos, conteos, coordenadas y
+  coherencia entre `website` y `has_website`;
+- indices minimos para filtros y ordenamiento de busquedas y negocios;
+- unicidad parcial para `source + external_id` cuando existe ID de proveedor;
+- indice no unico para apoyar fallback por `name + address`;
+- seed con una busqueda demo y negocios con website, sin website y perfiles
+  sociales tratados como leads sin website propio;
+- comandos documentados para correr migracion y seed con `psql`.
+
+Validacion local:
+
+- conexion PostgreSQL confirmada con `select current_database()`, devolviendo
+  `business_lead_finder`;
+- migracion `001_create_mvp_schema.sql` aplicada correctamente;
+- seed `001_mvp_demo_data.sql` aplicado correctamente;
+- datos esperados tras seed: 1 registro en `search_runs` y 6 registros en
+  `businesses`.
 
 Criterio de aceptacion:
 
-- una base limpia puede recrear el schema completo y cargar datos de prueba.
+- una base limpia recrea el schema completo y carga datos de prueba.
+- siguiente paso recomendado: Fase 4, contratos compartidos y validaciones.
 
 ### Fase 4 - Contratos compartidos y validaciones
+
+Estado:
+
+- completada como contratos compartidos iniciales del MVP;
+- implementada sin agregar manifests ni dependencias nuevas al monorepo;
+- mantiene contratos TypeScript para API routes/frontend y equivalentes Python
+  para workers;
+- validada con tests acotados de TypeScript y Python.
 
 Objetivo:
 
 - evitar divergencias entre frontend, API routes y workers.
 
-Tareas:
-
-- definir enums compartidos;
-- definir shape de requests y responses;
-- definir valores default de paginacion;
-- definir limites maximos de input;
-- definir contrato de `NormalizedBusiness`;
-- documentar equivalencias para Python si no se comparte codigo directamente.
-
 Entregables:
 
-- contratos en `packages/shared`;
-- validaciones usadas por API routes;
-- validaciones equivalentes en workers.
+- contratos TypeScript en `packages/shared`;
+- validaciones reutilizables para futuras API routes;
+- contratos Python equivalentes en `services/workers/src/contracts`;
+- tests de contrato en `packages/shared/contracts.test.ts` y
+  `services/workers/tests/test_contracts.py`.
+
+Implementacion actual:
+
+- enums y type guards para `LeadStatus`, `SearchRunStatus` y `BusinessSource`;
+- defaults de paginacion `DEFAULT_PAGE_SIZE = 20` y `MAX_PAGE_SIZE = 100`;
+- limites iniciales para `query`, `location`, `notes`, `city`, `category` y
+  busqueda textual;
+- tipos `SearchCreate`, `SearchRead`, `BusinessRead`,
+  `BusinessStatusUpdate`, `NormalizedBusiness` y `PaginatedResponse<T>`;
+- validadores puros para crear busquedas, actualizar estado/notas, paginar y
+  filtrar busquedas o negocios;
+- contrato Python independiente con `NormalizedBusiness` como dataclass y
+  validadores equivalentes para estados, fuente, campos requeridos y coherencia
+  `website`/`has_website`.
+
+Validacion local:
+
+- `npx vitest run packages/shared/contracts.test.ts` pasa 4 tests;
+- `PYTHONPATH=services/workers/src pytest services/workers/tests/test_contracts.py -q`
+  pasa 4 tests;
+- los valores de estado y fuente coinciden con las constraints de
+  `database/migrations/001_create_mvp_schema.sql`.
 
 Criterio de aceptacion:
 
 - un cambio de estado o filtro no requiere editar strings sueltos en varias capas.
+- siguiente paso recomendado: Fase 5, API routes CRUD base.
 
 ### Fase 5 - API routes CRUD base
+
+Estado:
+
+- completada como API CRUD base del MVP sobre PostgreSQL;
+- implementada con Next.js API routes bajo `apps/web/app/api`;
+- usa contratos y validadores de `packages/shared`;
+- usa SQL parametrizado con `pg`, sin ORM;
+- no dispara workers ni llama Google Places todavia.
 
 Objetivo:
 
 - exponer operaciones backend basicas sobre datos persistidos localmente.
 
-Tareas:
+Entregables implementados:
 
-- implementar `POST /api/search`;
-- implementar `GET /api/searches`;
-- implementar `GET /api/businesses`;
-- implementar `GET /api/businesses/{id}`;
-- implementar `PATCH /api/businesses/{id}`;
-- implementar `GET /api/export`;
-- devolver errores HTTP coherentes;
-- mantener handlers delgados.
+- configuracion minima reproducible con `package.json`, `package-lock.json`,
+  `tsconfig.json`, `apps/web/tsconfig.json`, `next.config.mjs` y
+  `.env.example`;
+- `POST /api/search` para crear `search_runs` en estado `pending`;
+- `GET /api/searches` con filtros por `status`, `source` y paginacion;
+- `GET /api/businesses` con filtros por `has_website`, `status`, `city`,
+  `category`, `query`, paginacion y ordenamiento permitido;
+- `GET /api/businesses/[id]` para detalle completo de negocio;
+- `PATCH /api/businesses/[id]` para actualizar `status` y `notes`;
+- `GET /api/export` para descargar CSV con los mismos filtros del listado;
+- repositorios SQL en `apps/web/lib/db`;
+- helpers HTTP y CSV en `apps/web/lib`;
+- tests unitarios de filtros SQL, contratos y CSV;
+- test de integracion de repositorio que se salta si `DATABASE_URL` no esta
+  configurada.
 
-Entregables:
+Endpoints implementados:
 
-- API routes funcionales;
-- filtros basicos;
-- paginacion;
-- export CSV.
+- `POST /api/search`;
+- `GET /api/searches`;
+- `GET /api/businesses`;
+- `GET /api/businesses/[id]`;
+- `PATCH /api/businesses/[id]`;
+- `GET /api/export`.
+
+Validacion local:
+
+- `npm test -- packages/shared/contracts.test.ts apps/web/lib/db/businesses.test.ts apps/web/lib/db/searches.test.ts apps/web/lib/db/integration.test.ts apps/web/lib/utils/csv.test.ts`
+  pasa 8 tests y salta 2 tests de integracion cuando no hay `DATABASE_URL`;
+- `npm run typecheck` pasa correctamente;
+- `npm run web:build` compila la app y registra las rutas API dinamicas.
+
+Notas operativas:
+
+- para validar contra base real, exportar `DATABASE_URL`, aplicar
+  `database/migrations/001_create_mvp_schema.sql` y
+  `database/seeds/001_mvp_demo_data.sql`;
+- las rutas devuelven errores JSON consistentes para validacion, recursos no
+  encontrados y errores internos;
+- `POST /api/search` solo persiste la busqueda pendiente. La ejecucion del
+  worker queda para fases posteriores.
 
 Criterio de aceptacion:
 
 - con seeds cargados, el dashboard puede leer, filtrar, actualizar y exportar
   negocios sin depender de Google Places.
+- siguiente paso recomendado: Fase 6, separar servicios y repositorios de forma
+  mas formal si la logica crece, o avanzar con Fase 7 para workers de Google.
 
 ### Fase 6 - Servicios y repositorios
 
@@ -791,16 +919,20 @@ Criterio de aceptacion:
 
 - las reglas de negocio pueden probarse sin invocar HTTP.
 
-### Fase 7 - Worker Python de Google Places
+### Fase 7 - Worker Python de Google Places y Geocoding
 
 Objetivo:
 
-- integrar el proveedor externo inicial.
+- integrar Google Places API como proveedor externo inicial y Google Geocoding
+  API como complemento de ubicacion.
 
 Tareas:
 
 - crear cliente Google Places;
+- crear cliente Google Geocoding;
 - crear adaptador de respuesta;
+- definir cuando usar Geocoding para completar ciudad, region, pais o
+  coordenadas;
 - configurar timeouts;
 - manejar rate limits;
 - manejar errores de credenciales;
@@ -809,14 +941,14 @@ Tareas:
 
 Entregables:
 
-- cliente externo;
+- clientes externos de Google;
 - adaptador;
 - tests con payloads mock.
 
 Criterio de aceptacion:
 
-- el worker puede obtener resultados reales cuando hay API key, y los tests
-  pueden correr sin red ni costo.
+- el worker puede obtener resultados reales cuando las APIs de Google estan
+  habilitadas y los tests pueden correr sin red ni costo.
 
 ### Fase 8 - Normalizacion de datos externos
 
@@ -836,7 +968,7 @@ Entregables:
 
 - normalizador;
 - tests unitarios;
-- fixtures de payload Google Places.
+- fixtures de payload Google Places y Google Geocoding.
 
 Criterio de aceptacion:
 
@@ -985,7 +1117,7 @@ Tareas:
 - tests de website detection;
 - tests de deduplicacion;
 - tests de export CSV;
-- mocks de Google Places.
+- mocks de Google Places y Google Geocoding.
 
 Casos minimos:
 
@@ -996,6 +1128,8 @@ Casos minimos:
 - actualizar estado del lead;
 - exportar CSV;
 - normalizar payload de Google Places;
+- enriquecer ubicacion con payload mock de Google Geocoding cuando falten datos
+  normalizados;
 - clasificar redes sociales como no website propio;
 - evitar duplicados por `external_id + source`;
 - evitar duplicados por `name + address`;
@@ -1069,6 +1203,7 @@ El backend MVP se considera listo cuando:
 
 - registra busquedas;
 - consulta Google Places desde worker;
+- complementa ubicaciones con Google Geocoding cuando sea necesario;
 - normaliza resultados;
 - detecta negocios con y sin website propio;
 - guarda negocios en PostgreSQL;
@@ -1108,6 +1243,7 @@ Cubrir:
 Cubrir con mocks:
 
 - respuesta exitosa de Google Places;
+- respuesta exitosa de Google Geocoding para enriquecer ubicacion;
 - respuesta vacia;
 - API key invalida;
 - rate limit;
@@ -1115,7 +1251,7 @@ Cubrir con mocks:
 - payload incompleto.
 
 Los tests automatizados no deben depender de red ni consumir cuota real de
-Google Places.
+Google Places ni Google Geocoding.
 
 ## 11. Configuracion, seguridad operativa y despliegue
 
@@ -1125,6 +1261,7 @@ Google Places.
 APP_ENV=development
 DATABASE_URL=postgres://user:password@localhost:5432/business_lead_finder
 GOOGLE_PLACES_API_KEY=replace-me
+GOOGLE_GEOCODING_API_KEY=replace-me-optional
 DEFAULT_PAGE_SIZE=20
 MAX_PAGE_SIZE=100
 LOG_LEVEL=info
@@ -1134,7 +1271,10 @@ LOG_LEVEL=info
 
 - Los secretos no se versionan.
 - Los ejemplos deben usar placeholders.
-- Los tests deben poder correr sin `GOOGLE_PLACES_API_KEY` real.
+- Los tests deben poder correr sin `GOOGLE_PLACES_API_KEY` ni
+  `GOOGLE_GEOCODING_API_KEY` reales.
+- `GOOGLE_GEOCODING_API_KEY` puede omitirse si se usa una misma credencial de
+  Google Cloud con Places API y Geocoding API habilitadas.
 - El worker debe fallar con mensaje claro si falta configuracion requerida.
 - Los comandos de migracion deben estar documentados antes de deploy.
 
@@ -1155,7 +1295,8 @@ El primer despliegue debe contemplar:
 
 ### Riesgos principales
 
-- Google Places puede cambiar costos, cuotas o shape de respuesta.
+- Google Places y Google Geocoding pueden cambiar costos, cuotas o shape de
+  respuesta.
 - Datos incompletos pueden generar falsos positivos.
 - Deteccion de website propio puede requerir reglas mas finas.
 - Deduplicacion por `name + address` puede fallar ante direcciones parciales.
