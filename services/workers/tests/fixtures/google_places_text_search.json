@@ -1,0 +1,53 @@
+{
+  "places": [
+    {
+      "id": "places/clinica-dental-centro",
+      "displayName": {
+        "text": "Clinica Dental Centro"
+      },
+      "formattedAddress": "Av. Santa Fe 1234, Buenos Aires, Argentina",
+      "primaryType": "dentist",
+      "primaryTypeDisplayName": {
+        "text": "Dentist"
+      },
+      "location": {
+        "latitude": -34.5951,
+        "longitude": -58.3938
+      },
+      "nationalPhoneNumber": "011 4567-8901",
+      "internationalPhoneNumber": "+54 11 4567-8901",
+      "websiteUri": "https://clinicadentalcentro.example",
+      "googleMapsUri": "https://maps.google.com/?cid=123"
+    },
+    {
+      "id": "places/local-partial",
+      "displayName": {
+        "text": "Local Partial"
+      },
+      "formattedAddress": "Calle Demo 99, Buenos Aires, Argentina",
+      "location": {}
+    },
+    {
+      "id": "places/fallback-category",
+      "displayName": {
+        "text": "Consultorio Fallback"
+      },
+      "formattedAddress": "Calle Fallback 10, Buenos Aires, Argentina",
+      "primaryType": "doctor"
+    },
+    {
+      "id": "places/missing-coordinates",
+      "displayName": {
+        "text": "Consultorio Sin Coordenadas"
+      },
+      "formattedAddress": "Av. Santa Fe 1234, Buenos Aires, Argentina",
+      "primaryTypeDisplayName": {
+        "text": "Doctor"
+      }
+    },
+    {
+      "id": "places/missing-name",
+      "formattedAddress": "Calle Sin Nombre 1, Buenos Aires, Argentina"
+    }
+  ]
+}

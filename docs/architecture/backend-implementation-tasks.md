@@ -1034,35 +1034,95 @@ Criterio de aceptacion:
 
 ### Fase 8 - Normalizacion de datos externos
 
+Estado:
+
+- completada como capa pura de normalizacion de payloads externos;
+- implementada en workers Python sin llamadas HTTP, PostgreSQL, cuotas ni
+  endpoints nuevos;
+- mantiene `adapter.py` limitado a extraccion de payload crudo;
+- originalmente preservaba `websiteUri` como dato normalizado sin decidir si
+  era website propio; desde Fase 9 esa URL queda clasificada antes de devolver
+  `NormalizedBusiness`.
+
 Objetivo:
 
 - convertir payloads externos en estructura interna estable.
 
-Tareas:
+Alcance explicito:
 
-- implementar normalizador central;
-- mapear campos minimos;
-- preservar datos utiles aunque falten campos opcionales;
-- cubrir casos de payload incompleto;
-- validar shape resultante antes de persistir.
+- transformar payloads de Google Places Text Search New a `NormalizedBusiness`;
+- complementar `city`, `region`, `country`, `lat` y `lng` desde payload
+  disponible de Google Geocoding cuando corresponda;
+- validar el shape normalizado antes de que fases posteriores persistan datos;
+- no persistir negocios;
+- no deduplicar;
+- no actualizar `search_runs`.
 
-Entregables:
+Entregables implementados:
 
-- normalizador;
-- tests unitarios;
-- fixtures de payload Google Places y Google Geocoding.
+- `services/workers/src/normalization/business.py` con
+  `normalize_google_place(raw_place, geocoding_result=None)`;
+- `services/workers/src/normalization/__init__.py` para exportar el
+  normalizador;
+- fixtures de Google Places y Google Geocoding en
+  `services/workers/tests/fixtures`;
+- tests unitarios en `services/workers/tests/test_normalization.py`.
+
+Mapeo implementado:
+
+- `id` -> `external_id`;
+- `displayName.text` -> `name`;
+- `formattedAddress` -> `address`;
+- `primaryTypeDisplayName.text` con fallback a `primaryType` -> `category`;
+- `internationalPhoneNumber` con fallback a `nationalPhoneNumber` -> `phone`;
+- `websiteUri` -> candidato de `website` clasificado por Fase 9;
+- `googleMapsUri` -> `maps_url`;
+- `location.latitude` y `location.longitude` -> `lat` y `lng`;
+- `results[0].address_components` de Geocoding -> `city`, `region` y
+  `country`;
+- `results[0].geometry.location` de Geocoding -> fallback de coordenadas si
+  Places no trae coordenadas.
+
+Validacion local:
+
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests/test_normalization.py -q`
+  pasa 8 tests;
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests -q`
+  pasa la suite completa de workers.
+
+Casos cubiertos:
+
+- payload completo de Google Places produce `NormalizedBusiness`;
+- payload parcial preserva campos disponibles y deja opcionales como `null`;
+- payload sin nombre falla con error claro;
+- categoria usa `primaryType` si falta `primaryTypeDisplayName.text`;
+- Geocoding completa ciudad, region y pais desde `address_components`;
+- coordenadas de Geocoding se usan solo como fallback;
+- antes de Fase 9, `websiteUri` se preservaba y `has_website` quedaba en
+  `false`.
 
 Criterio de aceptacion:
 
 - el resto del sistema no depende de la forma exacta del payload de Google.
+- cambios futuros de shape del proveedor quedan aislados en
+  `services/workers/src/normalization`.
+- siguiente paso recomendado: Fase 9, deteccion de website propio.
 
 ### Fase 9 - Deteccion de website propio
+
+Estado:
+
+- completada como helper puro dentro de la capa de normalizacion Python;
+- integrada en `normalize_google_place` para que `NormalizedBusiness.website`
+  guarde solo URLs aceptadas como website propio;
+- no agrega endpoints HTTP, migraciones, llamadas externas, cuotas ni acceso a
+  PostgreSQL.
 
 Objetivo:
 
 - clasificar correctamente si un negocio tiene sitio web propio.
 
-Tareas:
+Tareas completadas:
 
 - implementar helper de deteccion;
 - mantener lista inicial de dominios no validos;
@@ -1070,15 +1130,65 @@ Tareas:
 - tratar URLs vacias o invalidas como no website;
 - documentar limitaciones del MVP.
 
-Entregables:
+Entregables implementados:
 
-- funcion de deteccion;
-- tests con website propio;
-- tests con Instagram, Facebook, WhatsApp y directorios.
+- `services/workers/src/normalization/website_detection.py` con
+  `detect_own_website(raw_url)`;
+- `WebsiteDetection` como resultado tipado con `website` y `has_website`;
+- integracion en `services/workers/src/normalization/business.py`;
+- tests unitarios en `services/workers/tests/test_website_detection.py`;
+- tests de integracion de normalizacion en
+  `services/workers/tests/test_normalization.py`.
+
+Reglas implementadas:
+
+- URLs `None`, vacias, whitespace, invalidas, sin scheme HTTP/HTTPS o sin
+  hostname se clasifican como `website = null` y `has_website = false`;
+- dominios propios validos se preservan en `website` y devuelven
+  `has_website = true`;
+- el bloqueo de dominios usa hostname case-insensitive, dominio exacto o
+  subdominio real, evitando falsos positivos por substring;
+- redes sociales, WhatsApp, Google, Google Maps, Linktree, Beacons y
+  directorios MVP se clasifican como no website propio.
+
+Dominios no validos iniciales:
+
+- `instagram.com`;
+- `facebook.com`;
+- `fb.com`;
+- `wa.me`;
+- `api.whatsapp.com`;
+- `linktr.ee`;
+- `beacons.ai`;
+- `google.com`;
+- `maps.google.com`;
+- `yelp.com`;
+- `tripadvisor.com`.
+
+Semantica persistente:
+
+- `website` representa una URL aceptada como website propio, no una URL cruda
+  del proveedor;
+- si el proveedor devuelve una red social, WhatsApp, Google Maps o directorio,
+  la salida normalizada queda con `website = null` y `has_website = false`;
+- si en el futuro se necesita auditar la URL cruda del proveedor, debe agregarse
+  otro campo en vez de reutilizar `website`.
+
+Validacion local:
+
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests/test_website_detection.py services/workers/tests/test_normalization.py -q`
+  pasa 30 tests;
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests -q`
+  pasa 47 tests;
+- `npm --workspace apps/web run test -- --run` pasa 13 tests y deja 2 tests de
+  integracion omitidos sin `DATABASE_URL`.
 
 Criterio de aceptacion:
 
 - `has_website` queda persistido de forma consistente para todos los negocios.
+- el frontend filtra leads sin web por `has_website = false` y no replica reglas
+  de clasificacion.
+- siguiente paso recomendado: Fase 10, deduplicacion e idempotencia.
 
 ### Fase 10 - Deduplicacion e idempotencia
 
@@ -1132,6 +1242,18 @@ Entregables:
 Criterio de aceptacion:
 
 - crear una busqueda termina generando negocios consultables por API.
+
+Recomendacion operativa al completar la fase:
+
+- validar primero el flujo real con un lote controlado de 10 a 20 busquedas;
+- revisar resultados persistidos, estados de `search_runs`, errores de
+  proveedor y consumo de cuota;
+- ejecutar lotes grandes, como 1000 requests diarios a Google, solo despues de
+  confirmar el flujo controlado y preferentemente con los logs y diagnostico de
+  Fase 13 disponibles;
+- ajustar `GOOGLE_DAILY_REQUEST_LIMIT` de forma explicita antes de pruebas de
+  volumen y recordar que requests a Places y Geocoding comparten el presupuesto
+  diario configurado.
 
 ### Fase 12 - Filtros, paginacion y CSV
 

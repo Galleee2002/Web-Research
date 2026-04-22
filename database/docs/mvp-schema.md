@@ -63,3 +63,9 @@ Los constraints principales fuerzan:
 - `total_found` no negativo;
 - rangos validos de latitud y longitud;
 - `website is null` implica `has_website = false`.
+
+La base solo fuerza esa coherencia minima. La clasificacion completa de
+website propio vive en workers: redes sociales, WhatsApp, Google Maps,
+directorios y URLs invalidas se normalizan como `website = null` y
+`has_website = false` antes de persistir. Si mas adelante se necesita conservar
+la URL cruda del proveedor, debe agregarse otro campo.

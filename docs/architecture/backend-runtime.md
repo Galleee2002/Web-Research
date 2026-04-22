@@ -2,9 +2,10 @@
 
 ## Objetivo
 
-Este documento describe el scaffold ejecutable inicial de backend para Business
-Lead Finder. La logica de negocio, migraciones, API CRUD y Google Places se
-implementan en fases posteriores.
+Este documento describe el runtime backend actual de Business Lead Finder:
+API routes Next.js, repositorios PostgreSQL, workers Python, clientes Google,
+normalizacion externa y deteccion de website propio. La deduplicacion y la
+orquestacion completa de ingesta quedan para fases posteriores.
 
 ## Requisitos
 

@@ -48,6 +48,8 @@ por el backend.
 - La persistencia y reglas de negocio viven en backend y workers.
 - Los estados validos se consumen desde contratos compartidos.
 - La clasificacion `has_website` viene calculada por backend.
+- El campo `website` expuesto por API es un website propio aceptado, no una URL
+  cruda del proveedor.
 - La deduplicacion no se resuelve en frontend.
 - La exportacion CSV se delega a `GET /api/export`.
 
