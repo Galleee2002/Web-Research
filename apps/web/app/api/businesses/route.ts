@@ -7,7 +7,7 @@ import {
   searchParamsToObject,
   validationError
 } from "@/lib/api/http";
-import { listBusinesses } from "@/lib/db/businesses";
+import { listBusinesses } from "@/lib/services/business-service";
 
 export const runtime = "nodejs";
 

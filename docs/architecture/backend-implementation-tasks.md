@@ -891,14 +891,20 @@ Criterio de aceptacion:
 
 - con seeds cargados, el dashboard puede leer, filtrar, actualizar y exportar
   negocios sin depender de Google Places.
-- siguiente paso recomendado: Fase 6, separar servicios y repositorios de forma
-  mas formal si la logica crece, o avanzar con Fase 7 para workers de Google.
+- siguiente paso recomendado: Fase 7 para workers de Google.
 
 ### Fase 6 - Servicios y repositorios
 
+Estado:
+
+- completada como separacion interna entre API routes, servicios y
+  repositorios;
+- mantiene los contratos HTTP y el schema PostgreSQL sin cambios;
+- no introduce ORM ni dependencias nuevas.
+
 Objetivo:
 
-- separar transporte HTTP, logica de negocio y acceso a datos.
+- separar API routes, servicios y repositorios sin cambiar contratos publicos.
 
 Tareas:
 
@@ -907,17 +913,34 @@ Tareas:
 - crear repositorios de `search_runs` y `businesses`;
 - mover queries complejas fuera de API routes;
 - centralizar reglas de filtros y paginacion;
-- centralizar actualizacion de estado y notas.
+- centralizar actualizacion de estado y notas;
+- mantener intactos los contratos de API existentes;
+- evitar cambios de ORM o de schema en esta fase.
 
 Entregables:
 
-- endpoints delgados;
-- servicios testeables;
-- repositorios reutilizables.
+- endpoints delgados que dependen de `apps/web/lib/services`;
+- servicios testeables en `apps/web/lib/services`;
+- repositorios reutilizables en `apps/web/lib/db`;
+- tests unitarios de servicios sin invocar HTTP.
 
 Criterio de aceptacion:
 
-- las reglas de negocio pueden probarse sin invocar HTTP.
+- las reglas de negocio pueden probarse sin invocar HTTP;
+- los contratos de API siguen iguales;
+- no se requiere migracion de schema ni introduccion de ORM.
+
+Validacion local ejecutada:
+
+- `npm test`: pasa 17 tests y salta 2 tests de integracion cuando no hay
+  `DATABASE_URL`;
+- `npm run typecheck`: pasa correctamente;
+- `PYTHONPATH=services/workers/src pytest services/workers/tests -q`: pasa 5
+  tests.
+
+Siguiente paso recomendado:
+
+- Fase 7, Worker Python de Google Places y Geocoding.
 
 ### Fase 7 - Worker Python de Google Places y Geocoding
 

@@ -7,7 +7,7 @@ import {
   searchParamsToObject,
   validationError
 } from "@/lib/api/http";
-import { listSearchRuns } from "@/lib/db/searches";
+import { listSearchRuns } from "@/lib/services/search-service";
 
 export const runtime = "nodejs";
 

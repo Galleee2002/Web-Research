@@ -33,9 +33,11 @@ Business Lead Finder is a web app and data pipeline for detecting local business
 
 - PostgreSQL is the source of truth for persisted MVP data.
 - Frontend screens and dashboard flows must read and write through Next.js API routes, not direct database access from UI components.
+- Next.js API routes should stay thin: parse/validate HTTP input, call services, and translate results/errors to HTTP responses.
+- Backend use cases in `apps/web` should live in `apps/web/lib/services`; services call repositories in `apps/web/lib/db`.
 - Mocks are allowed only in tests, fixtures, or explicit local development harnesses; they must not become the frontend data source of record.
 - Frontend components must not duplicate backend business rules for website detection, deduplication, lead status persistence, or CSV generation.
-- Shared statuses, filters, and request/response shapes should live in `packages/shared` once implemented to keep frontend, API routes, and workers aligned.
+- Shared statuses, filters, and request/response shapes live in `packages/shared` to keep frontend, API routes, and workers aligned.
 
 ## MVP Boundaries
 
@@ -45,4 +47,6 @@ Business Lead Finder is a web app and data pipeline for detecting local business
 
 ## Current Scope
 
-This repository now contains the initial executable scaffold for the web app and workers. The frontend includes a dashboard shell with Apple-inspired SCSS styling, Lucide-based sidebar navigation, a bottom theme toggle for dark/light mode, and contextual placeholder empty states with centered section icons for `Dashboard`, `Businesses`, `Opportunities`, `Scans`, `Alerts`, `Analytics`, `Reports`, `Integrations`, and `Settings`. Business logic, database migrations, Google Places ingestion, and CRUD API routes are still implemented in later backend phases.
+This repository now contains an executable scaffold for the web app and workers. The frontend includes a dashboard shell with Apple-inspired SCSS styling, Lucide-based sidebar navigation, a bottom theme toggle for dark/light mode, and contextual placeholder empty states with centered section icons for `Dashboard`, `Businesses`, `Opportunities`, `Scans`, `Alerts`, `Analytics`, `Reports`, `Integrations`, and `Settings`.
+
+The backend currently includes PostgreSQL migrations and seeds, shared TypeScript/Python contracts, CRUD-style Next.js API routes for searches and businesses, CSV export, repository-backed PostgreSQL access, a service layer between API routes and repositories, and unit tests around contracts, query builders, services, health checks, and CSV behavior. Google Places worker ingestion, external provider normalization, website detection, and deduplication orchestration are still later backend phases.

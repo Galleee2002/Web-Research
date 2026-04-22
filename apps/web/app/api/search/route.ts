@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { parseSearchCreate } from "@shared/index";
 
 import { internalError, logApiError, validationError } from "@/lib/api/http";
-import { createSearchRun } from "@/lib/db/searches";
+import { createSearchRun } from "@/lib/services/search-service";
 
 export const runtime = "nodejs";
 
