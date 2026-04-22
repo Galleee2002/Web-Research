@@ -45,4 +45,4 @@ Business Lead Finder is a web app and data pipeline for detecting local business
 
 ## Current Scope
 
-This repository now contains the initial executable scaffold for the web app and workers. Business logic, database migrations, Google Places ingestion, and CRUD API routes are still implemented in later backend phases.
+This repository now contains the initial executable scaffold for the web app and workers. The frontend includes a dashboard shell with Apple-inspired SCSS styling, Lucide-based sidebar navigation, a bottom theme toggle for dark/light mode, and contextual placeholder empty states with centered section icons for `Dashboard`, `Businesses`, `Opportunities`, `Scans`, `Alerts`, `Analytics`, `Reports`, `Integrations`, and `Settings`. Business logic, database migrations, Google Places ingestion, and CRUD API routes are still implemented in later backend phases.

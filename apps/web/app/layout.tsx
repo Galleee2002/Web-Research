@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
+import { Manrope } from "next/font/google";
 
 import "../styles/globals.scss";
+import { SidebarNav } from "./_components/sidebar-nav";
+
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"]
+});
 
 export const metadata: Metadata = {
   title: "Business Lead Finder",
@@ -14,7 +21,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className={manrope.className}>
+        <div className="dashboard-shell">
+          <SidebarNav />
+          <main id="main-content" className="dashboard-main">
+            {children}
+          </main>
+        </div>
+      </body>
     </html>
   );
 }
