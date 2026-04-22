@@ -1,0 +1,770 @@
+# Documento de Tareas Frontend MVP - Business Lead Finder
+
+## 1. Objetivo y alcance frontend MVP
+
+Este documento define las tareas frontend necesarias para construir el MVP de
+Business Lead Finder, en coherencia con el documento backend
+`docs/architecture/backend-implementation-tasks.md`.
+
+El foco de este documento es funcional. No define diseno visual, layout,
+paleta, jerarquia visual, componentes esteticos ni criterios de presentacion
+grafica. Esas decisiones quedan a cargo de la implementacion frontend.
+
+El frontend MVP debe permitir:
+
+- crear busquedas por rubro y ubicacion;
+- visualizar el estado de las busquedas creadas;
+- listar negocios procesados por el backend;
+- filtrar leads por presencia de website, estado, ciudad, categoria y texto;
+- paginar resultados;
+- consultar el detalle basico de un negocio;
+- actualizar estado y notas de un lead;
+- exportar CSV usando los filtros activos;
+- manejar estados de carga, vacio, exito y error.
+
+### Fuera de alcance para el MVP
+
+- autenticacion;
+- multiusuario;
+- roles y permisos;
+- CRM integrado;
+- outreach automatizado;
+- scoring avanzado;
+- realtime o WebSockets;
+- definiciones de diseno visual o layout;
+- reglas de negocio duplicadas que ya pertenecen al backend.
+
+## 2. Relacion con el backend
+
+La aplicacion frontend vive en `apps/web` y consume API routes definidas bajo
+`apps/web/app/api`.
+
+El frontend no debe conectarse directamente a PostgreSQL desde componentes de
+UI. Toda lectura o mutacion del MVP debe pasar por los contratos HTTP definidos
+por el backend.
+
+### Fuente de verdad
+
+- La persistencia y reglas de negocio viven en backend y workers.
+- Los estados validos se consumen desde contratos compartidos.
+- La clasificacion `has_website` viene calculada por backend.
+- La deduplicacion no se resuelve en frontend.
+- La exportacion CSV se delega a `GET /api/export`.
+
+### Dependencias funcionales
+
+El frontend depende de estos contratos backend:
+
+- `POST /api/search`;
+- `GET /api/searches`;
+- `GET /api/businesses`;
+- `GET /api/businesses/{id}`;
+- `PATCH /api/businesses/{id}`;
+- `GET /api/export`.
+
+## 3. Pantallas y responsabilidades funcionales
+
+Los nombres de pantallas son funcionales y no implican layout especifico.
+
+### Busqueda
+
+Responsabilidades:
+
+- capturar `query`;
+- capturar `location`;
+- validar campos requeridos antes de enviar;
+- enviar `POST /api/search`;
+- mostrar resultado de creacion o error;
+- permitir crear otra busqueda sin recargar la app completa.
+
+Datos requeridos:
+
+- `query`;
+- `location`.
+
+Estados a manejar:
+
+- formulario inicial;
+- envio en progreso;
+- busqueda creada;
+- error de validacion local;
+- error de API.
+
+### Historial de busquedas
+
+Responsabilidades:
+
+- consumir `GET /api/searches`;
+- mostrar cada `search_run` con su estado;
+- permitir distinguir `pending`, `processing`, `completed` y `failed`;
+- mostrar `total_found` cuando este disponible;
+- permitir refrescar la lista manualmente.
+
+Estados a manejar:
+
+- carga inicial;
+- lista vacia;
+- lista con resultados;
+- error al cargar.
+
+### Dashboard de negocios
+
+Responsabilidades:
+
+- consumir `GET /api/businesses`;
+- mostrar negocios paginados;
+- aplicar filtros compatibles con backend;
+- mantener los filtros activos como estado de UI;
+- recargar resultados cuando cambian filtros o pagina;
+- permitir abrir detalle basico de negocio;
+- permitir iniciar exportacion CSV con filtros activos.
+
+Filtros MVP:
+
+- `has_website`;
+- `status`;
+- `city`;
+- `category`;
+- `query`.
+
+Paginacion:
+
+- `page`;
+- `page_size`.
+
+Ordenamiento:
+
+- consumir solo campos soportados por backend;
+- no inventar ordenamientos locales que contradigan la paginacion backend.
+
+### Detalle de negocio
+
+Responsabilidades:
+
+- consumir `GET /api/businesses/{id}`;
+- mostrar datos completos disponibles para el MVP;
+- permitir actualizar estado y notas;
+- manejar negocio inexistente con estado de error claro.
+
+Datos minimos a presentar:
+
+- `name`;
+- `category`;
+- `address`;
+- `city`;
+- `phone`;
+- `website`;
+- `has_website`;
+- `status`;
+- `maps_url`;
+- `notes` si el backend lo expone en detalle.
+
+### Gestion de lead
+
+Responsabilidades:
+
+- permitir cambiar `status`;
+- permitir editar `notes`;
+- enviar `PATCH /api/businesses/{id}`;
+- reflejar el resultado confirmado por backend;
+- no modificar optimistamente estados invalidos;
+- manejar errores sin perder el contexto actual.
+
+Estados validos:
+
+- `new`;
+- `reviewed`;
+- `contacted`;
+- `discarded`.
+
+### Exportacion CSV
+
+Responsabilidades:
+
+- construir una URL `GET /api/export` con los filtros actuales;
+- iniciar descarga del archivo;
+- no generar CSV manualmente en frontend;
+- manejar error de descarga si la API falla.
+
+Columnas esperadas por contrato backend:
+
+- `name`;
+- `category`;
+- `address`;
+- `city`;
+- `phone`;
+- `website`;
+- `has_website`;
+- `status`;
+- `maps_url`.
+
+## 4. Contratos consumidos por el frontend
+
+Los contratos deben vivir en `packages/shared` cuando sean compartidos por mas
+de una capa.
+
+### Enums
+
+`LeadStatus`:
+
+```txt
+new
+reviewed
+contacted
+discarded
+```
+
+`SearchRunStatus`:
+
+```txt
+pending
+processing
+completed
+failed
+```
+
+### Requests
+
+`SearchCreate`:
+
+```json
+{
+  "query": "dentistas",
+  "location": "Buenos Aires, Argentina"
+}
+```
+
+`BusinessStatusUpdate`:
+
+```json
+{
+  "status": "reviewed",
+  "notes": "Revisar propuesta de sitio institucional."
+}
+```
+
+### Responses
+
+`SearchRead`:
+
+```json
+{
+  "id": "search_run_id",
+  "query": "dentistas",
+  "location": "Buenos Aires, Argentina",
+  "source": "google_places",
+  "status": "pending",
+  "total_found": 0,
+  "created_at": "2026-04-22T12:00:00Z"
+}
+```
+
+`BusinessRead`:
+
+```json
+{
+  "id": "business_id",
+  "name": "Clinica Demo",
+  "category": "Dentist",
+  "address": "Av. Siempre Viva 123",
+  "city": "Buenos Aires",
+  "phone": "+54 11 1234 5678",
+  "website": null,
+  "has_website": false,
+  "status": "new",
+  "maps_url": "https://maps.google.com/..."
+}
+```
+
+`BusinessListResponse`:
+
+```json
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "page_size": 20
+}
+```
+
+### Query params para negocios
+
+`GET /api/businesses` debe ser consumido con estos parametros:
+
+- `has_website`: booleano serializado como `true` o `false`;
+- `status`: uno de `LeadStatus`;
+- `city`: texto;
+- `category`: texto;
+- `query`: texto para busqueda por nombre;
+- `page`: numero positivo;
+- `page_size`: numero positivo, limitado por backend.
+
+El frontend debe omitir parametros vacios para evitar filtros ambiguos.
+
+## 5. Estado de datos y flujo de interaccion
+
+### Cliente API
+
+Crear una capa de cliente API en `apps/web/lib/api` para:
+
+- centralizar `fetch`;
+- serializar query params;
+- parsear JSON;
+- detectar respuestas no exitosas;
+- exponer funciones por caso de uso;
+- evitar llamadas HTTP duplicadas directamente dentro de componentes.
+
+Funciones minimas:
+
+- `createSearch(payload)`;
+- `listSearches(params)`;
+- `listBusinesses(params)`;
+- `getBusiness(id)`;
+- `updateBusiness(id, payload)`;
+- `buildExportUrl(params)`.
+
+### Estado de busqueda
+
+Flujo:
+
+1. usuario completa `query` y `location`;
+2. frontend valida campos requeridos;
+3. frontend envia `POST /api/search`;
+4. backend responde con `SearchRead`;
+5. frontend muestra la busqueda creada;
+6. frontend permite refrescar historial para observar cambios de estado.
+
+El MVP no requiere realtime. Cualquier actualizacion automatica por polling debe
+ser una mejora opcional y no una dependencia para cerrar el MVP.
+
+### Estado de listado
+
+Flujo:
+
+1. frontend carga filtros iniciales;
+2. frontend solicita `GET /api/businesses`;
+3. backend devuelve `BusinessListResponse`;
+4. frontend renderiza `items`;
+5. al cambiar filtros, frontend vuelve a pagina `1`;
+6. al cambiar pagina, frontend conserva filtros activos;
+7. al actualizar un negocio, frontend refresca el item o la lista.
+
+### Estado de exportacion
+
+Flujo:
+
+1. frontend toma filtros activos del listado;
+2. frontend construye URL de exportacion;
+3. frontend inicia descarga;
+4. backend genera CSV;
+5. frontend informa error si la descarga falla.
+
+## 6. Validaciones y manejo de errores
+
+### Validaciones locales
+
+El frontend debe validar antes de enviar:
+
+- `query` requerido;
+- `location` requerido;
+- `status` dentro de `LeadStatus`;
+- `page` mayor o igual a `1`;
+- `page_size` mayor o igual a `1`;
+- filtros vacios no deben enviarse.
+
+Las validaciones locales mejoran experiencia, pero no reemplazan validacion de
+backend.
+
+### Manejo de errores HTTP
+
+Errores esperados:
+
+- `400`: input invalido;
+- `404`: negocio inexistente;
+- `500`: error interno o persistencia fallida.
+
+El frontend debe:
+
+- mostrar mensaje recuperable;
+- conservar filtros y formulario cuando corresponda;
+- permitir reintentar cargas;
+- no asumir que una mutacion fue exitosa si backend responde error.
+
+### Estados de UI funcionales
+
+Cada flujo de datos debe contemplar:
+
+- `idle`;
+- `loading`;
+- `success`;
+- `empty`;
+- `error`.
+
+Estos estados describen comportamiento, no diseno visual.
+
+## 7. Fases de implementacion frontend
+
+### Fase 1 - Base de app Next.js y estructura frontend
+
+Objetivo:
+
+- preparar la app frontend del MVP dentro de `apps/web`.
+
+Tareas:
+
+- inicializar Next.js respetando la estructura existente;
+- configurar TypeScript si se adopta como estandar del proyecto;
+- configurar SCSS como sistema de estilos disponible;
+- mantener carpetas funcionales existentes;
+- definir rutas principales de MVP;
+- documentar comandos de desarrollo.
+
+Entregables:
+
+- app ejecutable;
+- estructura base en `apps/web`;
+- scripts de desarrollo.
+
+Criterio de aceptacion:
+
+- la app puede arrancar localmente y renderizar una pagina inicial del MVP.
+
+### Fase 2 - Contratos compartidos y cliente API
+
+Objetivo:
+
+- conectar frontend con contratos del backend sin duplicar reglas.
+
+Tareas:
+
+- definir o consumir enums compartidos;
+- definir tipos para requests y responses;
+- crear cliente API centralizado;
+- crear helper de query params;
+- crear manejo uniforme de errores HTTP.
+
+Entregables:
+
+- tipos compartidos;
+- funciones API;
+- manejo base de errores.
+
+Criterio de aceptacion:
+
+- los componentes no hacen `fetch` directo salvo excepciones justificadas.
+
+### Fase 3 - Pantalla de busqueda
+
+Objetivo:
+
+- permitir crear `search_runs`.
+
+Tareas:
+
+- crear formulario con `query` y `location`;
+- validar campos requeridos;
+- enviar `POST /api/search`;
+- mostrar estado de envio;
+- mostrar resultado de creacion;
+- manejar errores de API.
+
+Entregables:
+
+- flujo de creacion de busqueda;
+- tests de validacion y submit.
+
+Criterio de aceptacion:
+
+- una busqueda valida se envia y su respuesta se refleja en pantalla.
+
+### Fase 4 - Historial y estado de busquedas
+
+Objetivo:
+
+- permitir observar busquedas ejecutadas.
+
+Tareas:
+
+- consumir `GET /api/searches`;
+- renderizar `query`, `location`, `status`, `total_found` y `created_at`;
+- manejar lista vacia;
+- manejar error de carga;
+- permitir refresco manual.
+
+Entregables:
+
+- historial funcional de busquedas.
+
+Criterio de aceptacion:
+
+- el usuario puede confirmar si una busqueda esta pendiente, procesando,
+  completada o fallida.
+
+### Fase 5 - Dashboard/listado de negocios
+
+Objetivo:
+
+- mostrar resultados procesados por backend.
+
+Tareas:
+
+- consumir `GET /api/businesses`;
+- renderizar `BusinessRead`;
+- mostrar paginacion desde `BusinessListResponse`;
+- manejar `loading`, `empty` y `error`;
+- permitir abrir detalle basico.
+
+Entregables:
+
+- listado de negocios funcional.
+
+Criterio de aceptacion:
+
+- con seeds o datos reales, el usuario puede ver negocios paginados.
+
+### Fase 6 - Filtros, paginacion y ordenamiento
+
+Objetivo:
+
+- permitir navegar el dataset del MVP.
+
+Tareas:
+
+- implementar filtro `has_website`;
+- implementar filtro `status`;
+- implementar filtro `city`;
+- implementar filtro `category`;
+- implementar filtro textual `query`;
+- omitir filtros vacios;
+- resetear a pagina `1` cuando cambian filtros;
+- conservar filtros al cambiar pagina;
+- consumir ordenamiento solo si backend lo soporta.
+
+Entregables:
+
+- filtros compatibles con backend;
+- paginacion estable.
+
+Criterio de aceptacion:
+
+- `has_website=false` muestra leads sin web segun clasificacion backend.
+
+### Fase 7 - Gestion de estado y notas del lead
+
+Objetivo:
+
+- permitir gestion manual basica del lead.
+
+Tareas:
+
+- permitir seleccionar `LeadStatus`;
+- permitir editar `notes`;
+- enviar `PATCH /api/businesses/{id}`;
+- reflejar respuesta del backend;
+- manejar `400` y `404`;
+- evitar estados no soportados.
+
+Entregables:
+
+- actualizacion funcional de estado y notas.
+
+Criterio de aceptacion:
+
+- un lead puede pasar entre `new`, `reviewed`, `contacted` y `discarded`.
+
+### Fase 8 - Export CSV
+
+Objetivo:
+
+- descargar resultados filtrados.
+
+Tareas:
+
+- construir URL de `GET /api/export`;
+- incluir filtros activos;
+- iniciar descarga desde frontend;
+- no transformar datos manualmente a CSV;
+- manejar error de descarga.
+
+Entregables:
+
+- accion de exportacion CSV.
+
+Criterio de aceptacion:
+
+- el CSV exportado corresponde al mismo conjunto filtrado del listado.
+
+### Fase 9 - Estados de carga, vacio y error
+
+Objetivo:
+
+- hacer cada flujo operable en condiciones normales y fallidas.
+
+Tareas:
+
+- definir estados funcionales por request;
+- mostrar estado vacio para listados sin resultados;
+- mostrar errores recuperables;
+- permitir reintento donde aplique;
+- preservar input del usuario ante errores.
+
+Entregables:
+
+- manejo consistente de estados de datos.
+
+Criterio de aceptacion:
+
+- ninguna pantalla principal queda bloqueada o rota ante respuesta vacia o error.
+
+### Fase 10 - Testing frontend MVP
+
+Objetivo:
+
+- cubrir comportamiento critico de usuario y contratos con API.
+
+Tareas:
+
+- testear formulario de busqueda;
+- testear validaciones locales;
+- mockear cliente API;
+- testear filtros y query params;
+- testear actualizacion de lead;
+- testear estados vacios y errores;
+- testear construccion de URL de exportacion.
+
+Entregables:
+
+- suite base de tests frontend.
+
+Criterio de aceptacion:
+
+- los flujos MVP tienen cobertura suficiente para detectar regresiones.
+
+### Fase 11 - Preparacion para integracion backend
+
+Objetivo:
+
+- asegurar que frontend y backend se integren sin decisiones pendientes.
+
+Tareas:
+
+- validar nombres de campos contra contratos backend;
+- probar con seeds backend;
+- verificar errores `400`, `404` y `500`;
+- verificar paginacion real;
+- verificar descarga CSV real;
+- revisar que no haya reglas de negocio duplicadas.
+
+Entregables:
+
+- checklist de integracion frontend-backend.
+
+Criterio de aceptacion:
+
+- frontend puede operar contra API routes reales del MVP.
+
+### Fase 12 - Criterios de cierre MVP
+
+El frontend MVP se considera listo cuando:
+
+- permite crear busquedas;
+- muestra historial de busquedas;
+- lista negocios paginados;
+- filtra leads sin web;
+- filtra por estado, ciudad, categoria y texto;
+- muestra detalle basico;
+- actualiza estado y notas;
+- exporta CSV con filtros activos;
+- maneja carga, vacio y error;
+- consume contratos compartidos;
+- no duplica reglas de negocio del backend.
+
+## 8. Testing requerido
+
+### Tests unitarios
+
+Cubrir:
+
+- serializacion de query params;
+- validacion local de formularios;
+- construccion de URL de exportacion;
+- manejo de errores del cliente API;
+- mapeo de estados permitidos.
+
+### Tests de componentes o flujos
+
+Cubrir:
+
+- renderizar formulario de busqueda;
+- rechazar `query` vacio;
+- rechazar `location` vacio;
+- crear busqueda y reflejar respuesta;
+- renderizar listado paginado;
+- aplicar filtros compatibles con backend;
+- mostrar solo leads sin web cuando `has_website=false`;
+- actualizar `status` y `notes`;
+- manejar `404` en detalle;
+- manejar error de API en listado;
+- mostrar estados vacios sin romper la pantalla.
+
+### Tests de integracion frontend-backend
+
+Cubrir cuando existan API routes reales:
+
+- `POST /api/search` desde el formulario;
+- `GET /api/businesses` con filtros combinados;
+- `PATCH /api/businesses/{id}` desde gestion de lead;
+- `GET /api/export` con filtros activos.
+
+Los tests automatizados no deben depender de Google Places ni de datos externos.
+
+## 9. Criterios de finalizacion del MVP
+
+El frontend MVP esta completo cuando:
+
+- todos los flujos principales consumen API routes reales o mocks contractuales;
+- los contratos usados coinciden con el documento backend;
+- los filtros enviados coinciden con los nombres esperados por backend;
+- la exportacion usa `GET /api/export`;
+- no hay dependencia de autenticacion;
+- no hay dependencias de realtime;
+- no hay reglas de deduplicacion ni website detection en frontend;
+- existe cobertura de tests para flujos criticos;
+- los errores recuperables permiten continuar usando la app.
+
+## 10. Riesgos y decisiones futuras
+
+### Riesgos principales
+
+- cambios en contratos backend pueden romper filtros o mutaciones;
+- datos incompletos pueden requerir placeholders funcionales;
+- polling manual puede ser insuficiente si el volumen crece;
+- exportaciones grandes pueden requerir manejo asincronico futuro;
+- falta de autenticacion limita uso multiusuario.
+
+### Decisiones futuras
+
+- autenticacion y usuarios;
+- permisos por rol;
+- historial de cambios de estado;
+- polling automatico o realtime;
+- vistas guardadas de filtros;
+- mejoras de busqueda avanzada;
+- integraciones CRM;
+- metricas del dashboard;
+- scoring de leads.
+
+## 11. Notas de mantenimiento
+
+Este documento debe actualizarse cuando cambien:
+
+- endpoints backend;
+- nombres de parametros;
+- modelos compartidos;
+- estados permitidos;
+- reglas de filtros;
+- estrategia de exportacion;
+- alcance funcional del MVP.
+
+El frontend debe permanecer como consumidor de contratos y flujos del backend.
+Las reglas de negocio criticas deben seguir centralizadas fuera de la capa de UI.
