@@ -1192,28 +1192,68 @@ Criterio de aceptacion:
 
 ### Fase 10 - Deduplicacion e idempotencia
 
+Estado actual:
+
+- completada como capa worker-side en `services/workers/src/persistence`;
+- no modifica `apps/web`, porque las API routes siguen siendo lectoras,
+  exportadoras y actualizadoras de leads manuales;
+- usa PostgreSQL como fuente de verdad y `psycopg` para la ruta real de
+  persistencia.
+
 Objetivo:
 
 - evitar registros duplicados y permitir reprocesar busquedas.
 
 Tareas:
 
-- implementar busqueda por `external_id + source`;
-- implementar fallback por `name + address`;
-- normalizar claves de comparacion;
-- definir politica de merge;
-- preservar `status` y `notes` manuales;
-- registrar duplicados detectados en logs.
+- implementar busqueda por `external_id + source` en
+  `BusinessRepository.find_by_external_id`;
+- implementar fallback por `name + address` en
+  `BusinessRepository.find_by_name_address`;
+- normalizar claves de comparacion con `canonicalize_dedup_text`;
+- definir politica de merge en `BusinessUpsertService`;
+- preservar `status` y `notes` manuales en toda reingesta;
+- registrar duplicados detectados con `logging.info`.
 
 Entregables:
 
-- servicio de upsert idempotente;
-- tests de duplicados;
-- tests de merge de campos faltantes.
+- `services/workers/src/persistence/dedup.py` con canonicalizacion de claves
+  de deduplicacion;
+- `services/workers/src/persistence/businesses.py` con
+  `upsert_business`, `BusinessUpsertService`, `BusinessRepository`,
+  `BusinessRecord` y `UpsertBusinessResult`;
+- `services/workers/tests/test_business_dedup.py` para helpers puros;
+- `services/workers/tests/test_business_upsert.py` para idempotencia,
+  merge conservador y cobertura PostgreSQL skippeable con `DATABASE_URL`.
+
+Reglas implementadas:
+
+- si entra `external_id`, se intenta primero `source + external_id`;
+- si no hay match por ID externo, se usa fallback `name + address` solo cuando
+  ambos valores existen despues de canonicalizar;
+- el fallback solo fusiona contra filas sin `external_id`, para no mezclar
+  negocios con IDs de proveedor distintos;
+- la canonicalizacion aplica trim, lowercase, colapso de espacios, remocion de
+  puntuacion trivial y remocion de diacriticos;
+- el merge completa campos vacios con datos entrantes para `phone`, `website`,
+  `maps_url`, `category`, `city`, `region`, `country`, `lat`, `lng`,
+  `external_id` y `search_run_id`;
+- `status` y `notes` nunca se sobrescriben durante reingesta;
+- `website` no se limpia por reingesta; solo se setea si estaba vacio y entra
+  un website propio ya clasificado por Fase 9;
+- `updated_at` cambia solo cuando hay campos mergeados.
 
 Criterio de aceptacion:
 
 - correr dos veces la misma ingesta no duplica negocios.
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests -q`
+  pasa la suite de workers.
+
+Siguiente paso recomendado:
+
+- Fase 11, orquestacion `search_run -> worker -> persistencia`, debe consumir
+  `upsert_business` para persistir los `NormalizedBusiness` generados por
+  Google Places y Geocoding.
 
 ### Fase 11 - Orquestacion search run -> worker -> persistencia
 

@@ -4,8 +4,8 @@
 
 Este documento describe el runtime backend actual de Business Lead Finder:
 API routes Next.js, repositorios PostgreSQL, workers Python, clientes Google,
-normalizacion externa y deteccion de website propio. La deduplicacion y la
-orquestacion completa de ingesta quedan para fases posteriores.
+normalizacion externa, deteccion de website propio y deduplicacion idempotente
+worker-side. La orquestacion completa de ingesta queda para fases posteriores.
 
 ## Requisitos
 
