@@ -165,7 +165,7 @@ export function SidebarNav() {
     }
   }, [moreEntered, moreMounted]);
 
-  const onBottomNavTouchStart = useCallback((e: React.TouchEvent<HTMLNavElement>) => {
+  const onBottomNavTouchStart = useCallback((e: React.TouchEvent<HTMLElement>) => {
     if (e.touches.length > 1) {
       bottomNavTouchStartRef.current = null;
       return;
@@ -175,7 +175,7 @@ export function SidebarNav() {
   }, []);
 
   const onBottomNavTouchEnd = useCallback(
-    (e: React.TouchEvent<HTMLNavElement>) => {
+    (e: React.TouchEvent<HTMLElement>) => {
       const start = bottomNavTouchStartRef.current;
       bottomNavTouchStartRef.current = null;
       if (!start) {

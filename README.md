@@ -238,9 +238,11 @@ MVP:
 
 Más adelante:
 
-- Detección de perfiles sociales.
+- Reglas mas finas de detección de perfiles sociales y directorios.
 - Scoring de leads.
-- Deduplicación avanzada.
+- Deduplicación avanzada sobre direcciones parciales, concurrencia y posibles
+  proveedores multiples. La deduplicación básica del MVP ya usa IDs de
+  proveedor y `name + address` como fallback.
 - Flujos de outreach.
 - Integraciones con CRM.
 - Soporte multiusuario.
@@ -473,10 +475,11 @@ MVP:
 
 Later:
 
-- Social profile detection.
+- Finer social profile and directory detection rules.
 - Lead scoring.
-- Advanced duplicate resolution.
+- Advanced duplicate resolution for partial addresses, concurrency, and future
+  multi-provider ingestion. MVP basic deduplication already uses provider IDs
+  and `name + address` as fallback.
 - Outreach workflows.
 - CRM integrations.
 - Multi-user support.
-

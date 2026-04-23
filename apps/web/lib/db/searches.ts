@@ -91,7 +91,7 @@ export function buildSearchCountQuery(filters: SearchFilters): SqlQuery {
   };
 }
 
-export async function createSearchRun(payload: SearchCreate): Promise<SearchRead> {
+export async function insertSearchRun(payload: SearchCreate): Promise<SearchRead> {
   const result = await query<SearchRunRow>(
     `
       insert into search_runs (query, location, source, status, total_found)
@@ -104,7 +104,7 @@ export async function createSearchRun(payload: SearchCreate): Promise<SearchRead
   return mapSearchRun(result.rows[0]);
 }
 
-export async function listSearchRuns(
+export async function findSearchRuns(
   filters: SearchFilters
 ): Promise<PaginatedResponse<SearchRead>> {
   const listQuery = buildSearchListQuery(filters);

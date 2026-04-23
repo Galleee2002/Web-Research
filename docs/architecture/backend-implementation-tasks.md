@@ -891,14 +891,20 @@ Criterio de aceptacion:
 
 - con seeds cargados, el dashboard puede leer, filtrar, actualizar y exportar
   negocios sin depender de Google Places.
-- siguiente paso recomendado: Fase 6, separar servicios y repositorios de forma
-  mas formal si la logica crece, o avanzar con Fase 7 para workers de Google.
+- siguiente paso recomendado: Fase 7 para workers de Google.
 
 ### Fase 6 - Servicios y repositorios
 
+Estado:
+
+- completada como separacion interna entre API routes, servicios y
+  repositorios;
+- mantiene los contratos HTTP y el schema PostgreSQL sin cambios;
+- no introduce ORM ni dependencias nuevas.
+
 Objetivo:
 
-- separar transporte HTTP, logica de negocio y acceso a datos.
+- separar API routes, servicios y repositorios sin cambiar contratos publicos.
 
 Tareas:
 
@@ -907,19 +913,45 @@ Tareas:
 - crear repositorios de `search_runs` y `businesses`;
 - mover queries complejas fuera de API routes;
 - centralizar reglas de filtros y paginacion;
-- centralizar actualizacion de estado y notas.
+- centralizar actualizacion de estado y notas;
+- mantener intactos los contratos de API existentes;
+- evitar cambios de ORM o de schema en esta fase.
 
 Entregables:
 
-- endpoints delgados;
-- servicios testeables;
-- repositorios reutilizables.
+- endpoints delgados que dependen de `apps/web/lib/services`;
+- servicios testeables en `apps/web/lib/services`;
+- repositorios reutilizables en `apps/web/lib/db`;
+- tests unitarios de servicios sin invocar HTTP.
 
 Criterio de aceptacion:
 
-- las reglas de negocio pueden probarse sin invocar HTTP.
+- las reglas de negocio pueden probarse sin invocar HTTP;
+- los contratos de API siguen iguales;
+- no se requiere migracion de schema ni introduccion de ORM.
+
+Validacion local ejecutada:
+
+- `npm test`: pasa 17 tests y salta 2 tests de integracion cuando no hay
+  `DATABASE_URL`;
+- `npm run typecheck`: pasa correctamente;
+- `PYTHONPATH=services/workers/src pytest services/workers/tests -q`: pasa 5
+  tests.
+
+Siguiente paso recomendado:
+
+- Fase 7, Worker Python de Google Places y Geocoding.
 
 ### Fase 7 - Worker Python de Google Places y Geocoding
+
+Estado:
+
+- completada como clientes internos del worker para Google Places Text Search
+  (New) y Google Geocoding;
+- implementada sin exponer nuevos endpoints HTTP para frontend;
+- no persiste negocios ni actualiza `search_runs` todavia;
+- protege creditos con limite diario persistente combinado para Places y
+  Geocoding.
 
 Objetivo:
 
@@ -937,50 +969,160 @@ Tareas:
 - manejar rate limits;
 - manejar errores de credenciales;
 - mockear proveedor en tests;
-- evitar llamadas reales en tests automatizados.
+- evitar llamadas reales en tests automatizados;
+- limitar consumo a 1000 requests diarios combinados por defecto.
 
 Entregables:
 
-- clientes externos de Google;
-- adaptador;
-- tests con payloads mock.
+- `services/workers/src/ingestion/google_places/client.py` con cliente
+  `GooglePlacesClient` para `POST /v1/places:searchText`;
+- `services/workers/src/ingestion/google_places/geocoding.py` con cliente
+  `GoogleGeocodingClient` para Geocoding API;
+- `services/workers/src/ingestion/google_places/quota.py` con contador diario
+  persistente;
+- `services/workers/src/ingestion/google_places/errors.py` con errores
+  tipados de proveedor, credenciales, cuota, timeout, rate limit y payload;
+- `services/workers/src/ingestion/google_places/adapter.py` con helpers para
+  extraer payload crudo;
+- settings de worker para API keys, timeout, limite diario y path de estado;
+- tests con `httpx.MockTransport`, sin red ni costo.
+
+Variables de entorno agregadas:
+
+- `GOOGLE_GEOCODING_API_KEY`: opcional; si falta, se usa
+  `GOOGLE_PLACES_API_KEY`;
+- `GOOGLE_REQUEST_TIMEOUT_SECONDS`: default `10`;
+- `GOOGLE_DAILY_REQUEST_LIMIT`: default `1000`;
+- `GOOGLE_QUOTA_STATE_PATH`: default `.worker-state/google-api-quota.json`.
+
+Field mask de Places Text Search (New):
+
+```txt
+places.id,
+places.displayName,
+places.formattedAddress,
+places.primaryType,
+places.primaryTypeDisplayName,
+places.types,
+places.location,
+places.nationalPhoneNumber,
+places.internationalPhoneNumber,
+places.websiteUri,
+places.googleMapsUri,
+nextPageToken
+```
+
+Alcance explicito:
+
+- Fase 7 obtiene payloads crudos del proveedor;
+- Fase 8 normaliza hacia `NormalizedBusiness`;
+- Fase 9 clasifica website propio;
+- Fase 10 deduplica;
+- Fase 11 orquesta `search_run -> worker -> persistencia`.
+
+Validacion local:
+
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests -q`
+  pasa tests de contratos, settings, cuota y clientes Google con mocks.
 
 Criterio de aceptacion:
 
 - el worker puede obtener resultados reales cuando las APIs de Google estan
   habilitadas y los tests pueden correr sin red ni costo.
+- el contador diario bloquea nuevas requests al llegar al limite configurado y
+  se reinicia automaticamente al cambiar el dia.
 
 ### Fase 8 - Normalizacion de datos externos
+
+Estado:
+
+- completada como capa pura de normalizacion de payloads externos;
+- implementada en workers Python sin llamadas HTTP, PostgreSQL, cuotas ni
+  endpoints nuevos;
+- mantiene `adapter.py` limitado a extraccion de payload crudo;
+- originalmente preservaba `websiteUri` como dato normalizado sin decidir si
+  era website propio; desde Fase 9 esa URL queda clasificada antes de devolver
+  `NormalizedBusiness`.
 
 Objetivo:
 
 - convertir payloads externos en estructura interna estable.
 
-Tareas:
+Alcance explicito:
 
-- implementar normalizador central;
-- mapear campos minimos;
-- preservar datos utiles aunque falten campos opcionales;
-- cubrir casos de payload incompleto;
-- validar shape resultante antes de persistir.
+- transformar payloads de Google Places Text Search New a `NormalizedBusiness`;
+- complementar `city`, `region`, `country`, `lat` y `lng` desde payload
+  disponible de Google Geocoding cuando corresponda;
+- validar el shape normalizado antes de que fases posteriores persistan datos;
+- no persistir negocios;
+- no deduplicar;
+- no actualizar `search_runs`.
 
-Entregables:
+Entregables implementados:
 
-- normalizador;
-- tests unitarios;
-- fixtures de payload Google Places y Google Geocoding.
+- `services/workers/src/normalization/business.py` con
+  `normalize_google_place(raw_place, geocoding_result=None)`;
+- `services/workers/src/normalization/__init__.py` para exportar el
+  normalizador;
+- fixtures de Google Places y Google Geocoding en
+  `services/workers/tests/fixtures`;
+- tests unitarios en `services/workers/tests/test_normalization.py`.
+
+Mapeo implementado:
+
+- `id` -> `external_id`;
+- `displayName.text` -> `name`;
+- `formattedAddress` -> `address`;
+- `primaryTypeDisplayName.text` con fallback a `primaryType` -> `category`;
+- `internationalPhoneNumber` con fallback a `nationalPhoneNumber` -> `phone`;
+- `websiteUri` -> candidato de `website` clasificado por Fase 9;
+- `googleMapsUri` -> `maps_url`;
+- `location.latitude` y `location.longitude` -> `lat` y `lng`;
+- `results[0].address_components` de Geocoding -> `city`, `region` y
+  `country`;
+- `results[0].geometry.location` de Geocoding -> fallback de coordenadas si
+  Places no trae coordenadas.
+
+Validacion local:
+
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests/test_normalization.py -q`
+  pasa 8 tests;
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests -q`
+  pasa la suite completa de workers.
+
+Casos cubiertos:
+
+- payload completo de Google Places produce `NormalizedBusiness`;
+- payload parcial preserva campos disponibles y deja opcionales como `null`;
+- payload sin nombre falla con error claro;
+- categoria usa `primaryType` si falta `primaryTypeDisplayName.text`;
+- Geocoding completa ciudad, region y pais desde `address_components`;
+- coordenadas de Geocoding se usan solo como fallback;
+- antes de Fase 9, `websiteUri` se preservaba y `has_website` quedaba en
+  `false`.
 
 Criterio de aceptacion:
 
 - el resto del sistema no depende de la forma exacta del payload de Google.
+- cambios futuros de shape del proveedor quedan aislados en
+  `services/workers/src/normalization`.
+- siguiente paso recomendado: Fase 9, deteccion de website propio.
 
 ### Fase 9 - Deteccion de website propio
+
+Estado:
+
+- completada como helper puro dentro de la capa de normalizacion Python;
+- integrada en `normalize_google_place` para que `NormalizedBusiness.website`
+  guarde solo URLs aceptadas como website propio;
+- no agrega endpoints HTTP, migraciones, llamadas externas, cuotas ni acceso a
+  PostgreSQL.
 
 Objetivo:
 
 - clasificar correctamente si un negocio tiene sitio web propio.
 
-Tareas:
+Tareas completadas:
 
 - implementar helper de deteccion;
 - mantener lista inicial de dominios no validos;
@@ -988,17 +1130,75 @@ Tareas:
 - tratar URLs vacias o invalidas como no website;
 - documentar limitaciones del MVP.
 
-Entregables:
+Entregables implementados:
 
-- funcion de deteccion;
-- tests con website propio;
-- tests con Instagram, Facebook, WhatsApp y directorios.
+- `services/workers/src/normalization/website_detection.py` con
+  `detect_own_website(raw_url)`;
+- `WebsiteDetection` como resultado tipado con `website` y `has_website`;
+- integracion en `services/workers/src/normalization/business.py`;
+- tests unitarios en `services/workers/tests/test_website_detection.py`;
+- tests de integracion de normalizacion en
+  `services/workers/tests/test_normalization.py`.
+
+Reglas implementadas:
+
+- URLs `None`, vacias, whitespace, invalidas, sin scheme HTTP/HTTPS o sin
+  hostname se clasifican como `website = null` y `has_website = false`;
+- dominios propios validos se preservan en `website` y devuelven
+  `has_website = true`;
+- el bloqueo de dominios usa hostname case-insensitive, dominio exacto o
+  subdominio real, evitando falsos positivos por substring;
+- redes sociales, WhatsApp, Google, Google Maps, Linktree, Beacons y
+  directorios MVP se clasifican como no website propio.
+
+Dominios no validos iniciales:
+
+- `instagram.com`;
+- `facebook.com`;
+- `fb.com`;
+- `wa.me`;
+- `api.whatsapp.com`;
+- `linktr.ee`;
+- `beacons.ai`;
+- `google.com`;
+- `maps.google.com`;
+- `yelp.com`;
+- `tripadvisor.com`.
+
+Semantica persistente:
+
+- `website` representa una URL aceptada como website propio, no una URL cruda
+  del proveedor;
+- si el proveedor devuelve una red social, WhatsApp, Google Maps o directorio,
+  la salida normalizada queda con `website = null` y `has_website = false`;
+- si en el futuro se necesita auditar la URL cruda del proveedor, debe agregarse
+  otro campo en vez de reutilizar `website`.
+
+Validacion local:
+
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests/test_website_detection.py services/workers/tests/test_normalization.py -q`
+  pasa 30 tests;
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests -q`
+  pasa 47 tests;
+- `npm --workspace apps/web run test -- --run` pasa 13 tests y deja 2 tests de
+  integracion omitidos sin `DATABASE_URL`.
 
 Criterio de aceptacion:
 
 - `has_website` queda persistido de forma consistente para todos los negocios.
+- el frontend filtra leads sin web por `has_website = false` y no replica reglas
+  de clasificacion.
+- siguiente paso recomendado: Fase 10, deduplicacion e idempotencia.
 
 ### Fase 10 - Deduplicacion e idempotencia
+
+Estado actual:
+
+- completada como capa worker-side en `services/workers/src/persistence`;
+- no modifica `apps/web`, porque las API routes siguen siendo lectoras,
+  exportadoras y actualizadoras de leads manuales;
+- usa PostgreSQL como fuente de verdad y `psycopg` para la ruta real de
+  persistencia.
 
 Objetivo:
 
@@ -1006,22 +1206,54 @@ Objetivo:
 
 Tareas:
 
-- implementar busqueda por `external_id + source`;
-- implementar fallback por `name + address`;
-- normalizar claves de comparacion;
-- definir politica de merge;
-- preservar `status` y `notes` manuales;
-- registrar duplicados detectados en logs.
+- implementar busqueda por `external_id + source` en
+  `BusinessRepository.find_by_external_id`;
+- implementar fallback por `name + address` en
+  `BusinessRepository.find_by_name_address`;
+- normalizar claves de comparacion con `canonicalize_dedup_text`;
+- definir politica de merge en `BusinessUpsertService`;
+- preservar `status` y `notes` manuales en toda reingesta;
+- registrar duplicados detectados con `logging.info`.
 
 Entregables:
 
-- servicio de upsert idempotente;
-- tests de duplicados;
-- tests de merge de campos faltantes.
+- `services/workers/src/persistence/dedup.py` con canonicalizacion de claves
+  de deduplicacion;
+- `services/workers/src/persistence/businesses.py` con
+  `upsert_business`, `BusinessUpsertService`, `BusinessRepository`,
+  `BusinessRecord` y `UpsertBusinessResult`;
+- `services/workers/tests/test_business_dedup.py` para helpers puros;
+- `services/workers/tests/test_business_upsert.py` para idempotencia,
+  merge conservador y cobertura PostgreSQL skippeable con `DATABASE_URL`.
+
+Reglas implementadas:
+
+- si entra `external_id`, se intenta primero `source + external_id`;
+- si no hay match por ID externo, se usa fallback `name + address` solo cuando
+  ambos valores existen despues de canonicalizar;
+- el fallback solo fusiona contra filas sin `external_id`, para no mezclar
+  negocios con IDs de proveedor distintos;
+- la canonicalizacion aplica trim, lowercase, colapso de espacios, remocion de
+  puntuacion trivial y remocion de diacriticos;
+- el merge completa campos vacios con datos entrantes para `phone`, `website`,
+  `maps_url`, `category`, `city`, `region`, `country`, `lat`, `lng`,
+  `external_id` y `search_run_id`;
+- `status` y `notes` nunca se sobrescriben durante reingesta;
+- `website` no se limpia por reingesta; solo se setea si estaba vacio y entra
+  un website propio ya clasificado por Fase 9;
+- `updated_at` cambia solo cuando hay campos mergeados.
 
 Criterio de aceptacion:
 
 - correr dos veces la misma ingesta no duplica negocios.
+- `PYTHONPATH=services/workers/src python3 -m pytest services/workers/tests -q`
+  pasa la suite de workers.
+
+Siguiente paso recomendado:
+
+- Fase 11, orquestacion `search_run -> worker -> persistencia`, debe consumir
+  `upsert_business` para persistir los `NormalizedBusiness` generados por
+  Google Places y Geocoding.
 
 ### Fase 11 - Orquestacion search run -> worker -> persistencia
 
@@ -1050,6 +1282,18 @@ Entregables:
 Criterio de aceptacion:
 
 - crear una busqueda termina generando negocios consultables por API.
+
+Recomendacion operativa al completar la fase:
+
+- validar primero el flujo real con un lote controlado de 10 a 20 busquedas;
+- revisar resultados persistidos, estados de `search_runs`, errores de
+  proveedor y consumo de cuota;
+- ejecutar lotes grandes, como 1000 requests diarios a Google, solo despues de
+  confirmar el flujo controlado y preferentemente con los logs y diagnostico de
+  Fase 13 disponibles;
+- ajustar `GOOGLE_DAILY_REQUEST_LIMIT` de forma explicita antes de pruebas de
+  volumen y recordar que requests a Places y Geocoding comparten el presupuesto
+  diario configurado.
 
 ### Fase 12 - Filtros, paginacion y CSV
 

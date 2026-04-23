@@ -6,7 +6,7 @@ import {
   searchParamsToObject,
   validationError
 } from "@/lib/api/http";
-import { listBusinessesForExport } from "@/lib/db/businesses";
+import { listBusinessesForExport } from "@/lib/services/business-service";
 import { toCsv } from "@/lib/utils/csv";
 
 export const runtime = "nodejs";

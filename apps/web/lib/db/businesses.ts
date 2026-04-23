@@ -191,7 +191,7 @@ export function buildBusinessExportQuery(filters: BusinessFilters): SqlQuery {
   };
 }
 
-export async function listBusinesses(
+export async function findBusinesses(
   filters: BusinessFilters
 ): Promise<PaginatedResponse<BusinessRead>> {
   const listQuery = buildBusinessListQuery(filters);
@@ -209,7 +209,7 @@ export async function listBusinesses(
   };
 }
 
-export async function listBusinessesForExport(
+export async function findBusinessesForExport(
   filters: BusinessFilters
 ): Promise<BusinessRead[]> {
   const exportQuery = buildBusinessExportQuery(filters);
@@ -218,7 +218,7 @@ export async function listBusinessesForExport(
   return result.rows.map(mapBusiness);
 }
 
-export async function getBusinessById(
+export async function findBusinessById(
   id: string
 ): Promise<BusinessDetailRead | null> {
   const result = await query<BusinessRow>(
@@ -234,7 +234,7 @@ export async function getBusinessById(
   return result.rows[0] ? mapBusinessDetail(result.rows[0]) : null;
 }
 
-export async function updateBusinessStatus(
+export async function updateBusinessLeadStatus(
   id: string,
   payload: BusinessStatusUpdate
 ): Promise<BusinessDetailRead | null> {

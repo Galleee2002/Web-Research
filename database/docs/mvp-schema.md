@@ -53,6 +53,10 @@ La base ayuda a deduplicar, pero no es dueña de toda la politica:
 - La politica de merge queda en servicios/workers, porque solo esa capa puede
   decidir si los datos entrantes del proveedor son mejores que los datos
   manuales existentes del lead.
+- La Fase 10 implementa esa politica en `services/workers/src/persistence`:
+  primero busca por `(source, external_id)`, luego por `name + address`
+  canonicalizados solo contra filas sin `external_id`, y preserva siempre
+  `businesses.status` y `businesses.notes`.
 
 ## Validaciones
 
@@ -63,3 +67,9 @@ Los constraints principales fuerzan:
 - `total_found` no negativo;
 - rangos validos de latitud y longitud;
 - `website is null` implica `has_website = false`.
+
+La base solo fuerza esa coherencia minima. La clasificacion completa de
+website propio vive en workers: redes sociales, WhatsApp, Google Maps,
+directorios y URLs invalidas se normalizan como `website = null` y
+`has_website = false` antes de persistir. Si mas adelante se necesita conservar
+la URL cruda del proveedor, debe agregarse otro campo.

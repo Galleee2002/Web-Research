@@ -8,7 +8,7 @@ import {
   notFound,
   validationError
 } from "@/lib/api/http";
-import { getBusinessById, updateBusinessStatus } from "@/lib/db/businesses";
+import { getBusinessById, updateBusinessStatus } from "@/lib/services/business-service";
 
 export const runtime = "nodejs";
 

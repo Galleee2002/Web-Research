@@ -82,6 +82,11 @@ Uso frontend:
 - omitir filtros vacios;
 - volver a `page = 1` cuando cambian filtros;
 - usar la respuesta `items`, `total`, `page` y `page_size` para paginar.
+- interpretar `has_website=false` como negocios sin website propio, incluyendo
+  casos donde el proveedor devolvio una red social, WhatsApp, Google Maps,
+  directorio o URL invalida rechazada por backend.
+- no replicar en frontend la lista de dominios ni la decision de si una URL
+  cuenta como website propio.
 
 ### Ver detalle de negocio
 

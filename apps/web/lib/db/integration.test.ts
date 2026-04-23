@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { getBusinessById, listBusinesses } from "./businesses";
+import { findBusinessById, findBusinesses } from "./businesses";
 
 describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
   it("lists businesses through the repository contract", async () => {
-    const result = await listBusinesses({
+    const result = await findBusinesses({
       page: 1,
       page_size: 20,
       order_by: "created_at"
@@ -17,7 +17,7 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
   });
 
   it("returns null for a missing business id", async () => {
-    const business = await getBusinessById("00000000-0000-4000-8000-000000000000");
+    const business = await findBusinessById("00000000-0000-4000-8000-000000000000");
 
     expect(business).toBeNull();
   });

@@ -48,6 +48,8 @@ por el backend.
 - La persistencia y reglas de negocio viven en backend y workers.
 - Los estados validos se consumen desde contratos compartidos.
 - La clasificacion `has_website` viene calculada por backend.
+- El campo `website` expuesto por API es un website propio aceptado, no una URL
+  cruda del proveedor.
 - La deduplicacion no se resuelve en frontend.
 - La exportacion CSV se delega a `GET /api/export`.
 
@@ -61,6 +63,26 @@ El frontend depende de estos contratos backend:
 - `GET /api/businesses/{id}`;
 - `PATCH /api/businesses/{id}`;
 - `GET /api/export`.
+
+`GET /api/health` existe como endpoint operativo para desarrollo,
+diagnostico y smoke checks. No es parte de los flujos funcionales del MVP ni
+debe ser requisito para renderizar pantallas.
+
+### Relacion con Fase 7 backend
+
+La Fase 7 backend agrega clientes internos del worker Python para Google
+Places y Google Geocoding. Esa fase no agrega endpoints HTTP publicos para el
+frontend.
+
+Reglas para frontend:
+
+- no consumir clientes ni payloads crudos del worker;
+- no mostrar campos crudos de Google que no hayan sido persistidos y expuestos
+  por API routes;
+- esperar datos nuevos solo cuando fases posteriores normalicen y persistan
+  negocios en PostgreSQL;
+- mantener como fuente contractual las respuestas de `apps/web/app/api` y los
+  tipos de `packages/shared`.
 
 ## 3. Pantallas y responsabilidades funcionales
 
@@ -157,7 +179,19 @@ Datos minimos a presentar:
 - `has_website`;
 - `status`;
 - `maps_url`;
-- `notes` si el backend lo expone en detalle.
+- `notes`.
+
+Datos adicionales disponibles en detalle:
+
+- `search_run_id`;
+- `external_id`;
+- `source`;
+- `region`;
+- `country`;
+- `lat`;
+- `lng`;
+- `created_at`;
+- `updated_at`.
 
 ### Gestion de lead
 
@@ -223,6 +257,12 @@ completed
 failed
 ```
 
+`BusinessSource`:
+
+```txt
+google_places
+```
+
 ### Requests
 
 `SearchCreate`:
@@ -242,6 +282,9 @@ failed
   "notes": "Revisar propuesta de sitio institucional."
 }
 ```
+
+`notes` es opcional. Si se omite, el backend conserva las notas actuales. Si se
+envia `null`, el backend limpia las notas del negocio.
 
 ### Responses
 
@@ -287,19 +330,171 @@ failed
 }
 ```
 
-### Query params para negocios
+`BusinessDetailRead`:
 
-`GET /api/businesses` debe ser consumido con estos parametros:
+```json
+{
+  "id": "business_id",
+  "name": "Clinica Demo",
+  "category": "Dentist",
+  "address": "Av. Siempre Viva 123",
+  "city": "Buenos Aires",
+  "phone": "+54 11 1234 5678",
+  "website": null,
+  "has_website": false,
+  "status": "new",
+  "maps_url": "https://maps.google.com/...",
+  "search_run_id": "search_run_id",
+  "external_id": "google_place_id",
+  "source": "google_places",
+  "region": "Ciudad Autonoma de Buenos Aires",
+  "country": "Argentina",
+  "lat": -34.6037,
+  "lng": -58.3816,
+  "notes": null,
+  "created_at": "2026-04-22T12:00:00Z",
+  "updated_at": "2026-04-22T12:00:00Z"
+}
+```
 
+### Endpoints consumidos
+
+#### `POST /api/search`
+
+Request: `SearchCreate`.
+
+Response `201`: `SearchRead`.
+
+Errores esperados:
+
+- `400` si `query` o `location` son invalidos;
+- `500` si falla la persistencia.
+
+#### `GET /api/searches`
+
+Response: `PaginatedResponse<SearchRead>`.
+
+Query params:
+
+- `page`: numero positivo;
+- `page_size`: numero positivo, limitado por backend;
+- `status`: uno de `SearchRunStatus`;
+- `source`: uno de `BusinessSource`, default `google_places`.
+
+#### `GET /api/businesses`
+
+Response: `PaginatedResponse<BusinessRead>`.
+
+Query params:
+
+- `page`: numero positivo;
+- `page_size`: numero positivo, limitado por backend;
 - `has_website`: booleano serializado como `true` o `false`;
 - `status`: uno de `LeadStatus`;
 - `city`: texto;
 - `category`: texto;
 - `query`: texto para busqueda por nombre;
+- `order_by`: `created_at`, `name` o `city`.
+
+#### `GET /api/businesses/{id}`
+
+`id` debe ser UUID.
+
+Response `200`: `BusinessDetailRead`.
+
+Errores esperados:
+
+- `400` si `id` no es UUID;
+- `404` si el negocio no existe;
+- `500` si falla la persistencia.
+
+#### `PATCH /api/businesses/{id}`
+
+`id` debe ser UUID.
+
+Request: `BusinessStatusUpdate`.
+
+Response `200`: `BusinessDetailRead`.
+
+Errores esperados:
+
+- `400` si `id`, `status` o `notes` son invalidos;
+- `404` si el negocio no existe;
+- `500` si falla la persistencia.
+
+#### `GET /api/export`
+
+Usa los mismos filtros que `GET /api/businesses`, incluyendo `order_by`.
+
+Response `200`:
+
+- `Content-Type: text/csv; charset=utf-8`;
+- `Content-Disposition: attachment; filename="business-leads.csv"`.
+
+Columnas CSV:
+
+- `name`;
+- `category`;
+- `address`;
+- `city`;
+- `phone`;
+- `website`;
+- `has_website`;
+- `status`;
+- `maps_url`.
+
+### Query params para negocios
+
+`GET /api/businesses` debe ser consumido con estos parametros:
+
 - `page`: numero positivo;
-- `page_size`: numero positivo, limitado por backend.
+- `page_size`: numero positivo, limitado por backend;
+- `has_website`: booleano serializado como `true` o `false`;
+- `status`: uno de `LeadStatus`;
+- `city`: texto;
+- `category`: texto;
+- `query`: texto para busqueda por nombre;
+- `order_by`: `created_at`, `name` o `city`.
 
 El frontend debe omitir parametros vacios para evitar filtros ambiguos.
+
+### Errores HTTP
+
+Los errores de API routes tienen una forma comun:
+
+`400`:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Invalid request",
+    "details": ["status is not a valid lead status"]
+  }
+}
+```
+
+`404`:
+
+```json
+{
+  "error": {
+    "code": "not_found",
+    "message": "Business not found"
+  }
+}
+```
+
+`500`:
+
+```json
+{
+  "error": {
+    "code": "internal_error",
+    "message": "Internal server error"
+  }
+}
+```
 
 ## 5. Estado de datos y flujo de interaccion
 
@@ -322,6 +517,21 @@ Funciones minimas:
 - `getBusiness(id)`;
 - `updateBusiness(id, payload)`;
 - `buildExportUrl(params)`.
+
+El cliente API debe modelar dos respuestas de negocio distintas:
+
+- `BusinessRead` para listados, filtros y CSV;
+- `BusinessDetailRead` para detalle y para la respuesta confirmada de
+  `PATCH /api/businesses/{id}`.
+
+La UI de listado puede usar `maps_url`, `website`, `phone`, `city`,
+`category`, `has_website` y `status`. La UI de detalle puede sumar
+`external_id`, `source`, `region`, `country`, coordenadas, notas y timestamps
+si el flujo lo requiere.
+
+El cliente no debe exponer al UI payloads crudos de Google Places o Geocoding.
+Solo deben llegar a componentes los campos persistidos y publicados por las API
+routes.
 
 ### Estado de busqueda
 
@@ -379,9 +589,9 @@ backend.
 
 Errores esperados:
 
-- `400`: input invalido;
-- `404`: negocio inexistente;
-- `500`: error interno o persistencia fallida.
+- `400`: `validation_error`, input invalido;
+- `404`: `not_found`, negocio inexistente;
+- `500`: `internal_error`, error interno o persistencia fallida.
 
 El frontend debe:
 
@@ -389,6 +599,9 @@ El frontend debe:
 - conservar filtros y formulario cuando corresponda;
 - permitir reintentar cargas;
 - no asumir que una mutacion fue exitosa si backend responde error.
+
+Cuando `error.details` exista, puede usarse para mensajes de validacion. Si no
+existe, el frontend debe usar `error.message`.
 
 ### Estados de UI funcionales
 
@@ -510,6 +723,7 @@ Tareas:
 
 - consumir `GET /api/businesses`;
 - renderizar `BusinessRead`;
+- reservar `BusinessDetailRead` para detalle y mutaciones;
 - mostrar paginacion desde `BusinessListResponse`;
 - manejar `loading`, `empty` y `error`;
 - permitir abrir detalle basico.
@@ -535,6 +749,7 @@ Tareas:
 - implementar filtro `city`;
 - implementar filtro `category`;
 - implementar filtro textual `query`;
+- implementar `order_by` solo con `created_at`, `name` o `city`;
 - omitir filtros vacios;
 - resetear a pagina `1` cuando cambian filtros;
 - conservar filtros al cambiar pagina;
@@ -560,7 +775,9 @@ Tareas:
 - permitir seleccionar `LeadStatus`;
 - permitir editar `notes`;
 - enviar `PATCH /api/businesses/{id}`;
-- reflejar respuesta del backend;
+- reflejar la respuesta `BusinessDetailRead` del backend;
+- omitir `notes` cuando se quiera conservar el valor actual;
+- enviar `notes: null` cuando se quiera limpiar el valor actual;
 - manejar `400` y `404`;
 - evitar estados no soportados.
 
@@ -581,7 +798,7 @@ Objetivo:
 Tareas:
 
 - construir URL de `GET /api/export`;
-- incluir filtros activos;
+- incluir filtros activos, incluido `order_by`;
 - iniciar descarga desde frontend;
 - no transformar datos manualmente a CSV;
 - manejar error de descarga.
