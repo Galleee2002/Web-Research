@@ -10,7 +10,7 @@ describe("GET /api/health", () => {
     delete process.env.APP_ENV;
 
     try {
-      const response = await GET();
+      const response = await GET(new Request("http://localhost/api/health"));
       const body = await response.json();
 
       expect(response.status).toBe(200);
@@ -43,7 +43,7 @@ describe("GET /api/health", () => {
     process.env.DATABASE_URL = "postgres://invalid:invalid@127.0.0.1:1/invalid";
 
     try {
-      const response = await GET();
+      const response = await GET(new Request("http://localhost/api/health"));
       const body = await response.json();
 
       expect(response.status).toBe(503);

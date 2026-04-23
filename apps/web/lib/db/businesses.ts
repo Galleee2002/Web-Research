@@ -6,6 +6,8 @@ import type {
   PaginatedResponse
 } from "@shared/index";
 
+import type { OperationContext } from "@/lib/api/http";
+
 import { query } from "./pool";
 import type { SqlQuery } from "./searches";
 
@@ -192,13 +194,20 @@ export function buildBusinessExportQuery(filters: BusinessFilters): SqlQuery {
 }
 
 export async function findBusinesses(
-  filters: BusinessFilters
+  filters: BusinessFilters,
+  context: OperationContext
 ): Promise<PaginatedResponse<BusinessRead>> {
   const listQuery = buildBusinessListQuery(filters);
   const countQuery = buildBusinessCountQuery(filters);
   const [itemsResult, countResult] = await Promise.all([
-    query<BusinessRow>(listQuery.text, listQuery.values),
-    query<{ total: number }>(countQuery.text, countQuery.values)
+    query<BusinessRow>(listQuery.text, listQuery.values, {
+      operationName: "find_businesses",
+      context
+    }),
+    query<{ total: number }>(countQuery.text, countQuery.values, {
+      operationName: "count_businesses",
+      context
+    })
   ]);
 
   return {
@@ -210,16 +219,21 @@ export async function findBusinesses(
 }
 
 export async function findBusinessesForExport(
-  filters: BusinessFilters
+  filters: BusinessFilters,
+  context: OperationContext
 ): Promise<BusinessRead[]> {
   const exportQuery = buildBusinessExportQuery(filters);
-  const result = await query<BusinessRow>(exportQuery.text, exportQuery.values);
+  const result = await query<BusinessRow>(exportQuery.text, exportQuery.values, {
+    operationName: "export_businesses",
+    context
+  });
 
   return result.rows.map(mapBusiness);
 }
 
 export async function findBusinessById(
-  id: string
+  id: string,
+  context: OperationContext
 ): Promise<BusinessDetailRead | null> {
   const result = await query<BusinessRow>(
     `
@@ -228,7 +242,11 @@ export async function findBusinessById(
       where id = $1
       limit 1
     `,
-    [id]
+    [id],
+    {
+      operationName: "find_business_by_id",
+      context
+    }
   );
 
   return result.rows[0] ? mapBusinessDetail(result.rows[0]) : null;
@@ -236,7 +254,8 @@ export async function findBusinessById(
 
 export async function updateBusinessLeadStatus(
   id: string,
-  payload: BusinessStatusUpdate
+  payload: BusinessStatusUpdate,
+  context: OperationContext
 ): Promise<BusinessDetailRead | null> {
   const result = await query<BusinessRow>(
     `
@@ -248,7 +267,11 @@ export async function updateBusinessLeadStatus(
       where id = $1
       returning ${BUSINESS_SELECT}
     `,
-    [id, payload.status, Object.hasOwn(payload, "notes"), payload.notes ?? null]
+    [id, payload.status, Object.hasOwn(payload, "notes"), payload.notes ?? null],
+    {
+      operationName: "update_business_status",
+      context
+    }
   );
 
   return result.rows[0] ? mapBusinessDetail(result.rows[0]) : null;

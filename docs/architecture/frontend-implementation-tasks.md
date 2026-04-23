@@ -68,6 +68,27 @@ El frontend depende de estos contratos backend:
 diagnostico y smoke checks. No es parte de los flujos funcionales del MVP ni
 debe ser requisito para renderizar pantallas.
 
+### Alineacion de errores y trazabilidad
+
+El frontend debe tratar los errores HTTP como contratos backend, no como
+reglas locales.
+
+Convenciones activas:
+
+- las respuestas de error incluyen `error.code`;
+- las respuestas de error incluyen `error.message`;
+- las respuestas de error pueden incluir `error.details`;
+- las respuestas de error incluyen `error.correlation_id`.
+
+Reglas para frontend:
+
+- no inventar taxonomias de error paralelas a las del backend;
+- no duplicar clasificacion de errores operativos del worker o de la base;
+- usar `error.correlation_id` solo para diagnostico, soporte o debug visible
+  para el usuario cuando corresponda;
+- no convertir `correlation_id` en estado de negocio ni en dependencia del
+  flujo funcional principal.
+
 ### Relacion con Fase 7 backend
 
 La Fase 7 backend agrega clientes internos del worker Python para Google
@@ -112,6 +133,12 @@ Estados a manejar:
 - error de validacion local;
 - error de API.
 
+Ante error de API:
+
+- mostrar un mensaje simple y recuperable;
+- conservar el estado del formulario;
+- poder exponer `correlation_id` si se necesita soporte o debug.
+
 ### Historial de busquedas
 
 Responsabilidades:
@@ -128,6 +155,12 @@ Estados a manejar:
 - lista vacia;
 - lista con resultados;
 - error al cargar.
+
+Si el backend responde `failed` en una busqueda:
+
+- mostrar un estado claro de fallo operativo;
+- no intentar reconstruir el error real desde frontend;
+- si la API entrega `correlation_id`, permitir mostrarlo como referencia.
 
 ### Dashboard de negocios
 
@@ -168,6 +201,12 @@ Responsabilidades:
 - permitir actualizar estado y notas;
 - manejar negocio inexistente con estado de error claro.
 
+Errores:
+
+- si responde `404`, mostrar ausencia del recurso;
+- si responde error backend, no perder el contexto del detalle ya cargado;
+- permitir mostrar `correlation_id` como referencia tecnica.
+
 Datos minimos a presentar:
 
 - `name`;
@@ -204,6 +243,12 @@ Responsabilidades:
 - no modificar optimistamente estados invalidos;
 - manejar errores sin perder el contexto actual.
 
+Regla:
+
+- el frontend no debe reinterpretar `database_error`, `internal_error` u otros
+  codigos como nuevas reglas de negocio; solo debe mostrar feedback y permitir
+  reintento.
+
 Estados validos:
 
 - `new`;
@@ -219,6 +264,12 @@ Responsabilidades:
 - iniciar descarga del archivo;
 - no generar CSV manualmente en frontend;
 - manejar error de descarga si la API falla.
+
+Si falla la exportacion:
+
+- conservar filtros activos;
+- mostrar error recuperable;
+- poder exponer `correlation_id` cuando la respuesta lo incluya.
 
 Columnas esperadas por contrato backend:
 

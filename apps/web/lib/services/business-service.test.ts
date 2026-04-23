@@ -8,6 +8,12 @@ import {
 } from "./business-service";
 
 describe("business service", () => {
+  const context = {
+    correlationId: "corr-1",
+    method: "GET",
+    route: "/api/businesses"
+  } as const;
+
   it("delegates listBusinesses to the repository", async () => {
     const findBusinesses = vi.fn().mockResolvedValue({
       items: [],
@@ -22,6 +28,7 @@ describe("business service", () => {
         page_size: 20,
         order_by: "created_at"
       },
+      context,
       {
         findBusinesses,
         findBusinessesForExport: vi.fn(),
@@ -34,7 +41,7 @@ describe("business service", () => {
       page: 1,
       page_size: 20,
       order_by: "created_at"
-    });
+    }, context);
     expect(result).toEqual({
       items: [],
       total: 0,
@@ -55,6 +62,7 @@ describe("business service", () => {
         page: 1,
         page_size: 20
       },
+      context,
       {
         findBusinesses: vi.fn(),
         findBusinessesForExport,
@@ -66,21 +74,25 @@ describe("business service", () => {
     expect(findBusinessesForExport).toHaveBeenCalledWith({
       page: 1,
       page_size: 20
-    });
+    }, context);
     expect(result).toEqual([{ id: "business-1" }]);
   });
 
   it("delegates getBusinessById to the repository", async () => {
     const findBusinessById = vi.fn().mockResolvedValue(null);
 
-    const result = await getBusinessById("business-1", {
-      findBusinesses: vi.fn(),
-      findBusinessesForExport: vi.fn(),
-      findBusinessById,
-      updateBusinessLeadStatus: vi.fn()
-    });
+    const result = await getBusinessById(
+      "business-1",
+      context,
+      {
+        findBusinesses: vi.fn(),
+        findBusinessesForExport: vi.fn(),
+        findBusinessById,
+        updateBusinessLeadStatus: vi.fn()
+      }
+    );
 
-    expect(findBusinessById).toHaveBeenCalledWith("business-1");
+    expect(findBusinessById).toHaveBeenCalledWith("business-1", context);
     expect(result).toBeNull();
   });
 
@@ -92,6 +104,7 @@ describe("business service", () => {
     const result = await updateBusinessStatus(
       "business-1",
       { status: "reviewed" },
+      context,
       {
         findBusinesses: vi.fn(),
         findBusinessesForExport: vi.fn(),
@@ -102,7 +115,7 @@ describe("business service", () => {
 
     expect(updateBusinessLeadStatus).toHaveBeenCalledWith("business-1", {
       status: "reviewed"
-    });
+    }, context);
     expect(result).toEqual({ id: "business-1" });
   });
 
@@ -114,6 +127,7 @@ describe("business service", () => {
     const result = await updateBusinessStatus(
       "business-1",
       { status: "discarded", notes: null },
+      context,
       {
         findBusinesses: vi.fn(),
         findBusinessesForExport: vi.fn(),
@@ -125,7 +139,7 @@ describe("business service", () => {
     expect(updateBusinessLeadStatus).toHaveBeenCalledWith("business-1", {
       status: "discarded",
       notes: null
-    });
+    }, context);
     expect(result).toEqual({ id: "business-1" });
   });
 });

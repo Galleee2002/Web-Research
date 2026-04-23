@@ -33,6 +33,7 @@ env/
 .env
 .env.*
 !.env.example
+docs/databaseurl.md
 *.pem
 *.key
 
