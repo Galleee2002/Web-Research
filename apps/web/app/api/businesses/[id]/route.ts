@@ -2,11 +2,10 @@ import { NextResponse } from "next/server";
 import { parseBusinessStatusUpdate } from "@shared/index";
 
 import {
-  internalError,
   isUuid,
-  logApiError,
   notFound,
-  validationError
+  validationError,
+  withApiRoute
 } from "@/lib/api/http";
 import { getBusinessById, updateBusinessStatus } from "@/lib/services/business-service";
 
@@ -19,50 +18,48 @@ interface RouteContext {
 }
 
 export async function GET(_request: Request, context: RouteContext) {
-  try {
+  return withApiRoute(_request, { route: "/api/businesses/[id]" }, async (requestContext) => {
     const { id } = await context.params;
 
     if (!isUuid(id)) {
-      return validationError(["id must be a valid UUID"]);
+      return validationError(requestContext.correlationId, ["id must be a valid UUID"]);
     }
 
-    const business = await getBusinessById(id);
+    const business = await getBusinessById(id, requestContext.operationContext);
 
     if (!business) {
-      return notFound("Business not found");
+      return notFound(requestContext.correlationId, "Business not found");
     }
 
     return NextResponse.json(business);
-  } catch (error) {
-    logApiError(error);
-    return internalError();
-  }
+  });
 }
 
 export async function PATCH(request: Request, context: RouteContext) {
-  try {
+  return withApiRoute(request, { route: "/api/businesses/[id]" }, async (requestContext) => {
     const { id } = await context.params;
 
     if (!isUuid(id)) {
-      return validationError(["id must be a valid UUID"]);
+      return validationError(requestContext.correlationId, ["id must be a valid UUID"]);
     }
 
     const payload = await request.json();
     const parsed = parseBusinessStatusUpdate(payload);
 
     if (!parsed.ok) {
-      return validationError(parsed.errors);
+      return validationError(requestContext.correlationId, parsed.errors);
     }
 
-    const business = await updateBusinessStatus(id, parsed.value);
+    const business = await updateBusinessStatus(
+      id,
+      parsed.value,
+      requestContext.operationContext
+    );
 
     if (!business) {
-      return notFound("Business not found");
+      return notFound(requestContext.correlationId, "Business not found");
     }
 
     return NextResponse.json(business);
-  } catch (error) {
-    logApiError(error);
-    return internalError();
-  }
+  });
 }

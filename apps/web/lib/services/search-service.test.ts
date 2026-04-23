@@ -11,6 +11,11 @@ describe("search service", () => {
     const result = await createSearchRun(
       { query: "dentists", location: "Buenos Aires" },
       {
+        correlationId: "corr-1",
+        method: "POST",
+        route: "/api/search"
+      },
+      {
         insertSearchRun,
         findSearchRuns: vi.fn()
       }
@@ -19,6 +24,10 @@ describe("search service", () => {
     expect(insertSearchRun).toHaveBeenCalledWith({
       query: "dentists",
       location: "Buenos Aires"
+    }, {
+      correlationId: "corr-1",
+      method: "POST",
+      route: "/api/search"
     });
     expect(result).toEqual({ id: "search-1" });
   });
@@ -37,6 +46,11 @@ describe("search service", () => {
         page_size: 20
       },
       {
+        correlationId: "corr-2",
+        method: "GET",
+        route: "/api/searches"
+      },
+      {
         insertSearchRun: vi.fn(),
         findSearchRuns
       }
@@ -45,6 +59,10 @@ describe("search service", () => {
     expect(findSearchRuns).toHaveBeenCalledWith({
       page: 1,
       page_size: 20
+    }, {
+      correlationId: "corr-2",
+      method: "GET",
+      route: "/api/searches"
     });
     expect(result).toEqual({
       items: [],

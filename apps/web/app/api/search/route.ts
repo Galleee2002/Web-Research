@@ -1,24 +1,30 @@
 import { NextResponse } from "next/server";
 import { parseSearchCreate } from "@shared/index";
 
-import { internalError, logApiError, validationError } from "@/lib/api/http";
+import {
+  logApiEvent,
+  validationError,
+  withApiRoute
+} from "@/lib/api/http";
 import { createSearchRun } from "@/lib/services/search-service";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  try {
+  return withApiRoute(request, { route: "/api/search" }, async (context) => {
     const payload = await request.json();
     const parsed = parseSearchCreate(payload);
 
     if (!parsed.ok) {
-      return validationError(parsed.errors);
+      return validationError(context.correlationId, parsed.errors);
     }
 
-    const searchRun = await createSearchRun(parsed.value);
+    const searchRun = await createSearchRun(parsed.value, context.operationContext);
+    logApiEvent("search_run_created", context.operationContext, {
+      search_run_id: searchRun.id,
+      provider: searchRun.source
+    });
+
     return NextResponse.json(searchRun, { status: 201 });
-  } catch (error) {
-    logApiError(error);
-    return internalError();
-  }
+  });
 }

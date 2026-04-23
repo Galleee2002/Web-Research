@@ -703,37 +703,28 @@ Criterio de aceptacion:
 - un entorno limpio puede reproducir los comandos de test y typecheck sin
   depender de `node_modules` o caches locales preexistentes.
 
-### Decision pendiente - Manifiestos y comandos oficiales
+### Nota de coherencia tras Fase 7
 
-Antes de implementar Fase 5 conviene versionar la configuracion minima de
-desarrollo para que las API routes y sus tests sean reproducibles.
+La configuracion minima de desarrollo y los comandos oficiales ya quedaron
+materializados en el estado actual del repositorio.
 
-Pendiente recomendado:
+Estado real:
 
-- crear `package.json` en el alcance que se defina para el monorepo o
-  `apps/web`;
-- agregar scripts oficiales como `test`, `typecheck`, `dev` y `build`;
-- definir manifiesto Python para workers con dependencias de runtime y test;
-- documentar comandos equivalentes a:
-  - `npm install`;
-  - `npm test`;
-  - `npm run typecheck`;
-  - `pytest`;
-- mantener secrets fuera del repo usando `.env.example` con placeholders.
+- `package.json`, `package-lock.json`, `apps/web/package.json` y `tsconfig.json`
+  ya cubren manifests y scripts base del monorepo;
+- `services/workers/pyproject.toml` ya define runtime y extras de test para
+  workers;
+- `scripts/dev/start-web.sh`, `scripts/dev/run-worker.sh` y
+  `scripts/dev/test-workers.sh` ya cubren arranque y validacion local;
+- `.env.example` ya documenta variables requeridas sin versionar secretos;
+- `docs/architecture/backend-runtime.md` ya documenta instalacion, test y
+  ejecucion.
 
-Motivo:
+Conclusion:
 
-- Fase 4 pudo validarse con comandos puntuales porque existen dependencias
-  locales instaladas, pero esa situacion no garantiza que otro entorno pueda
-  reproducir la instalacion y los tests desde cero.
-
-Relacion con Fase 5:
-
-- las API routes de Fase 5 deben nacer con tests reproducibles;
-- los contratos de `packages/shared` deben poder typecheckearse desde un script
-  oficial;
-- los workers deben poder correr tests sin depender de configuracion manual no
-  documentada.
+- esta decision ya no es un pendiente previo a Fase 5;
+- el foco actual del backend pasa a normalizacion, website detection,
+  deduplicacion y orquestacion end-to-end.
 
 ### Fase 3 - Base de datos, migraciones y seeds
 
@@ -1034,6 +1025,13 @@ Criterio de aceptacion:
 
 ### Fase 8 - Normalizacion de datos externos
 
+Estado:
+
+- completada como normalizacion inicial del pipeline de worker;
+- convierte payloads de Google Places a `NormalizedBusiness`;
+- usa Google Geocoding como complemento para ciudad, region, pais y fallback de
+  coordenadas cuando hay respuesta disponible.
+
 Objetivo:
 
 - convertir payloads externos en estructura interna estable.
@@ -1048,15 +1046,22 @@ Tareas:
 
 Entregables:
 
-- normalizador;
-- tests unitarios;
-- fixtures de payload Google Places y Google Geocoding.
+- normalizador en `services/workers/src/workers/normalization.py`;
+- tests unitarios en `services/workers/tests/test_normalization.py`;
+- soporte de enriquecimiento desde payload Google Geocoding.
 
 Criterio de aceptacion:
 
 - el resto del sistema no depende de la forma exacta del payload de Google.
 
 ### Fase 9 - Deteccion de website propio
+
+Estado:
+
+- completada como helper operativo dentro del worker;
+- clasifica perfiles sociales, directorios y URLs invalidas como no website
+  propio;
+- mantiene coherencia con contratos y restricciones de base de datos.
 
 Objetivo:
 
@@ -1072,15 +1077,22 @@ Tareas:
 
 Entregables:
 
-- funcion de deteccion;
-- tests con website propio;
-- tests con Instagram, Facebook, WhatsApp y directorios.
+- helper en `services/workers/src/workers/website_detection.py`;
+- cobertura de casos de redes sociales en
+  `services/workers/tests/test_normalization.py`.
 
 Criterio de aceptacion:
 
 - `has_website` queda persistido de forma consistente para todos los negocios.
 
 ### Fase 10 - Deduplicacion e idempotencia
+
+Estado:
+
+- completada como upsert inicial del lado worker sobre PostgreSQL;
+- prioriza coincidencia por `source + external_id`;
+- usa fallback por `name + address` normalizados;
+- preserva `status`, `notes` y `search_run_id` original del registro existente.
 
 Objetivo:
 
@@ -1097,9 +1109,9 @@ Tareas:
 
 Entregables:
 
-- servicio de upsert idempotente;
-- tests de duplicados;
-- tests de merge de campos faltantes.
+- servicio de persistencia en `services/workers/src/workers/repository.py`;
+- tests unitarios de dedupe y merge en
+  `services/workers/tests/test_repository.py`.
 
 Criterio de aceptacion:
 
@@ -1107,82 +1119,197 @@ Criterio de aceptacion:
 
 ### Fase 11 - Orquestacion search run -> worker -> persistencia
 
+Estado:
+
+- completada como flujo ejecutable del worker sobre la base de Fases 2 a 10;
+- `POST /api/search` debe seguir creando `search_runs` en `pending` sin
+  bloquear la request HTTP;
+- la activacion actual del MVP es worker por ejecucion manual con
+  `python -m workers` o `./scripts/dev/run-worker.sh`, procesando pendientes
+  hasta vaciar la cola logica de `search_runs`;
+- no introduce Redis, RabbitMQ ni otro sistema de colas.
+
 Objetivo:
 
 - conectar busquedas creadas con procesamiento real.
 
-Tareas:
+Implementacion actual:
 
-- tomar `search_run` pendiente;
-- marcar `processing`;
-- consultar proveedor;
-- normalizar resultados;
-- deduplicar y persistir;
-- actualizar `total_found`;
-- marcar `completed`;
-- marcar `failed` ante errores controlados;
-- guardar `error_message` resumido.
+- la API web sigue siendo delgada y solo crea la busqueda;
+- el worker reclama `search_runs` pendientes y ejecuta el pipeline;
+- el mecanismo actual de ejecucion es simple y observable:
+  - `python -m workers` procesa uno o varios pendientes;
+  - `./scripts/dev/run-worker.sh` envuelve esa ejecucion local;
+- el reclamo de trabajo debe ser seguro ante concurrencia basica usando
+  `for update skip locked`;
+- `total_found` debe reflejar la cantidad de resultados externos procesados por
+  la corrida, aunque algunos terminen resolviendo a merge sobre registros ya
+  existentes;
+- cuando un negocio duplicado ya existe, se actualizan solo campos faltantes o
+  mejores sin degradar `status` ni `notes`;
+- mientras el modelo siga usando un solo `businesses.search_run_id`, en
+  duplicados conviene preservar el `search_run_id` original del registro ya
+  existente para no perder trazabilidad del primer alta.
+
+Componentes implementados:
+
+1. Persistencia del worker
+- repositorio Python para reclamar un `search_run` pendiente;
+- actualizacion de `processing`, `completed` y `failed`;
+- persistencia de `started_at`, `finished_at`, `total_found` y `error_message`;
+- insercion o merge de `businesses` con SQL parametrizado.
+
+2. Runner de corrida
+- `WorkerPipeline.process_next_pending_search_run()` para modo batch simple;
+- procesamiento en loop desde `services/workers/src/workers/__main__.py`;
+- logs basicos por `search_run_id`.
+
+3. Integracion con proveedor
+- lectura de `query` y `location` desde `search_runs`;
+- consulta a Google Places;
+- consulta a Geocoding por direccion del negocio para enriquecer datos.
+
+4. Pipeline por negocio
+- extraccion de payload crudo;
+- normalizacion a `NormalizedBusiness`;
+- clasificacion de website propio;
+- upsert idempotente preservando estado manual del lead.
+
+5. Validacion implementada
+- tests unitarios de normalizacion, pipeline, dedupe y merge;
+- test de exito `pending -> processing -> completed`;
+- test de error controlado `pending -> processing -> failed`.
 
 Entregables:
 
-- flujo end-to-end;
-- estados actualizados;
-- manejo de errores operativo.
+- repositorios Python para `search_runs` y `businesses`;
+- runner del worker para procesar pendientes;
+- flujo end-to-end `search_run -> proveedor -> normalizacion -> deduplicacion -> persistencia`;
+- estados `pending`, `processing`, `completed` y `failed` actualizados de forma
+  consistente;
+- logs minimos con `search_run_id`;
+- tests de pipeline y errores operativos.
 
 Criterio de aceptacion:
 
 - crear una busqueda termina generando negocios consultables por API.
+- reprocesar una misma busqueda no duplica negocios.
+- un fallo del proveedor deja `search_runs.status = failed` con
+  `error_message` resumido.
+- el dashboard puede observar el avance de `search_runs` sin que la API cambie
+  su contrato actual para crear busquedas.
 
 ### Fase 12 - Filtros, paginacion y CSV
 
+Estado:
+
+- implementada a nivel backend mediante API routes, contratos compartidos,
+  repositorios SQL y utilidades CSV;
+- cerrable como capacidad backend del MVP, aunque el dashboard todavia no la
+  consuma directamente;
+- la verificacion ampliada de routes e integracion queda como deuda explicita
+  de la Fase 14.
+
 Objetivo:
 
-- hacer eficiente el consumo de datos por dashboard y exportacion.
+- consolidar y dejar documentado el estado real de filtros, paginacion y
+  exportacion CSV ya disponibles en backend.
 
 Tareas:
 
-- implementar filtros combinables;
-- validar parametros de query;
-- aplicar limite maximo de `page_size`;
-- ordenar por campos permitidos;
-- usar los mismos filtros en CSV;
-- asegurar encoding CSV compatible con hojas de calculo.
+- confirmar que `GET /api/businesses` ya soporta filtros combinables por
+  `has_website`, `status`, `city`, `category` y `query`;
+- confirmar que la paginacion actual usa `page`, `page_size` y limite maximo
+  compartido mediante `MAX_PAGE_SIZE`;
+- confirmar que `order_by` sigue limitado a `created_at`, `name` y `city`;
+- confirmar que `GET /api/export` reutiliza exactamente el mismo parsing y los
+  mismos filtros que el listado paginado;
+- dejar explicito que `page` y `page_size` hoy se normalizan a defaults o
+  maximos y no generan `400` por si solos;
+- dejar explicito que el CSV actual mantiene sus columnas y responde con
+  `Content-Type: text/csv; charset=utf-8`;
+- dejar explicito que la UI todavia no consume esta capacidad y que el alcance
+  de la fase es backend;
+- documentar que la cobertura actual es solida en contratos, repositorios SQL
+  y utilidades CSV, pero no cierra aun tests de route-level.
 
 Entregables:
 
-- listado estable;
-- exportacion CSV;
-- tests de filtros y export.
+- listado backend estable;
+- exportacion CSV backend estable;
+- contratos compartidos y SQL alineados con filters, orden y paginacion;
+- documentacion actualizada del estado real de la fase.
 
 Criterio de aceptacion:
 
-- el usuario puede exportar el mismo conjunto que ve filtrado en el dashboard.
+- el backend puede devolver el mismo conjunto filtrado tanto en JSON paginado
+  como en CSV;
+- no hay drift entre contratos compartidos, repositorios SQL y API routes;
+- la documentacion no promete consumo frontend activo ni validaciones mas
+  estrictas que las hoy implementadas.
+
+Nota de alcance:
+
+- Fase 12 cubre capacidad backend; la integracion del dashboard sigue siendo
+  trabajo frontend.
+
+Mejoras futuras no bloqueantes:
+
+- compatibilidad CSV mas fuerte con Excel o Sheets si mas adelante se agrega
+  BOM UTF-8 u otra compatibilidad adicional;
+- tests de routes para `/api/businesses`, `/api/searches` y `/api/export`;
+- mejoras de performance para busqueda textual si el volumen de datos del MVP
+  lo exige.
 
 ### Fase 13 - Errores, logs y observabilidad
 
+Estado:
+
+- implementada sobre la base ya existente de envelope HTTP, healthcheck y logs
+  minimos del worker;
+- cerrada como primera capa de observabilidad operativa del MVP, sin depender
+  de proveedores externos;
+- alineada con persistencia ampliada en `search_runs` para `correlation_id`,
+  `error_code`, `error_stage` y `observability`.
+
 Objetivo:
 
-- hacer el backend diagnosticable.
+- hacer el backend diagnosticable desde la API hasta el worker usando
+  trazabilidad persistida y logs estructurados.
 
 Tareas:
 
-- definir formato de error HTTP;
-- loguear inicio y fin de busquedas;
-- loguear errores de proveedor;
-- loguear conteo de resultados;
-- loguear duplicados;
-- incluir `search_run_id` en logs de pipeline;
-- preparar correlation id por request o ejecucion.
+- consolidar un formato de error HTTP con `error.code`,
+  `error.message`, `error.details?` y `error.correlation_id`;
+- generar o aceptar `X-Correlation-Id` en API routes;
+- persistir `correlation_id` al crear `search_runs`;
+- persistir `error_code`, `error_stage` y resumen de ejecucion en
+  `search_runs.observability`;
+- loguear inicio, exito y error de requests API con `route`, `method`,
+  `status_code` y `duration_ms`;
+- loguear inicio y resultado de pipeline, proveedor, geocoding, deduplicacion,
+  inserciones y updates;
+- incluir `search_run_id` y `correlation_id` en logs del worker;
+- dejar explicito que Geocoding hoy se usa por `formattedAddress` para derivar
+  ubicacion normalizada;
+- dejar explicito que la deduplicacion actual preserva datos existentes y
+  completa campos faltantes.
 
 Entregables:
 
-- errores consistentes;
-- logs estructurados o semiestructurados;
-- diagnostico basico por `search_run_id`.
+- errores HTTP consistentes con `correlation_id`;
+- logs estructurados o semiestructurados en API, DB y worker;
+- diagnostico basico por `search_run_id` y `correlation_id`;
+- metadata operativa persistida por corrida en `search_runs.observability`.
 
 Criterio de aceptacion:
 
-- un fallo de proveedor puede rastrearse desde la API hasta el worker.
+- un fallo de proveedor puede rastrearse desde la API hasta el worker usando
+  `correlation_id`, `search_run_id`, `error_code` y `error_stage`;
+- `POST /api/search` persiste `correlation_id` en `search_runs`;
+- `GET /api/health` mantiene su contrato funcional y adopta logging
+  consistente;
+- la documentacion frontend y backend describe el mismo contrato de error.
 
 ### Fase 14 - Testing backend
 
@@ -1397,37 +1524,29 @@ El primer despliegue debe contemplar:
 
 ## 13. Orden recomendado de implementacion real
 
-Etapa 1:
+Estado actual del roadmap:
 
-- Fase 1;
-- Fase 2;
-- Fase 3;
-- Fase 4.
+- Fase 1 a Fase 11 ya cuentan con implementacion o scaffold validado;
+- Fase 12 ya esta cerrada en backend para listado, filtros, paginacion y CSV;
+- Fase 13 ya quedo implementada con trazabilidad basica, logs estructurados y
+  metadata operativa persistida;
+- Fase 15 sigue teniendo avances parciales en validaciones y configuracion
+  operativa, pero no esta cerrada como fase completa.
 
-Etapa 2:
+Siguientes pasos logicos desde el estado actual:
 
-- Fase 5;
-- Fase 6.
+1. Fase 14.
+2. Fase 15.
+3. Fase 16.
+4. Fase 17.
 
-Etapa 3:
+Dependencias practicas:
 
-- Fase 7;
-- Fase 8;
-- Fase 9;
-- Fase 10;
-- Fase 11.
-
-Etapa 4:
-
-- Fase 12;
-- Fase 13;
-- Fase 14.
-
-Etapa 5:
-
-- Fase 15;
-- Fase 16;
-- Fase 17.
+- Fase 14 debe cerrar la verificacion pendiente del backend ya implementado,
+  con foco en routes, traduccion de errores e integracion API -> worker;
+- Fase 15 debe endurecer configuracion y operacion una vez exista mejor
+  observabilidad y cobertura de pruebas;
+- Fase 16 y Fase 17 ganan valor cuando el worker ya procesa corridas reales.
 
 ## 14. Notas de mantenimiento
 

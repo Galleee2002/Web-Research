@@ -131,12 +131,27 @@ Errores esperados:
 - `404`: negocio no encontrado;
 - `500`: error interno o de persistencia.
 
+Envelope esperado:
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "Invalid request",
+    "correlation_id": "corr-123",
+    "details": ["query is required"]
+  }
+}
+```
+
 El frontend deberia:
 
 - mostrar un mensaje simple y recuperable;
 - conservar filtros o formulario cuando haya error;
 - permitir reintentar;
-- no asumir que un cambio fue guardado si la API responde error.
+- no asumir que un cambio fue guardado si la API responde error;
+- poder mostrar `error.correlation_id` como referencia de soporte o debug;
+- no crear taxonomias de error paralelas a las del backend.
 
 ## Ejemplo simple de helper
 

@@ -1,5 +1,7 @@
 import { Client } from "pg";
 
+import { logApiEvent, withApiRoute } from "@/lib/api/http";
+
 type DatabaseHealth =
   | {
       configured: false;
@@ -52,16 +54,24 @@ async function checkDatabase(): Promise<DatabaseHealth> {
   }
 }
 
-export async function GET(): Promise<Response> {
-  const database = await checkDatabase();
-  const body: HealthResponse = {
-    app: "business-lead-finder",
-    environment: process.env.APP_ENV ?? "development",
-    timestamp: new Date().toISOString(),
-    database
-  };
+export async function GET(request: Request): Promise<Response> {
+  return withApiRoute(request, { route: "/api/health" }, async (context) => {
+    const database = await checkDatabase();
+    const status = database.configured && !database.reachable ? 503 : 200;
+    const body: HealthResponse = {
+      app: "business-lead-finder",
+      environment: process.env.APP_ENV ?? "development",
+      timestamp: new Date().toISOString(),
+      database
+    };
 
-  return Response.json(body, {
-    status: database.configured && !database.reachable ? 503 : 200
+    logApiEvent("healthcheck_completed", context.operationContext, {
+      status_code: status,
+      error_stage: "health"
+    });
+
+    return Response.json(body, {
+      status
+    });
   });
 }

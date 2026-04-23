@@ -2,9 +2,11 @@
 
 ## Objetivo
 
-Este documento describe el scaffold ejecutable inicial de backend para Business
-Lead Finder. La logica de negocio, migraciones, API CRUD y Google Places se
-implementan en fases posteriores.
+Este documento describe el runtime backend actual de Business Lead Finder.
+El repositorio ya incluye migraciones PostgreSQL, API CRUD base, clientes
+Google Places/Geocoding y un worker Python capaz de procesar `search_runs`
+pendientes para persistir negocios en PostgreSQL con trazabilidad operativa
+basica por `correlation_id`.
 
 ## Requisitos
 
@@ -59,7 +61,7 @@ Arrancar Next.js:
 ./scripts/dev/start-web.sh
 ```
 
-Ejecutar smoke del worker:
+Ejecutar worker para procesar `search_runs` pendientes:
 
 ```sh
 ./scripts/dev/run-worker.sh
@@ -84,3 +86,66 @@ Ejecutar tests workers:
 - Sin `DATABASE_URL`, responde `200` y marca la base como no configurada.
 - Con `DATABASE_URL`, intenta `select 1`.
 - Si PostgreSQL no responde, devuelve `503` y marca la base como no alcanzable.
+- El endpoint mantiene logging consistente con el resto de las API routes.
+
+## Correlation ID y errores HTTP
+
+Las API routes aceptan `X-Correlation-Id`. Si no llega, el backend genera uno.
+
+Convenciones actuales:
+
+- todas las respuestas de error incluyen `error.correlation_id`;
+- `POST /api/search` persiste ese valor en `search_runs.correlation_id`;
+- el worker reutiliza `search_runs.correlation_id` para continuar la
+  trazabilidad de la corrida.
+
+Codigos de error HTTP usados hoy:
+
+- `validation_error`;
+- `not_found`;
+- `invalid_json`;
+- `database_error`;
+- `internal_error`.
+
+Los contratos de exito no cambian por esta fase.
+
+## Pipeline worker
+
+El worker actual:
+
+- reclama `search_runs` en estado `pending`;
+- los marca `processing`;
+- consulta Google Places;
+- usa Google Geocoding como enriquecimiento por negocio;
+- normaliza resultados;
+- detecta website propio;
+- deduplica y persiste `businesses`;
+- actualiza `total_found`;
+- marca `completed` o `failed`.
+
+Ademas, `search_runs` ahora puede persistir metadata operativa adicional:
+
+- `correlation_id`;
+- `error_code`;
+- `error_stage`;
+- `observability` en `jsonb`.
+
+La columna `observability` guarda un resumen acotado, por ejemplo:
+
+- `request_method`;
+- `request_path`;
+- `provider`;
+- `results_found`;
+- `inserted_count`;
+- `updated_count`;
+- `deduped_count`;
+- `geocoding_calls`;
+- `duration_ms`;
+- `started_at`;
+- `finished_at`.
+
+Los logs de API y worker se emiten en formato estructurado o
+semiestructurado y `LOG_LEVEL` controla el nivel de salida.
+
+Si falta `DATABASE_URL`, el worker falla con mensaje claro porque no puede
+procesar corridas pendientes.

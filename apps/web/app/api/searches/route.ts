@@ -2,27 +2,25 @@ import { NextResponse } from "next/server";
 import { parseSearchFilters } from "@shared/index";
 
 import {
-  internalError,
-  logApiError,
+  logApiEvent,
   searchParamsToObject,
-  validationError
+  validationError,
+  withApiRoute
 } from "@/lib/api/http";
 import { listSearchRuns } from "@/lib/services/search-service";
 
 export const runtime = "nodejs";
 
 export async function GET(request: Request) {
-  try {
+  return withApiRoute(request, { route: "/api/searches" }, async (context) => {
     const url = new URL(request.url);
     const parsed = parseSearchFilters(searchParamsToObject(url.searchParams));
 
     if (!parsed.ok) {
-      return validationError(parsed.errors);
+      return validationError(context.correlationId, parsed.errors);
     }
 
-    return NextResponse.json(await listSearchRuns(parsed.value));
-  } catch (error) {
-    logApiError(error);
-    return internalError();
-  }
+    logApiEvent("search_runs_requested", context.operationContext);
+    return NextResponse.json(await listSearchRuns(parsed.value, context.operationContext));
+  });
 }
