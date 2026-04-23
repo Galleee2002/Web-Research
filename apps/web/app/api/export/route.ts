@@ -1,10 +1,10 @@
 import { parseBusinessFilters } from "@shared/index";
 
 import {
-  internalError,
-  logApiError,
+  logApiEvent,
   searchParamsToObject,
-  validationError
+  validationError,
+  withApiRoute
 } from "@/lib/api/http";
 import { listBusinessesForExport } from "@/lib/services/business-service";
 import { toCsv } from "@/lib/utils/csv";
@@ -24,15 +24,16 @@ const EXPORT_COLUMNS = [
 ] as const;
 
 export async function GET(request: Request) {
-  try {
+  return withApiRoute(request, { route: "/api/export" }, async (context) => {
     const url = new URL(request.url);
     const parsed = parseBusinessFilters(searchParamsToObject(url.searchParams));
 
     if (!parsed.ok) {
-      return validationError(parsed.errors);
+      return validationError(context.correlationId, parsed.errors);
     }
 
-    const businesses = await listBusinessesForExport(parsed.value);
+    logApiEvent("business_export_requested", context.operationContext);
+    const businesses = await listBusinessesForExport(parsed.value, context.operationContext);
     const csv = toCsv(EXPORT_COLUMNS, businesses);
 
     return new Response(csv, {
@@ -41,8 +42,5 @@ export async function GET(request: Request) {
         "Content-Disposition": 'attachment; filename="business-leads.csv"'
       }
     });
-  } catch (error) {
-    logApiError(error);
-    return internalError();
-  }
+  });
 }

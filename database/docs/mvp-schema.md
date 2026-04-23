@@ -9,6 +9,8 @@ archivos SQL planos. Todavia no requiere un framework de migraciones.
 
 - `database/migrations/001_create_mvp_schema.sql`: crea las tablas, constraints
   e indices del MVP.
+- `database/migrations/002_add_search_run_observability.sql`: amplia
+  `search_runs` con columnas operativas para trazabilidad.
 - `database/seeds/001_mvp_demo_data.sql`: inserta datos demo deterministas para
   desarrollo local y futuras pruebas de API.
 
@@ -18,6 +20,7 @@ Configurar `DATABASE_URL` apuntando a una base PostgreSQL modificable y correr:
 
 ```sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/001_create_mvp_schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/002_add_search_run_observability.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/seeds/001_mvp_demo_data.sql
 ```
 
@@ -33,6 +36,8 @@ reaplicarse durante el desarrollo contra la misma base local.
   perder validacion en base de datos.
 - `search_runs` registra el estado operativo del proveedor con `pending`,
   `processing`, `completed` y `failed`.
+- `search_runs` ahora tambien puede persistir `correlation_id`, `error_code`,
+  `error_stage` y un resumen `observability` en `jsonb` para diagnostico.
 - `businesses.status` guarda el estado manual del lead con `new`, `reviewed`,
   `contacted` y `discarded`.
 - `lead_status` no se crea para el MVP. El estado vive en `businesses`, y
@@ -73,3 +78,18 @@ website propio vive en workers: redes sociales, WhatsApp, Google Maps,
 directorios y URLs invalidas se normalizan como `website = null` y
 `has_website = false` antes de persistir. Si mas adelante se necesita conservar
 la URL cruda del proveedor, debe agregarse otro campo.
+
+## Observabilidad MVP
+
+La Fase 13 amplia `search_runs` para soportar trazabilidad operativa sin crear
+tablas nuevas de auditoria.
+
+Campos agregados:
+
+- `correlation_id`: une request HTTP, registro persistido y worker;
+- `error_code`: clasificacion corta del error;
+- `error_stage`: etapa aproximada del fallo;
+- `observability`: resumen JSON de request y ejecucion.
+
+La metadata persiste solo un resumen operativo. No guarda payloads completos de
+Google ni stack traces.

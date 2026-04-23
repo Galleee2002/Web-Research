@@ -6,6 +6,8 @@ import type {
   PaginatedResponse
 } from "@shared/index";
 
+import type { OperationContext } from "@/lib/api/http";
+
 import {
   findBusinesses as defaultFindBusinesses,
   findBusinessesForExport as defaultFindBusinessesForExport,
@@ -29,29 +31,33 @@ const defaultBusinessServiceDependencies = {
 
 export async function listBusinesses(
   filters: BusinessFilters,
+  context: OperationContext,
   deps: BusinessServiceDependencies = defaultBusinessServiceDependencies
 ): Promise<PaginatedResponse<BusinessRead>> {
-  return deps.findBusinesses(filters);
+  return deps.findBusinesses(filters, context);
 }
 
 export async function listBusinessesForExport(
   filters: BusinessFilters,
+  context: OperationContext,
   deps: BusinessServiceDependencies = defaultBusinessServiceDependencies
 ): Promise<BusinessRead[]> {
-  return deps.findBusinessesForExport(filters);
+  return deps.findBusinessesForExport(filters, context);
 }
 
 export async function getBusinessById(
   id: string,
+  context: OperationContext,
   deps: BusinessServiceDependencies = defaultBusinessServiceDependencies
 ): Promise<BusinessDetailRead | null> {
-  return deps.findBusinessById(id);
+  return deps.findBusinessById(id, context);
 }
 
 export async function updateBusinessStatus(
   id: string,
   payload: BusinessStatusUpdate,
+  context: OperationContext,
   deps: BusinessServiceDependencies = defaultBusinessServiceDependencies
 ): Promise<BusinessDetailRead | null> {
-  return deps.updateBusinessLeadStatus(id, payload);
+  return deps.updateBusinessLeadStatus(id, payload, context);
 }

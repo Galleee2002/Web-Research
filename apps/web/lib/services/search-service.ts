@@ -1,5 +1,7 @@
 import type { PaginatedResponse, SearchCreate, SearchFilters, SearchRead } from "@shared/index";
 
+import type { OperationContext } from "@/lib/api/http";
+
 import {
   findSearchRuns as defaultFindSearchRuns,
   insertSearchRun as defaultInsertSearchRun
@@ -17,14 +19,16 @@ const defaultSearchServiceDependencies = {
 
 export async function createSearchRun(
   payload: SearchCreate,
+  context: OperationContext,
   deps: SearchServiceDependencies = defaultSearchServiceDependencies
 ): Promise<SearchRead> {
-  return deps.insertSearchRun(payload);
+  return deps.insertSearchRun(payload, context);
 }
 
 export async function listSearchRuns(
   filters: SearchFilters,
+  context: OperationContext,
   deps: SearchServiceDependencies = defaultSearchServiceDependencies
 ): Promise<PaginatedResponse<SearchRead>> {
-  return deps.findSearchRuns(filters);
+  return deps.findSearchRuns(filters, context);
 }

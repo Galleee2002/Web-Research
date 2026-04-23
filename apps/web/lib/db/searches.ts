@@ -7,6 +7,8 @@ import type {
   SearchRead
 } from "@shared/types/search";
 
+import type { OperationContext } from "@/lib/api/http";
+
 import { query } from "./pool";
 
 interface SearchRunRow {
@@ -91,27 +93,59 @@ export function buildSearchCountQuery(filters: SearchFilters): SqlQuery {
   };
 }
 
-export async function insertSearchRun(payload: SearchCreate): Promise<SearchRead> {
+export async function insertSearchRun(
+  payload: SearchCreate,
+  context: OperationContext
+): Promise<SearchRead> {
   const result = await query<SearchRunRow>(
     `
-      insert into search_runs (query, location, source, status, total_found)
-      values ($1, $2, $3, 'pending', 0)
+      insert into search_runs (
+        query,
+        location,
+        source,
+        status,
+        total_found,
+        correlation_id,
+        observability
+      )
+      values ($1, $2, $3, 'pending', 0, $4, $5::jsonb)
       returning id, query, location, source, status, total_found, created_at
     `,
-    [payload.query, payload.location, DEFAULT_BUSINESS_SOURCE]
+    [
+      payload.query,
+      payload.location,
+      DEFAULT_BUSINESS_SOURCE,
+      context.correlationId,
+      JSON.stringify({
+        request_method: context.method,
+        request_path: context.route,
+        provider: DEFAULT_BUSINESS_SOURCE
+      })
+    ],
+    {
+      operationName: "insert_search_run",
+      context
+    }
   );
 
   return mapSearchRun(result.rows[0]);
 }
 
 export async function findSearchRuns(
-  filters: SearchFilters
+  filters: SearchFilters,
+  context: OperationContext
 ): Promise<PaginatedResponse<SearchRead>> {
   const listQuery = buildSearchListQuery(filters);
   const countQuery = buildSearchCountQuery(filters);
   const [itemsResult, countResult] = await Promise.all([
-    query<SearchRunRow>(listQuery.text, listQuery.values),
-    query<{ total: number }>(countQuery.text, countQuery.values)
+    query<SearchRunRow>(listQuery.text, listQuery.values, {
+      operationName: "find_search_runs",
+      context
+    }),
+    query<{ total: number }>(countQuery.text, countQuery.values, {
+      operationName: "count_search_runs",
+      context
+    })
   ]);
 
   return {

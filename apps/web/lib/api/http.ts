@@ -1,52 +1,94 @@
+import { randomUUID } from "node:crypto";
+
 import { NextResponse } from "next/server";
+
+import { logError, logInfo, type LogFields } from "./logger";
+
+export type ApiErrorCode =
+  | "conflict_error"
+  | "database_error"
+  | "internal_error"
+  | "invalid_json"
+  | "not_found"
+  | "provider_error"
+  | "timeout_error"
+  | "validation_error";
 
 export interface ErrorBody {
   error: {
-    code: string;
+    code: ApiErrorCode;
     message: string;
+    correlation_id: string;
     details?: string[];
   };
 }
 
-export function validationError(errors: string[]): NextResponse<ErrorBody> {
-  return NextResponse.json(
-    {
-      error: {
-        code: "validation_error",
-        message: "Invalid request",
-        details: errors
-      }
-    },
-    { status: 400 }
+export interface OperationContext {
+  correlationId: string;
+  method: string;
+  route: string;
+}
+
+export interface ApiRequestContext extends OperationContext {
+  request: Request;
+  startedAt: number;
+  operationContext: OperationContext;
+}
+
+interface ApiRouteOptions {
+  route: string;
+}
+
+export class ApiError extends Error {
+  readonly code: ApiErrorCode;
+  readonly status: number;
+  readonly details?: string[];
+
+  constructor(code: ApiErrorCode, message: string, status: number, details?: string[]) {
+    super(message);
+    this.name = "ApiError";
+    this.code = code;
+    this.status = status;
+    this.details = details;
+  }
+}
+
+export class DatabaseOperationError extends Error {
+  readonly operationName: string;
+
+  constructor(operationName: string, cause: unknown) {
+    super(`Database operation failed: ${operationName}`, { cause });
+    this.name = "DatabaseOperationError";
+    this.operationName = operationName;
+  }
+}
+
+export function validationError(correlationId: string, errors: string[]): NextResponse<ErrorBody> {
+  return errorResponse(
+    correlationId,
+    new ApiError("validation_error", "Invalid request", 400, errors)
   );
 }
 
-export function notFound(message = "Resource not found"): NextResponse<ErrorBody> {
-  return NextResponse.json(
-    {
-      error: {
-        code: "not_found",
-        message
-      }
-    },
-    { status: 404 }
+export function notFound(
+  correlationId: string,
+  message = "Resource not found"
+): NextResponse<ErrorBody> {
+  return errorResponse(correlationId, new ApiError("not_found", message, 404));
+}
+
+export function internalError(correlationId: string): NextResponse<ErrorBody> {
+  return errorResponse(
+    correlationId,
+    new ApiError("internal_error", "Internal server error", 500)
   );
 }
 
-export function internalError(): NextResponse<ErrorBody> {
-  return NextResponse.json(
-    {
-      error: {
-        code: "internal_error",
-        message: "Internal server error"
-      }
-    },
-    { status: 500 }
+export function invalidJsonError(correlationId: string): NextResponse<ErrorBody> {
+  return errorResponse(
+    correlationId,
+    new ApiError("invalid_json", "Request body must be valid JSON", 400)
   );
-}
-
-export function logApiError(error: unknown): void {
-  console.error(error);
 }
 
 export function searchParamsToObject(
@@ -59,4 +101,158 @@ export function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value
   );
+}
+
+export async function withApiRoute(
+  request: Request,
+  options: ApiRouteOptions,
+  handler: (context: ApiRequestContext) => Promise<Response>
+): Promise<Response> {
+  const context = createApiRequestContext(request, options.route);
+
+  logInfo("api_request_started", {
+    correlation_id: context.correlationId,
+    route: context.route,
+    method: context.method,
+    search_run_id: null,
+    status_code: null,
+    provider: null,
+    error_code: null,
+    error_stage: "api",
+    duration_ms: null,
+    result_count: null
+  });
+
+  try {
+    const response = await handler(context);
+
+    logInfo("api_request_succeeded", {
+      correlation_id: context.correlationId,
+      route: context.route,
+      method: context.method,
+      search_run_id: null,
+      status_code: response.status,
+      provider: null,
+      error_code: null,
+      error_stage: "api",
+      duration_ms: Date.now() - context.startedAt,
+      result_count: null
+    });
+
+    return response;
+  } catch (error) {
+    const response = errorToResponse(context, error);
+
+    logError("api_request_failed", {
+      correlation_id: context.correlationId,
+      route: context.route,
+      method: context.method,
+      search_run_id: null,
+      status_code: response.status,
+      provider: null,
+      error_code: getErrorCode(error),
+      error_stage: "api",
+      duration_ms: Date.now() - context.startedAt,
+      result_count: null,
+      error_message: getErrorMessage(error)
+    });
+
+    return response;
+  }
+}
+
+export function logApiEvent(event: string, context: OperationContext, fields: LogFields = {}): void {
+  logInfo(event, {
+    correlation_id: context.correlationId,
+    route: context.route,
+    method: context.method,
+    search_run_id: null,
+    status_code: null,
+    provider: null,
+    error_code: null,
+    error_stage: "api",
+    duration_ms: null,
+    result_count: null,
+    ...fields
+  });
+}
+
+function createApiRequestContext(request: Request, route: string): ApiRequestContext {
+  const correlationId = request.headers.get("x-correlation-id")?.trim() || randomUUID();
+
+  return {
+    request,
+    route,
+    method: request.method,
+    correlationId,
+    startedAt: Date.now(),
+    operationContext: {
+      correlationId,
+      method: request.method,
+      route
+    }
+  };
+}
+
+function errorToResponse(
+  context: ApiRequestContext,
+  error: unknown
+): NextResponse<ErrorBody> {
+  if (error instanceof ApiError) {
+    return errorResponse(context.correlationId, error);
+  }
+
+  if (error instanceof DatabaseOperationError) {
+    return errorResponse(
+      context.correlationId,
+      new ApiError("database_error", "Database operation failed", 500)
+    );
+  }
+
+  if (error instanceof SyntaxError) {
+    return invalidJsonError(context.correlationId);
+  }
+
+  return internalError(context.correlationId);
+}
+
+function errorResponse(
+  correlationId: string,
+  error: ApiError
+): NextResponse<ErrorBody> {
+  return NextResponse.json(
+    {
+      error: {
+        code: error.code,
+        message: error.message,
+        correlation_id: correlationId,
+        ...(error.details === undefined ? {} : { details: error.details })
+      }
+    },
+    { status: error.status }
+  );
+}
+
+function getErrorCode(error: unknown): ApiErrorCode {
+  if (error instanceof ApiError) {
+    return error.code;
+  }
+
+  if (error instanceof DatabaseOperationError) {
+    return "database_error";
+  }
+
+  if (error instanceof SyntaxError) {
+    return "invalid_json";
+  }
+
+  return "internal_error";
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "Unknown error";
 }

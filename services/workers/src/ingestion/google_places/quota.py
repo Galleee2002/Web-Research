@@ -1,11 +1,16 @@
 from collections.abc import Callable
 from datetime import date
 import json
+import logging
 from pathlib import Path
 import tempfile
 from typing import Any
 
 from .errors import DailyGoogleRequestLimitExceeded
+from workers.observability import log_event
+
+
+logger = logging.getLogger(__name__)
 
 
 class GoogleRequestQuota:
@@ -24,10 +29,27 @@ class GoogleRequestQuota:
         today = self.today().isoformat()
 
         if state.get("date") != today:
+            if state:
+                log_event(
+                    logger,
+                    logging.INFO,
+                    "quota_reset",
+                    provider=provider,
+                    result_count=0,
+                )
             state = {"date": today, "count": 0, "providers": {}}
 
         count = int(state.get("count", 0))
         if count >= self.daily_limit:
+            log_event(
+                logger,
+                logging.ERROR,
+                "quota_limit_exceeded",
+                provider=provider,
+                error_code="provider_error",
+                error_stage="places",
+                result_count=count,
+            )
             raise DailyGoogleRequestLimitExceeded(
                 f"Daily Google request limit reached ({count}/{self.daily_limit})"
             )
@@ -36,6 +58,13 @@ class GoogleRequestQuota:
         providers[provider] = int(providers.get(provider, 0)) + 1
         state["count"] = count + 1
         self._write_state(state)
+        log_event(
+            logger,
+            logging.INFO,
+            "quota_reserved",
+            provider=provider,
+            result_count=state["count"],
+        )
 
     def _read_state(self) -> dict[str, Any]:
         if not self.state_path.exists():
@@ -44,6 +73,14 @@ class GoogleRequestQuota:
         try:
             data = json.loads(self.state_path.read_text())
         except json.JSONDecodeError:
+            log_event(
+                logger,
+                logging.ERROR,
+                "quota_state_invalid",
+                provider="google_places",
+                error_code="internal_error",
+                error_stage="places",
+            )
             return {}
 
         return data if isinstance(data, dict) else {}
