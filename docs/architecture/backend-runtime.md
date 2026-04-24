@@ -152,9 +152,10 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/001_create_mvp_sc
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/002_add_search_run_observability.sql
 ```
 
-### 4. Aplicar seed de desarrollo
+### 4. Seed de desarrollo
 
-Solo para desarrollo local o demos:
+Actualmente el seed versionado no inserta datos demo. Se mantiene vacio para
+no reintroducir registros ficticios en PostgreSQL:
 
 ```sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/seeds/001_mvp_demo_data.sql

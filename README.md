@@ -6,7 +6,7 @@ own website and turning them into manageable leads.
 The current repository already includes:
 
 - a Next.js web app in `apps/web` with dashboard UI and API routes;
-- PostgreSQL migrations and demo seed data in `database`;
+- PostgreSQL migrations and database documentation in `database`;
 - shared TypeScript contracts in `packages/shared`;
 - Python workers in `services/workers` for Google Places ingestion,
   normalization, website detection, deduplication, and persistence;

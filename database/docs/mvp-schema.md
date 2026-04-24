@@ -11,8 +11,8 @@ archivos SQL planos. Todavia no requiere un framework de migraciones.
   e indices del MVP.
 - `database/migrations/002_add_search_run_observability.sql`: amplia
   `search_runs` con columnas operativas para trazabilidad.
-- `database/seeds/001_mvp_demo_data.sql`: inserta datos demo deterministas para
-  desarrollo local y futuras pruebas de API.
+- `database/seeds/001_mvp_demo_data.sql`: archivo intencionalmente vacio para
+  evitar reinsertar datos demo/mock en la base.
 
 ## Ejecucion Local
 
@@ -24,8 +24,9 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/002_add_search_ru
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/seeds/001_mvp_demo_data.sql
 ```
 
-El seed usa UUIDs fijos y `on conflict (id) do update`, por lo que puede
-reaplicarse durante el desarrollo contra la misma base local.
+El archivo de seed actual no inserta registros. Se conserva solo como punto de
+entrada estable para flujos locales que esperan un archivo de seed, sin volver
+a cargar datos ficticios.
 
 ## Decisiones de Schema
 
