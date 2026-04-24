@@ -27,7 +27,8 @@ export function OPTIONS(request: Request) {
 }
 
 async function checkDatabase(context: OperationContext): Promise<DatabaseHealth> {
-  const connectionString = getRuntimeConfig().databaseUrl;
+  const config = getRuntimeConfig();
+  const connectionString = config.databaseUrl;
 
   if (!connectionString) {
     return {
@@ -38,7 +39,7 @@ async function checkDatabase(context: OperationContext): Promise<DatabaseHealth>
 
   const client = new Client({
     connectionString,
-    connectionTimeoutMillis: 1500
+    connectionTimeoutMillis: config.dbConnectionTimeoutMs
   });
 
   try {

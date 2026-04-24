@@ -54,7 +54,7 @@ Variables definidas:
   default `1000000`.
 - `DB_POOL_MAX`: conexiones maximas del pool web PostgreSQL, default `10`.
 - `DB_IDLE_TIMEOUT_MS`: timeout idle del pool web, default `10000`.
-- `DB_CONNECTION_TIMEOUT_MS`: timeout de conexion PostgreSQL, default `1500`.
+- `DB_CONNECTION_TIMEOUT_MS`: timeout de conexion PostgreSQL, default `10000`.
 - `DB_QUERY_TIMEOUT_MS`: timeout de query PostgreSQL, default `10000`.
 - `DB_SSL`: `disable`/`false` o `require`/`true` para conexiones PostgreSQL
   desde la app web.

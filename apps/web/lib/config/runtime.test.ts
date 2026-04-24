@@ -11,6 +11,9 @@ describe("runtime config", () => {
     expect(config.allowedOrigins).toEqual([]);
     expect(config.apiJsonBodyLimitBytes).toBe(1_000_000);
     expect(config.dbPoolMax).toBe(10);
+    expect(config.dbIdleTimeoutMs).toBe(10_000);
+    expect(config.dbConnectionTimeoutMs).toBe(10_000);
+    expect(config.dbQueryTimeoutMs).toBe(10_000);
     expect(config.dbSsl).toBe(false);
   });
 

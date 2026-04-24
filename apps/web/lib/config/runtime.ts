@@ -55,7 +55,7 @@ export function getRuntimeConfig(env: Env = process.env): RuntimeConfig {
     dbConnectionTimeoutMs: parsePositiveInteger(
       env.DB_CONNECTION_TIMEOUT_MS,
       "DB_CONNECTION_TIMEOUT_MS",
-      1_500
+      10_000
     ),
     dbQueryTimeoutMs: parsePositiveInteger(
       env.DB_QUERY_TIMEOUT_MS,
