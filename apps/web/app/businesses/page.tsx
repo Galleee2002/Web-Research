@@ -1,5 +1,5 @@
-import { SectionPlaceholder } from "../_components/section-placeholder";
+import { BusinessesPage } from "./_components/businesses-page";
 
-export default function BusinessesPage() {
-  return <SectionPlaceholder section="businesses" />;
+export default function BusinessesRoutePage() {
+  return <BusinessesPage />;
 }
