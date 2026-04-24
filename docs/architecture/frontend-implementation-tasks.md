@@ -949,6 +949,18 @@ El frontend MVP se considera listo cuando:
 - consume contratos compartidos;
 - no duplica reglas de negocio del backend.
 
+Nota de coherencia con backend:
+
+- el cierre frontend de esta fase debe contrastarse con la Fase 17 de
+  `docs/architecture/backend-implementation-tasks.md`;
+- `packages/shared` sigue siendo la fuente de verdad para enums, filtros y
+  shapes compartidos;
+- el frontend no debe introducir contratos paralelos ni reinterpretar
+  `has_website`, `status`, generacion CSV o deduplicacion;
+- mientras `apps/web/app/page.tsx` y `apps/web/app/businesses/page.tsx` sigan
+  en placeholder, no debe declararse cierre funcional end-to-end del producto,
+  aunque el backend ya pueda considerarse listo a nivel contractual.
+
 ## 8. Testing requerido
 
 ### Tests unitarios
@@ -1000,7 +1012,9 @@ El frontend MVP esta completo cuando:
 - no hay dependencias de realtime;
 - no hay reglas de deduplicacion ni website detection en frontend;
 - existe cobertura de tests para flujos criticos;
-- los errores recuperables permiten continuar usando la app.
+- los errores recuperables permiten continuar usando la app;
+- no se confunde cierre contractual backend con cierre funcional completo del
+  frontend.
 
 ## 10. Riesgos y decisiones futuras
 

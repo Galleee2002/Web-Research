@@ -6,6 +6,12 @@ Este documento resume los pasos simples para que el frontend consuma los
 endpoints backend del MVP. El frontend no debe conectarse directamente a
 PostgreSQL; siempre debe usar las API routes de Next.js.
 
+Este documento debe leerse junto con
+`docs/architecture/backend-implementation-tasks.md` y
+`docs/architecture/frontend-implementation-tasks.md`. Para el cierre MVP,
+`packages/shared` es la fuente de verdad contractual para enums, filtros y
+shapes compartidos.
+
 ## Base recomendada
 
 Crear un cliente en `apps/web/lib/api` que centralice `fetch`, arme query params
@@ -20,6 +26,23 @@ Funciones minimas:
 - `getBusiness(id)`;
 - `updateBusiness(id, payload)`;
 - `buildExportUrl(params)`.
+
+Congelacion contractual del MVP:
+
+- endpoints vigentes:
+  `POST /api/search`,
+  `GET /api/searches`,
+  `GET /api/businesses`,
+  `GET /api/businesses/{id}`,
+  `PATCH /api/businesses/{id}`,
+  `GET /api/export`;
+- filtros vigentes de `GET /api/businesses` y `GET /api/export`:
+  `page`, `page_size`, `has_website`, `status`, `city`, `category`, `query`,
+  `order_by`;
+- estados de lead vigentes:
+  `new`, `reviewed`, `contacted`, `discarded`;
+- envelopes de error:
+  toda respuesta de error debe incluir `error.correlation_id`.
 
 ## Endpoints
 
@@ -127,6 +150,18 @@ Uso frontend:
 - construir la URL con `URLSearchParams`;
 - iniciar descarga desde el navegador;
 - no generar CSV en frontend.
+
+Reglas de coherencia frontend-backend:
+
+- el frontend no debe recalcular `has_website`;
+- el frontend no debe implementar deduplicacion;
+- el frontend no debe generar CSV por su cuenta;
+- cualquier discrepancia detectada en contratos o nombres de filtros debe
+  corregirse primero en `packages/shared` y luego reflejarse en rutas,
+  servicios y documentacion;
+- mientras `apps/web/app/page.tsx` y `apps/web/app/businesses/page.tsx` sigan
+  como placeholder, esta documentacion solo puede respaldar coherencia
+  contractual, no cierre funcional end-to-end.
 
 ## Manejo basico de errores
 

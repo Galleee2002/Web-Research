@@ -185,6 +185,10 @@ Web:
 npm --workspace apps/web run test
 ```
 
+Este es el comando valido de verificacion web para el cierre MVP actual. No
+debe documentarse `vitest --runInBand` como alternativa porque falla con la
+version actual del toolchain.
+
 Workers:
 
 ```sh
@@ -311,3 +315,16 @@ procesar corridas pendientes.
 - La UI actual no expone toda la superficie documentada del backend.
 - La pantalla de negocios aplica ordenamiento local sobre el resultado cargado;
   eso no equivale a un orden global del dataset backend.
+
+## Nota de cierre MVP
+
+La Fase 17 de `docs/architecture/backend-implementation-tasks.md` usa este
+documento como evidencia operativa del runtime backend. El cierre que habilita
+esta documentacion es contractual y operativo para backend:
+
+- comandos de setup, test y ejecucion existen y son reproducibles;
+- el worker, las API routes y la configuracion base estan documentados;
+- los contratos y envelopes de error siguen alineados con frontend.
+
+Este documento no debe usarse para afirmar cierre funcional end-to-end del
+producto mientras el frontend principal siga en pantallas placeholder.

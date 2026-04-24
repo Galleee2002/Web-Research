@@ -1842,23 +1842,175 @@ Siguiente paso recomendado:
 6. Evaluar recien despues containerizacion o CI/CD como mejora operativa, no
    como requisito del MVP actual.
 
-### Fase 17 - Criterios de cierre MVP
+### Fase 17 - Cierre MVP backend y sincronizacion con frontend
 
-El backend MVP se considera listo cuando:
+Objetivo:
 
-- registra busquedas;
-- consulta Google Places desde worker;
-- complementa ubicaciones con Google Geocoding cuando sea necesario;
-- normaliza resultados;
-- detecta negocios con y sin website propio;
-- guarda negocios en PostgreSQL;
-- evita duplicados basicos;
-- expone negocios por API;
-- filtra leads sin website;
-- actualiza estado y notas;
-- exporta CSV;
-- tiene tests minimos sobre reglas criticas;
-- documenta configuracion y despliegue basico.
+- certificar que el backend del MVP puede declararse `MVP-ready` sobre
+  evidencia de codigo, contratos compartidos, tests y documentacion;
+- cerrar el backend como fuente de verdad contractual sin trasladar reglas de
+  negocio al frontend;
+- dejar explicitas las brechas entre cierre contractual backend y cierre
+  funcional end-to-end del producto.
+
+Tareas:
+
+- auditar las capacidades backend ya implementadas contra codigo, contratos
+  compartidos y tests automatizados;
+- validar que la superficie publica del MVP siga limitada a
+  `POST /api/search`, `GET /api/searches`, `GET /api/businesses`,
+  `GET /api/businesses/{id}`, `PATCH /api/businesses/{id}` y
+  `GET /api/export`;
+- congelar documentalmente `BusinessFilters`, `LeadStatus`,
+  `SearchRunStatus` y los envelopes de error con `correlation_id` segun
+  `packages/shared`;
+- contrastar el cierre backend con
+  `docs/architecture/frontend-implementation-tasks.md`,
+  `docs/architecture/frontend-backend-connection.md` y
+  `docs/architecture/backend-runtime.md`;
+- revisar que comandos, ejemplos HTTP, filtros y estados documentados coincidan
+  con el toolchain y contratos vigentes;
+- registrar en la documentacion que esta fase certifica coherencia
+  contractual/documental, no cierre funcional end-to-end del producto.
+
+Matriz de capacidades auditables:
+
+- `POST /api/search` registra busquedas y persiste `correlation_id`.
+  Evidencia esperada:
+  codigo en `apps/web/app/api/search/route.ts`,
+  `apps/web/lib/services/search-service.ts`,
+  contratos compartidos en `packages/shared`,
+  test de API en `apps/web/app/api/search/route.test.ts`.
+- el worker procesa `search_runs` pendientes y consulta Google Places.
+  Evidencia esperada:
+  codigo en `services/workers/src/workers/pipeline.py`,
+  configuracion runtime en `docs/architecture/backend-runtime.md`,
+  tests en `services/workers/tests/test_pipeline.py` y
+  `services/workers/tests/test_google_clients.py`.
+- el worker usa Google Geocoding cuando faltan datos de ubicacion.
+  Evidencia esperada:
+  codigo en `services/workers/src/workers/pipeline.py`,
+  cliente/adaptador en `services/workers/src/ingestion/google_places`,
+  tests con mocks en `services/workers/tests/test_pipeline.py`.
+- normalizacion, website detection y deduplicacion basica quedan cubiertas por
+  codigo y tests.
+  Evidencia esperada:
+  implementacion en `services/workers/src/workers/normalization.py`,
+  `services/workers/src/workers/website_detection.py` y
+  `services/workers/src/workers/repository.py`,
+  pruebas en `services/workers/tests/test_normalization.py`,
+  `services/workers/tests/test_repository.py` y
+  `services/workers/tests/test_contracts.py`.
+- PostgreSQL sigue siendo la fuente de verdad para `businesses` y
+  `search_runs`.
+  Evidencia esperada:
+  repositorios en `apps/web/lib/db` y `services/workers/src/workers/repository.py`,
+  migraciones activas, tests de repositorio y de integracion disponibles.
+- `GET /api/businesses`, `GET /api/businesses/{id}`,
+  `PATCH /api/businesses/{id}` y `GET /api/export` siguen siendo la superficie
+  funcional del MVP.
+  Evidencia esperada:
+  rutas en `apps/web/app/api`,
+  servicios en `apps/web/lib/services`,
+  contratos compartidos en `packages/shared`,
+  documentacion sincronizada con frontend.
+- logs, envelopes de error y runtime documentado siguen consistentes.
+  Evidencia esperada:
+  helpers en `apps/web/lib/api/http.ts`,
+  runtime en `docs/architecture/backend-runtime.md`,
+  documento de conexion frontend-backend alineado.
+
+Subseccion obligatoria de coherencia frontend-backend:
+
+- el frontend del MVP consume solo API routes de Next.js y no se conecta
+  directo a PostgreSQL;
+- `packages/shared` es la fuente de verdad para enums, filtros y request/response
+  shapes consumidos por backend y frontend;
+- el frontend no implementa website detection, deduplicacion, generacion CSV ni
+  reglas de estado del lead;
+- nombres de filtros, payloads y envelopes de error documentados en frontend
+  deben coincidir exactamente con backend;
+- cualquier discrepancia contractual detectada en esta fase se corrige primero
+  en `packages/shared`, luego en API routes/servicios y finalmente en toda la
+  documentacion consumidora;
+- la coherencia certificada por esta fase es contractual y documental;
+- no debe declararse cierre end-to-end del producto mientras
+  `apps/web/app/page.tsx` y `apps/web/app/businesses/page.tsx` sigan
+  renderizando placeholders y el frontend no haya cerrado su propia Fase 12.
+
+Interfaces publicas congeladas para el MVP:
+
+- endpoints vigentes:
+  `POST /api/search`,
+  `GET /api/searches`,
+  `GET /api/businesses`,
+  `GET /api/businesses/{id}`,
+  `PATCH /api/businesses/{id}`,
+  `GET /api/export`;
+- `BusinessFilters`:
+  `page`, `page_size`, `has_website`, `status`, `city`, `category`, `query`,
+  `order_by`;
+- `LeadStatus`:
+  `new`, `reviewed`, `contacted`, `discarded`;
+- `SearchRunStatus` y envelopes de error con `correlation_id`.
+
+Entregables:
+
+- Fase 17 expandida como checklist operativa de cierre;
+- matriz de capacidades cerradas con evidencia esperada;
+- referencias cruzadas actualizadas entre documentacion backend y frontend;
+- criterio de cierre aclarando la diferencia entre readiness backend y cierre
+  funcional total del producto.
+
+Checklist de verificacion reproducible:
+
+- ejecutar `npm --workspace apps/web run test`;
+- ejecutar `pytest services/workers/tests -q`;
+- revisar que los comandos documentados coincidan con el toolchain actual;
+- revisar que ejemplos HTTP, filtros, estados y envelopes de error coincidan
+  entre documentos;
+- confirmar que `GET /api/export` siga concentrando la generacion CSV en
+  backend;
+- confirmar que `has_website` siga siendo clasificacion backend y no logica del
+  frontend;
+- confirmar que runtime, configuracion y despliegue documentados no contradigan
+  el cierre MVP;
+- documentar cualquier brecha visible del frontend como brecha de producto y no
+  como incumplimiento contractual del backend.
+
+Evidencia de cierre ejecutada en el repositorio:
+
+- migraciones `001_create_mvp_schema.sql` y
+  `002_add_search_run_observability.sql` aplicadas con exito sobre PostgreSQL
+  temporal local;
+- `database/seeds/001_mvp_demo_data.sql` aplicado con exito para validar datos
+  iniciales del MVP;
+- `npm --workspace apps/web run test` ejecutado con `DATABASE_URL` apuntando a
+  PostgreSQL real: `8` archivos pasaron y `18` tests pasaron, incluyendo
+  `apps/web/lib/db/integration.test.ts`;
+- `pytest services/workers/tests -q` ejecutado con `DATABASE_URL` configurado:
+  `24` tests pasaron;
+- smoke test manual del pipeline ejecutado con `WorkerRepository` real y
+  clientes fake: una `search_run` en `pending` paso a `completed`, persistio
+  `total_found = 1` y genero un `business` normalizado en PostgreSQL;
+- el cierre backend queda validado a nivel runtime, persistencia y contrato,
+  sin depender de cuota real de Google para la verificacion final del MVP.
+
+Nota operativa:
+
+- el comando web valido para esta fase es `npm --workspace apps/web run test`;
+- no debe documentarse `vitest --runInBand` como comando de cierre porque falla
+  con la version actual del toolchain.
+
+Criterio de aceptacion:
+
+- el backend puede declararse `MVP-ready` cuando no existen contradicciones
+  entre codigo, tests, runtime, contratos compartidos y documentacion;
+- la documentacion backend y frontend describe exactamente la misma superficie
+  contractual del MVP;
+- no se introducen endpoints, campos ni reglas nuevas en esta fase;
+- cualquier brecha restante queda explicitada como brecha de frontend o de
+  producto, no como una regla pendiente del backend ya cerrado.
 
 ## 10. Testing requerido
 
@@ -1936,7 +2088,7 @@ El primer despliegue debe contemplar:
 - verificar `GET /api/businesses`;
 - verificar logs de una busqueda completa.
 
-## 12. Riesgos y decisiones futuras
+## 12. Riesgos y features posteriores al MVP
 
 ### Riesgos principales
 
@@ -1947,16 +2099,20 @@ El primer despliegue debe contemplar:
 - Deduplicacion por `name + address` puede fallar ante direcciones parciales.
 - Sin cola dedicada, el procesamiento inicial puede tener limites de volumen.
 
-### Decisiones futuras
+### Posibles features backend posteriores al MVP
 
-- agregar `lead_status` como historial;
-- agregar Redis/RabbitMQ para procesamiento asincronico real;
-- incorporar Celery o RQ;
-- soportar mas proveedores;
-- agregar validacion HTTP de dominios;
-- agregar scoring de leads;
-- agregar autenticacion y multiusuario;
-- agregar auditoria de cambios.
+- agregar historial de `lead_status` y notas con trazabilidad por cambio;
+- agregar Redis o RabbitMQ para procesamiento asincronico real;
+- incorporar un runner de jobs como Celery o RQ;
+- soportar mas proveedores ademas de Google Places;
+- agregar validacion HTTP real de dominios y redirects;
+- enriquecer la deteccion de website propio con reglas mas finas;
+- agregar scoring y priorizacion de leads;
+- agregar autenticacion, multiusuario y permisos;
+- agregar auditoria de cambios sobre leads y corridas;
+- soportar exportaciones asincronicas para datasets grandes;
+- agregar retries controlados y politicas de backoff por proveedor;
+- incorporar metricas operativas y alertas sobre fallos del worker.
 
 ## 13. Orden recomendado de implementacion real
 
@@ -1966,21 +2122,30 @@ Estado actual del roadmap:
 - Fase 12 ya esta cerrada en backend para listado, filtros, paginacion y CSV;
 - Fase 13 ya quedo implementada con trazabilidad basica, logs estructurados y
   metadata operativa persistida;
-- Fase 14 ya quedo implementada como hardening de cobertura backend,
-  route-level tests y regresiones de deduplicacion operativa;
-- Fase 15 ya quedo implementada como hardening de seguridad y configuracion
-  operativa para API routes, workers, CORS, logs, CSV y documentacion runtime.
+- Fase 14 quedo cerrada con suites de API, servicios, repositorios, contratos y
+  workers ejecutadas con exito;
+- Fase 15 queda suficientemente cubierta para el MVP en validaciones de input,
+  uso de variables de entorno y sanitizacion del acceso a datos;
+- Fase 16 queda cerrada para el MVP con runtime, comandos y migraciones
+  documentados;
+- Fase 17 queda cerrada con validacion reproducible sobre PostgreSQL real y
+  sincronizacion contractual con frontend.
 
 Siguientes pasos logicos desde el estado actual:
 
-1. Fase 16.
-2. Fase 17.
+1. ejecutar las posibles features posteriores al MVP segun prioridad de
+   producto;
+2. cerrar el frontend funcional contra las API routes reales del MVP;
+3. preparar despliegue persistente con infraestructura y secretos reales.
 
 Dependencias practicas:
 
-- Fase 15 debe mantenerse alineada con el frontend: las pantallas siguen
-  consumiendo API routes same-origin y no duplican reglas backend;
-- Fase 16 y Fase 17 ganan valor cuando el worker ya procesa corridas reales.
+- las features posteriores al MVP deben respetar `packages/shared` como fuente
+  de verdad contractual;
+- el cierre funcional del producto depende ahora mas del frontend y del
+  entorno de despliegue que del backend base;
+- cualquier nuevo proveedor o sistema de colas debe preservar la politica MVP
+  de deduplicacion, website detection y persistencia en PostgreSQL.
 
 ## 14. Notas de mantenimiento
 
