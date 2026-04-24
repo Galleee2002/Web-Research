@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
+    "design:apple": "npx getdesign@latest add apple",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
