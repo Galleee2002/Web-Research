@@ -168,6 +168,8 @@ export function BusinessesPage() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState("");
   const [notesDirty, setNotesDirty] = useState(false);
+  const [statusDraft, setStatusDraft] = useState<LeadStatus>("new");
+  const [statusDirty, setStatusDirty] = useState(false);
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaveError, setNotesSaveError] = useState<string | null>(null);
 
@@ -313,6 +315,9 @@ export function BusinessesPage() {
     const next = activeBusiness?.notes ?? "";
     setNotesDraft(next);
     setNotesDirty(false);
+    const nextStatus = activeBusiness?.status ?? "new";
+    setStatusDraft(nextStatus);
+    setStatusDirty(false);
     setNotesSaveError(null);
   }, [activeBusiness]);
 
@@ -332,16 +337,21 @@ export function BusinessesPage() {
   }, [activeBusinessId]);
 
   const handleSaveNotes = useCallback(async () => {
-    if (!activeBusiness || notesSaving || !notesDirty) return;
+    if (!activeBusiness || notesSaving || (!notesDirty && !statusDirty)) return;
 
     setNotesSaving(true);
     setNotesSaveError(null);
     try {
+      const normalizedNotes = notesDraft.trim();
       const nextStatus: LeadStatus =
-        activeBusiness.status === "new" ? "reviewed" : activeBusiness.status;
+        statusDirty
+          ? statusDraft
+          : activeBusiness.status === "new" && normalizedNotes.length > 0
+            ? "reviewed"
+            : activeBusiness.status;
       const updated = await patchBusinessById(activeBusiness.id, {
         status: nextStatus,
-        notes: notesDraft.trim() === "" ? null : notesDraft
+        notes: normalizedNotes === "" ? null : notesDraft
       });
       setActiveBusiness(updated);
       setItems((prev) =>
@@ -360,7 +370,28 @@ export function BusinessesPage() {
     } finally {
       setNotesSaving(false);
     }
-  }, [activeBusiness, notesDirty, notesDraft, notesSaving]);
+  }, [activeBusiness, notesDirty, notesDraft, notesSaving, statusDirty, statusDraft]);
+
+  const copyIfPresent = useCallback(async (rawValue: string | null) => {
+    const value = rawValue?.trim() ?? "";
+    if (value.length === 0) {
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      void 0;
+    }
+  }, []);
+
+  const copyAndOpenWebsite = useCallback(async (rawWebsite: string | null) => {
+    const website = rawWebsite?.trim() ?? "";
+    if (website.length === 0) {
+      return;
+    }
+    await copyIfPresent(website);
+    window.open(website, "_blank", "noopener,noreferrer");
+  }, [copyIfPresent]);
 
   return (
     <section
@@ -746,13 +777,26 @@ export function BusinessesPage() {
                       <section className="business-modal__section">
                         <h4 className="business-modal__subtitle">Location</h4>
                         <div className="business-modal__grid">
-                          <div className="business-modal__field">
+                          <div
+                            className="business-modal__field business-modal__field--copyable"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              void copyIfPresent(activeBusiness.address);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                void copyIfPresent(activeBusiness.address);
+                              }
+                            }}
+                          >
                             <span className="business-modal__label">Address</span>
                             <span className="business-modal__value">
                               {toLabelValue(activeBusiness.address)}
                             </span>
                           </div>
-                          <div className="business-modal__field">
+                          <div className="business-modal__field business-modal__field--hoverable">
                             <span className="business-modal__label">City, Country - Region</span>
                             <span className="business-modal__value">
                               {[activeBusiness.city, activeBusiness.country]
@@ -780,27 +824,42 @@ export function BusinessesPage() {
                       <section className="business-modal__section">
                         <h4 className="business-modal__subtitle">Contact</h4>
                         <div className="business-modal__grid">
-                          <div className="business-modal__field">
+                          <div
+                            className="business-modal__field business-modal__field--copyable"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              void copyIfPresent(activeBusiness.phone);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                void copyIfPresent(activeBusiness.phone);
+                              }
+                            }}
+                          >
                             <span className="business-modal__label">Phone</span>
                             <span className="business-modal__value">
                               {toLabelValue(activeBusiness.phone)}
                             </span>
                           </div>
-                          <div className="business-modal__field">
+                          <div
+                            className="business-modal__field business-modal__field--copyable"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => {
+                              void copyAndOpenWebsite(activeBusiness.website);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.preventDefault();
+                                void copyAndOpenWebsite(activeBusiness.website);
+                              }
+                            }}
+                          >
                             <span className="business-modal__label">Website</span>
                             <span className="business-modal__value">
-                              {activeBusiness.website ? (
-                                <a
-                                  href={activeBusiness.website}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="business-modal__link"
-                                >
-                                  {activeBusiness.website}
-                                </a>
-                              ) : (
-                                "—"
-                              )}
+                              {toLabelValue(activeBusiness.website)}
                             </span>
                           </div>
                         </div>
@@ -808,21 +867,77 @@ export function BusinessesPage() {
 
                       <section className="business-modal__section">
                         <div className="business-modal__subtitle-row">
-                          <h4 className="business-modal__subtitle">Notes</h4>
-                          {notesDirty ? (
-                            <button
-                              type="button"
-                              className="business-modal__save-notes"
-                              onClick={() => {
-                                void handleSaveNotes();
-                              }}
-                              disabled={notesSaving}
-                            >
-                              <Save className="business-modal__save-notes-icon" aria-hidden />
-                              {notesSaving ? "Saving..." : "Save"}
-                            </button>
-                          ) : null}
+                          <h4 className="business-modal__subtitle">Change Status Or add notes</h4>
+                          <button
+                            type="button"
+                            className={[
+                              "business-modal__save-notes",
+                              !notesDirty && !statusDirty && !notesSaving
+                                ? "business-modal__save-notes--placeholder"
+                                : ""
+                            ]
+                              .filter(Boolean)
+                              .join(" ")}
+                            onClick={() => {
+                              void handleSaveNotes();
+                            }}
+                            disabled={
+                              notesSaving || (!notesDirty && !statusDirty)
+                            }
+                            aria-hidden={
+                              !notesDirty && !statusDirty && !notesSaving
+                                ? true
+                                : undefined
+                            }
+                            tabIndex={
+                              !notesDirty && !statusDirty && !notesSaving ? -1 : undefined
+                            }
+                            aria-label={
+                              notesSaving
+                                ? "Saving changes"
+                                : "Save status and notes changes"
+                            }
+                            title={
+                              notesSaving
+                                ? "Saving changes"
+                                : "Save status and notes changes"
+                            }
+                          >
+                            <Save className="business-modal__save-notes-icon" aria-hidden />
+                          </button>
                         </div>
+                        <SelectMenu<LeadStatus>
+                          ariaLabel="Change business status"
+                          value={statusDraft}
+                          onChange={(nextStatus) => {
+                            setStatusDraft(nextStatus);
+                            setStatusDirty(nextStatus !== activeBusiness.status);
+                            setNotesSaveError(null);
+                          }}
+                          rootClassName="business-modal__status-select"
+                          triggerClassName="businesses-select__trigger businesses-select__trigger--status"
+                          options={(function () {
+                            const hasNotes = (activeBusiness.notes ?? "").trim().length > 0;
+                            const opts: { value: LeadStatus; label: string }[] = [];
+                            if (
+                              activeBusiness.status !== "new" &&
+                              !(activeBusiness.status === "reviewed" && hasNotes)
+                            ) {
+                              opts.push({ value: "new", label: "New" });
+                            }
+                            opts.push({ value: "contacted", label: "Contacted" });
+                            opts.push({ value: "discarded", label: "Discarded" });
+                            return opts;
+                          })()}
+                          triggerContent={
+                            <span className="businesses-select__trigger-label">
+                              {statusLabel(statusDraft)}
+                            </span>
+                          }
+                        />
+                      </section>
+
+                      <section className="business-modal__section business-modal__section--notes">
                         <textarea
                           className="business-modal__notes-input"
                           value={notesDraft}

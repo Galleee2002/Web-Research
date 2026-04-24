@@ -136,6 +136,18 @@
   border-bottom: 1px solid var(--border-soft);
 }
 
+@media (min-width: 1025px) {
+  .businesses-toolbar {
+    margin-left: -1.25rem;
+    margin-right: -1.25rem;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    background: color-mix(in srgb, var(--surface-01) 78%, transparent);
+    -webkit-backdrop-filter: saturate(180%) blur(22px);
+    backdrop-filter: saturate(180%) blur(22px);
+  }
+}
+
 .businesses-search {
   flex: 1 1 12rem;
   min-width: 0;
@@ -146,7 +158,7 @@
   padding: 0 0.85rem;
   border-radius: 0.7rem;
   border: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--surface-01) 70%, transparent);
+  background: var(--surface-01);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease;
@@ -209,7 +221,7 @@
   padding: 0 0.75rem;
   border-radius: 0.7rem;
   border: 1px solid var(--border-soft);
-  background: color-mix(in srgb, var(--surface-01) 70%, transparent);
+  background: var(--surface-01);
   color: var(--text-primary);
   font: inherit;
   font-size: 0.875rem;
@@ -690,6 +702,10 @@
   margin-top: 1rem;
 }
 
+.business-modal__section + .business-modal__section--notes {
+  margin-top: 0;
+}
+
 .business-modal__subtitle {
   margin: 0 0 0.55rem;
   font-size: 0.88rem;
@@ -703,11 +719,22 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.65rem;
+  gap: 0.85rem;
+  min-height: 2.5rem;
+  padding-block: 0.4rem 0.55rem;
+  padding-inline-end: 0.35rem;
 }
 
 .business-modal__subtitle-row .business-modal__subtitle {
   margin-bottom: 0;
+}
+
+.business-modal__status-select {
+  width: 100%;
+}
+
+.business-modal__status-select .businesses-select__trigger {
+  width: 100%;
 }
 
 .business-modal__grid {
@@ -721,6 +748,33 @@
   border: 1px solid var(--border-soft);
   border-radius: 0.7rem;
   background: color-mix(in srgb, var(--surface-01) 72%, transparent);
+}
+
+.business-modal__field--copyable {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.business-modal__field--copyable:hover {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--border-soft));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-01));
+}
+
+.business-modal__field--hoverable {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.business-modal__field--hoverable:hover {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--border-soft));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-01));
+}
+
+.business-modal__field--copyable:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
 }
 
 .business-modal__label {
@@ -805,18 +859,37 @@
 .business-modal__save-notes {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
   min-height: 32px;
-  padding: 0 0.62rem;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border-soft));
+  padding: 0;
+  border: 1px solid var(--border-soft);
   border-radius: 0.6rem;
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
-  font: inherit;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  background: var(--surface-01);
+  color: var(--text-secondary);
   cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.business-modal__save-notes:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--text-primary) 24%, var(--border-soft));
+  background: color-mix(in srgb, var(--surface-01) 88%, #fff);
+  color: var(--text-primary);
+}
+
+/* Ocupa siempre el mismo espacio; invisible y no interactivo hasta que haya cambios. */
+.business-modal__save-notes--placeholder {
+  opacity: 0;
+  pointer-events: none;
+  cursor: default;
+}
+
+.business-modal__save-notes--placeholder:disabled {
+  opacity: 0;
 }
 
 .business-modal__save-notes:disabled {
