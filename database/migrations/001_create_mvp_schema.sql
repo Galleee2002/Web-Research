@@ -49,7 +49,7 @@ create table if not exists businesses (
   constraint businesses_source_allowed check (source in ('google_places')),
   constraint businesses_name_not_empty check (length(btrim(name)) > 0),
   constraint businesses_status_allowed check (
-    status in ('new', 'reviewed', 'contacted', 'discarded')
+    status in ('new', 'reviewed', 'contacted', 'discarded', 'opportunities')
   ),
   constraint businesses_lat_range check (lat is null or (lat >= -90 and lat <= 90)),
   constraint businesses_lng_range check (lng is null or (lng >= -180 and lng <= 180)),
