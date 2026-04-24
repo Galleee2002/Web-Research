@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
+  parseBusinessFilters,
   parseBusinessStatusUpdate,
   parsePaginationParams,
   parseSearchCreate,
+  parseSearchFilters,
 } from "./index";
 
 describe("shared contracts", () => {
@@ -62,5 +64,58 @@ describe("shared contracts", () => {
     }
 
     expect(parseBusinessStatusUpdate({ status: "archived" }).ok).toBe(false);
+  });
+
+  it("parses business filters used by the dashboard and rejects unsupported order fields", () => {
+    const result = parseBusinessFilters({
+      page: "2",
+      page_size: "999",
+      has_website: "false",
+      status: "new",
+      city: " Buenos Aires ",
+      category: " Dentist ",
+      query: " centro ",
+      order_by: "city",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual({
+        page: 2,
+        page_size: MAX_PAGE_SIZE,
+        has_website: false,
+        status: "new",
+        city: "Buenos Aires",
+        category: "Dentist",
+        query: "centro",
+        order_by: "city",
+      });
+    }
+
+    expect(parseBusinessFilters({ order_by: "category" }).ok).toBe(false);
+    expect(parseBusinessFilters({ has_website: "maybe" }).ok).toBe(false);
+    expect(parseBusinessFilters({ page: "0" }).ok).toBe(false);
+    expect(parseBusinessFilters({ page_size: "abc" }).ok).toBe(false);
+  });
+
+  it("parses search filters with source default and rejects invalid status", () => {
+    const result = parseSearchFilters({
+      page: "3",
+      page_size: "5",
+      status: "completed",
+      source: "google_places",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual({
+        page: 3,
+        page_size: 5,
+        status: "completed",
+        source: "google_places",
+      });
+    }
+
+    expect(parseSearchFilters({ status: "archived" }).ok).toBe(false);
   });
 });

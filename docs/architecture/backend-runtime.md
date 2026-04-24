@@ -2,22 +2,28 @@
 
 ## Objetivo
 
-Este documento describe el runtime backend actual de Business Lead Finder:
-API routes Next.js, repositorios PostgreSQL, workers Python, clientes Google,
-normalizacion externa, deteccion de website propio y deduplicacion idempotente
-worker-side. La orquestacion completa de ingesta queda para fases posteriores.
+Este documento es el runbook operativo actual del backend MVP de Business Lead
+Finder. Resume como levantar la aplicacion web, preparar PostgreSQL, ejecutar
+el worker y validar que los contratos HTTP siguen consistentes con el frontend.
 
-El repositorio ya incluye migraciones PostgreSQL, API CRUD base, clientes
-Google Places/Geocoding y un worker Python capaz de procesar `search_runs`
-pendientes para persistir negocios en PostgreSQL con trazabilidad operativa
-basica por `correlation_id`.
+La topologia soportada hoy es:
+
+- `apps/web` despliega frontend y API routes same-origin;
+- las API routes corren en runtime Node.js, no Edge;
+- PostgreSQL debe ser alcanzable desde la app web;
+- el worker Python corre en modo batch, drena `search_runs` pendientes y
+  termina;
+- en produccion el worker debe invocarse desde cron o un scheduler externo,
+  no como daemon continuo del repo;
+- Docker o containerizacion no son requisito de esta fase.
 
 ## Requisitos
 
 - Node.js compatible con Next.js 15.
 - npm para instalar workspaces.
 - Python 3.11 o superior.
-- PostgreSQL disponible cuando se quiera validar conectividad real.
+- PostgreSQL disponible y una base modificable para aplicar migraciones.
+- Cliente `psql` disponible para correr migraciones y seed.
 
 ## Variables de entorno
 
@@ -27,8 +33,10 @@ locales cuando corresponda.
 Variables definidas:
 
 - `APP_ENV`: entorno de ejecucion, default esperado `development`.
-- `DATABASE_URL`: conexion PostgreSQL.
-- `GOOGLE_PLACES_API_KEY`: API key de Google Places, no requerida para tests.
+- `DATABASE_URL`: conexion PostgreSQL. Requerida en `production` para la web y
+  requerida en la practica para ejecutar el worker.
+- `GOOGLE_PLACES_API_KEY`: API key de Google Places. Requerida en
+  `production` para web y worker.
 - `GOOGLE_GEOCODING_API_KEY`: API key opcional para Geocoding. Si queda vacia,
   el worker usa `GOOGLE_PLACES_API_KEY`.
 - `GOOGLE_REQUEST_TIMEOUT_SECONDS`: timeout por request a Google, default `10`.
@@ -38,14 +46,80 @@ Variables definidas:
   default `.worker-state/google-api-quota.json`.
 - `DEFAULT_PAGE_SIZE`: paginacion default.
 - `MAX_PAGE_SIZE`: limite maximo de paginacion.
-- `LOG_LEVEL`: nivel de logging.
+- `LOG_LEVEL`: nivel de logging (`debug`, `info`, `warn`, `warning` o
+  `error` en workers; `debug`, `info`, `warn` o `error` en web).
+- `ALLOWED_ORIGINS`: lista separada por comas de origins permitidos para CORS.
+  Vacio significa politica same-origin, que es el default del MVP.
+- `API_JSON_BODY_LIMIT_BYTES`: limite maximo para requests JSON en API routes,
+  default `1000000`.
+- `DB_POOL_MAX`: conexiones maximas del pool web PostgreSQL, default `10`.
+- `DB_IDLE_TIMEOUT_MS`: timeout idle del pool web, default `10000`.
+- `DB_CONNECTION_TIMEOUT_MS`: timeout de conexion PostgreSQL, default `1500`.
+- `DB_QUERY_TIMEOUT_MS`: timeout de query PostgreSQL, default `10000`.
+- `DB_SSL`: `disable`/`false` o `require`/`true` para conexiones PostgreSQL
+  desde la app web.
 
 Los secretos reales no deben versionarse.
 
 El directorio `.worker-state/` es local y no debe versionarse. Si se elimina,
-el contador diario del worker se reinicia.
+el contador diario del worker se reinicia. En entornos con filesystem efimero,
+ese estado tambien puede resetearse entre ejecuciones.
 
-## Comandos
+En `production`, la app web falla al cargar configuracion si faltan
+`DATABASE_URL` o `GOOGLE_PLACES_API_KEY`. El worker aplica la misma regla en
+produccion y mantiene defaults permisivos solo para desarrollo y tests.
+
+## Variables minimas por proceso
+
+### Web
+
+- `APP_ENV`
+- `DATABASE_URL`
+- `GOOGLE_PLACES_API_KEY`
+- `DB_SSL`
+- `ALLOWED_ORIGINS`
+- `API_JSON_BODY_LIMIT_BYTES`
+- `DB_POOL_MAX`
+- `DB_IDLE_TIMEOUT_MS`
+- `DB_CONNECTION_TIMEOUT_MS`
+- `DB_QUERY_TIMEOUT_MS`
+- `LOG_LEVEL`
+
+### Worker
+
+- `APP_ENV`
+- `DATABASE_URL`
+- `GOOGLE_PLACES_API_KEY`
+- `GOOGLE_GEOCODING_API_KEY`
+- `GOOGLE_REQUEST_TIMEOUT_SECONDS`
+- `GOOGLE_DAILY_REQUEST_LIMIT`
+- `GOOGLE_QUOTA_STATE_PATH`
+- `DEFAULT_PAGE_SIZE`
+- `MAX_PAGE_SIZE`
+- `LOG_LEVEL`
+
+## Seguridad operativa
+
+Las API routes son same-origin por defecto. Si `ALLOWED_ORIGINS` contiene
+origins explicitos, las respuestas y preflight `OPTIONS` agregan CORS solo para
+esos origins; origins no listados no reciben `Access-Control-Allow-Origin`.
+
+Las rutas rechazan `X-Correlation-Id` con caracteres no operativos o mas de 128
+caracteres y generan un correlation id nuevo para responder el error. Los
+requests JSON con `Content-Length` superior a `API_JSON_BODY_LIMIT_BYTES` se
+rechazan antes de parsear el body.
+
+Los logs de API y worker redactan API keys, `DATABASE_URL` y parametros
+sensibles `key=`. Los errores HTTP conservan el envelope publico con
+`error.correlation_id`, pero no exponen detalles internos de PostgreSQL.
+
+La exportacion CSV neutraliza valores que podrian ejecutarse como formulas en
+planillas. La normalizacion de URLs acepta solo `http` y `https`; redes
+sociales, Google Maps y directorios no cuentan como website propio.
+
+## Bootstrap local
+
+### 1. Instalar dependencias
 
 Instalar dependencias Node:
 
@@ -59,38 +133,98 @@ Instalar workers Python en modo editable con dependencias de test:
 python3 -m pip install -e 'services/workers[test]'
 ```
 
-Arrancar Next.js:
+### 2. Crear y configurar `.env`
+
+Copiar `.env.example` a `.env` y ajustar al menos:
+
+- `APP_ENV`
+- `DATABASE_URL`
+- `GOOGLE_PLACES_API_KEY`
+- `DB_SSL` si PostgreSQL requiere SSL
+- `GOOGLE_GEOCODING_API_KEY` si se quiere separar esa credencial
+
+### 3. Aplicar migraciones
+
+Ejecutar en este orden:
+
+```sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/001_create_mvp_schema.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/002_add_search_run_observability.sql
+```
+
+### 4. Aplicar seed de desarrollo
+
+Solo para desarrollo local o demos:
+
+```sh
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/seeds/001_mvp_demo_data.sql
+```
+
+### 5. Levantar la web
+
+Desarrollo:
 
 ```sh
 ./scripts/dev/start-web.sh
 ```
 
-Ejecutar worker para procesar `search_runs` pendientes:
+### 6. Ejecutar el worker
+
+El worker procesa `search_runs` pendientes, persiste resultados y termina.
 
 ```sh
 ./scripts/dev/run-worker.sh
 ```
 
-Ejecutar tests web:
+### 7. Ejecutar tests
+
+Web:
 
 ```sh
 npm --workspace apps/web run test
 ```
 
-Ejecutar tests workers:
+Workers:
 
 ```sh
 ./scripts/dev/test-workers.sh
 ```
 
-## Healthcheck
+## Arranque productivo
+
+Build web:
+
+```sh
+npm --workspace apps/web run build
+```
+
+Start web:
+
+```sh
+npm --workspace apps/web run start
+```
+
+Worker batch:
+
+```sh
+python3 -m workers
+```
+
+El modo operativo esperado en produccion es disparar ese comando desde cron o
+un scheduler externo. El repositorio no define hoy un servicio persistente para
+el worker.
+
+## Healthcheck operativo
 
 `GET /api/health` responde el estado de la app.
 
 - Sin `DATABASE_URL`, responde `200` y marca la base como no configurada.
 - Con `DATABASE_URL`, intenta `select 1`.
-- Si PostgreSQL no responde, devuelve `503` y marca la base como no alcanzable.
+- Si PostgreSQL no responde, devuelve `503`, marca la base como no alcanzable y
+  responde un error generico sin filtrar el mensaje crudo de conexion.
 - El endpoint mantiene logging consistente con el resto de las API routes.
+
+Se usa como smoke check operativo, no como dependencia funcional del frontend.
 
 ## Correlation ID y errores HTTP
 
@@ -153,3 +287,26 @@ semiestructurado y `LOG_LEVEL` controla el nivel de salida.
 
 Si falta `DATABASE_URL`, el worker falla con mensaje claro porque no puede
 procesar corridas pendientes.
+
+## Checklist de smoke test de despliegue
+
+1. `GET /api/health` responde correctamente desde el host desplegado.
+2. `GET /api/businesses` devuelve `items`, `total`, `page` y `page_size`.
+3. `GET /api/businesses/{id}` devuelve un negocio existente.
+4. `PATCH /api/businesses/{id}` actualiza `status` y/o `notes` y persiste el
+   cambio.
+5. `POST /api/search` crea una corrida valida.
+6. Ejecutar `python3 -m workers` o el comando equivalente del scheduler.
+7. Verificar que la corrida actualiza `search_runs.status`, `total_found`,
+   `correlation_id` y `observability`.
+8. Ejecutar `npm test` y `npm run workers:test` como validacion final del
+   entorno.
+
+## Limitaciones relevantes del MVP actual
+
+- El frontend consume rutas relativas `/api/...`, por lo que la topologia
+  soportada en esta fase es same-origin.
+- No existe `API_BASE_URL` para separar frontend y backend.
+- La UI actual no expone toda la superficie documentada del backend.
+- La pantalla de negocios aplica ordenamiento local sobre el resultado cargado;
+  eso no equivale a un orden global del dataset backend.

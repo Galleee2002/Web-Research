@@ -39,3 +39,27 @@ def test_settings_prefer_specific_geocoding_key(monkeypatch):
     settings = WorkerSettings(_env_file=None)
 
     assert settings.effective_google_geocoding_api_key == "geocoding-key"
+
+
+def test_settings_reject_invalid_log_level(monkeypatch):
+    monkeypatch.setenv("LOG_LEVEL", "verbose")
+
+    try:
+        WorkerSettings(_env_file=None)
+    except ValueError as exc:
+        assert "LOG_LEVEL" in str(exc) or "log_level" in str(exc)
+    else:
+        raise AssertionError("expected invalid LOG_LEVEL to fail")
+
+
+def test_settings_require_production_secrets(monkeypatch):
+    monkeypatch.setenv("APP_ENV", "production")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("GOOGLE_PLACES_API_KEY", raising=False)
+
+    try:
+        WorkerSettings(_env_file=None)
+    except ValueError as exc:
+        assert "DATABASE_URL" in str(exc)
+    else:
+        raise AssertionError("expected missing production secrets to fail")

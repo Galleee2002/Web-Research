@@ -51,7 +51,7 @@ describe("GET /api/health", () => {
         configured: true,
         reachable: false
       });
-      expect(body.database.error).toEqual(expect.any(String));
+      expect(body.database.error).toBe("Database is not reachable");
     } finally {
       if (previousDatabaseUrl === undefined) {
         delete process.env.DATABASE_URL;

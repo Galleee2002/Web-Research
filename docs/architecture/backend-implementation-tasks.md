@@ -1475,28 +1475,136 @@ Criterio de aceptacion:
 
 ### Fase 14 - Testing backend
 
+Estado:
+
+- implementada como fase de hardening de cobertura;
+- consolida la cobertura previa en contratos compartidos, servicios,
+  repositorios, utilidades CSV, healthcheck, `POST /api/search`,
+  normalizacion, website detection, clientes Google mockeados, deduplicacion y
+  pipeline del worker;
+- agrega cobertura route-level para los endpoints consumidos por frontend y
+  fija invariantes de deduplicacion operativa del worker.
+
 Objetivo:
 
-- cubrir reglas criticas antes de ampliar el sistema.
+- cubrir reglas criticas antes de ampliar seguridad, configuracion operativa y
+  despliegue;
+- fijar con tests los contratos HTTP que consume el dashboard;
+- evitar regresiones en deduplicacion, website detection, CSV, errores con
+  `correlation_id` y orquestacion worker -> PostgreSQL.
 
-Tareas:
+Cobertura ya existente:
 
-- tests de API routes;
-- tests de repositorios;
-- tests de servicios;
-- tests de normalizacion;
-- tests de website detection;
-- tests de deduplicacion;
-- tests de export CSV;
-- mocks de Google Places y Google Geocoding.
+- `packages/shared/contracts.test.ts` cubre contratos base compartidos;
+- `apps/web/app/api/health/route.test.ts` cubre healthcheck y errores
+  operativos basicos;
+- `apps/web/app/api/search/route.test.ts` cubre validacion, JSON invalido y
+  propagacion de `X-Correlation-Id` para crear busquedas;
+- `apps/web/lib/db/businesses.test.ts` y `apps/web/lib/db/searches.test.ts`
+  cubren builders SQL parametrizados;
+- `apps/web/lib/services/business-service.test.ts` y
+  `apps/web/lib/services/search-service.test.ts` cubren delegacion de servicios
+  hacia repositorios;
+- `apps/web/lib/utils/csv.test.ts` cubre serializacion CSV;
+- `services/workers/tests/test_google_clients.py` cubre Google Places y
+  Geocoding con `httpx.MockTransport`, sin red ni consumo de cuota;
+- `services/workers/tests/test_normalization.py` cubre mapeo de Google Places y
+  enriquecimiento con Geocoding;
+- `services/workers/tests/test_website_detection.py` cubre redes sociales,
+  directorios, URLs invalidas y dominios propios;
+- `services/workers/tests/test_business_dedup.py`,
+  `services/workers/tests/test_business_upsert.py`,
+  `services/workers/tests/test_repository.py` y
+  `services/workers/tests/test_pipeline.py` cubren deduplicacion, merge
+  conservador, pipeline exitoso y fallos de proveedor.
+
+Gaps cerrados:
+
+1. API routes que consume el frontend:
+   - `apps/web/app/api/searches/route.test.ts`;
+   - `apps/web/app/api/businesses/route.test.ts`;
+   - `apps/web/app/api/businesses/[id]/route.test.ts`;
+   - `apps/web/app/api/export/route.test.ts`.
+2. Contrato de errores:
+   - se verifica `validation_error`, `not_found`, `invalid_json`,
+     `database_error` o `internal_error` segun corresponda;
+   - se verifica que los errores HTTP incluyan `error.correlation_id`;
+   - se verifica que `X-Correlation-Id` entrante se respeta cuando se provee.
+3. Contrato frontend:
+   - se protege que `GET /api/businesses` devuelve `items`, `total`, `page` y
+     `page_size`;
+   - se protegen campos usados por UI en listado: `id`, `name`, `city`,
+     `category`, `has_website`, `status`, `phone`, `website` y `maps_url`;
+   - se protegen campos usados por UI en detalle: `notes`, `address`, `region`,
+     `country`, `lat`, `lng`, `created_at` y `updated_at`;
+   - se protege que el backend acepta solo
+     `order_by = created_at | name | city`, aunque la UI pueda ordenar
+     localmente por otros campos.
+4. CSV:
+   - se verifican headers `Content-Type: text/csv; charset=utf-8` y
+     `Content-Disposition: attachment; filename="business-leads.csv"`;
+   - se verifican columnas estables:
+     `name,category,address,city,phone,website,has_website,status,maps_url`;
+   - se verifica que exportacion reutiliza los filtros de `GET /api/businesses`
+     y no genera CSV desde frontend.
+5. Deduplicacion operativa del worker:
+   - se agregan tests sobre `services/workers/src/workers/repository.py` para
+     que el fallback `name + address` no fusione contra registros con
+     `external_id` distinto;
+   - se agrega test de normalizacion de dedupe con diacriticos en la ruta
+     operativa del worker, alineada con la regla documentada de
+     `name + address`.
+6. Integracion PostgreSQL:
+   - los tests unitarios se mantienen ejecutables sin `DATABASE_URL`;
+   - se amplian tests opt-in con `DATABASE_URL` en
+     `apps/web/lib/db/integration.test.ts` para validar contratos de
+     repositorios sobre PostgreSQL real;
+   - los tests automatizados por defecto no deben depender de Google real ni de
+     una base externa.
+
+Implementacion realizada:
+
+1. Contratos compartidos:
+   - `parseBusinessFilters` cubre `has_website=true|false`, filtros
+     vacios omitidos, `city`, `category`, `query`, `page_size` capeado y
+     `order_by` invalido;
+   - `parseBusinessStatusUpdate` cubre `notes` omitido y `null`.
+2. Route tests de Next.js:
+   - los servicios se mockean para evitar depender de PostgreSQL;
+   - se valida happy path y error path de `/api/searches`;
+   - se valida happy path, filtros y errores de `/api/businesses`;
+   - se valida `GET` y `PATCH` de `/api/businesses/[id]`, incluyendo UUID
+     invalido, recurso inexistente, `notes: null` y JSON invalido;
+   - se valida CSV y headers de `/api/export`.
+3. Repositorios y servicios:
+   - los tests de servicios se mantienen livianos, centrados en delegacion y
+     semantica de `notes`;
+   - los builders SQL aseguran que listado y export comparten
+     filtros y que export no aplica `limit/offset`.
+4. Worker:
+   - se agregan tests unitarios al repositorio operativo del worker para reglas
+     de deduplicacion documentadas;
+   - la normalizacion operativa de dedupe ahora remueve diacriticos;
+   - el fallback `name + address` ya no deduplica contra filas con
+     `external_id` existente distinto.
+5. Integracion opt-in con PostgreSQL:
+   - `apps/web/lib/db/integration.test.ts` valida creacion/listado de
+     `search_runs`;
+   - valida actualizacion de lead preservando notas omitidas y limpiando
+     `notes = null`;
+   - se salta automaticamente cuando no existe `DATABASE_URL`.
 
 Casos minimos:
 
 - crear busqueda valida;
 - rechazar busqueda invalida;
+- listar busquedas paginadas;
 - listar negocios paginados;
 - filtrar negocios sin website;
+- rechazar filtros invalidos y ordenamientos no soportados;
+- obtener detalle de negocio;
 - actualizar estado del lead;
+- preservar notas cuando `notes` se omite y limpiarlas cuando `notes = null`;
 - exportar CSV;
 - normalizar payload de Google Places;
 - enriquecer ubicacion con payload mock de Google Geocoding cuando falten datos
@@ -1504,69 +1612,235 @@ Casos minimos:
 - clasificar redes sociales como no website propio;
 - evitar duplicados por `external_id + source`;
 - evitar duplicados por `name + address`;
+- evitar merge por `name + address` contra un registro existente con
+  `external_id` distinto;
 - manejar errores del proveedor externo sin romper la API.
 
 Entregables:
 
-- suite base de tests;
-- fixtures;
-- mocks de proveedor.
+- route tests para endpoints consumidos por frontend;
+- tests adicionales de contratos compartidos;
+- tests reforzados de repositorios SQL, integracion opt-in y CSV;
+- tests reforzados del repositorio operativo del worker;
+- fixtures y fakes de proveedor reutilizables;
+- suite por defecto sin red ni Google real.
 
 Criterio de aceptacion:
 
-- las reglas centrales pueden cambiarse con feedback inmediato de tests.
+- `npm test -- --run` pasa sin requerir `DATABASE_URL` ni red externa;
+- `./scripts/dev/test-workers.sh` pasa sin requerir credenciales reales de
+  Google;
+- `npm run typecheck` pasa;
+- los tests opt-in con `DATABASE_URL` pueden validar contratos de repositorio
+  sobre una base local con migraciones aplicadas;
+- las reglas centrales pueden cambiarse con feedback inmediato de tests;
+- el frontend queda protegido por tests backend de los contratos HTTP que
+  consume, sin duplicar reglas de negocio en componentes UI.
+
+Siguiente paso recomendado:
+
+- continuar con Fase 15 para seguridad, configuracion operativa y
+  endurecimiento de inputs;
+- mantener la suite route-level como proteccion de contrato antes de integrar
+  nuevos controles frontend;
+- si se dispone de PostgreSQL local, ejecutar la suite con `DATABASE_URL`
+  despues de aplicar migraciones y seeds para cubrir la ruta opt-in.
 
 ### Fase 15 - Seguridad y configuracion operativa
+
+Estado:
+
+- implementada como hardening operativo del backend web y workers;
+- mantiene los contratos funcionales que consume el frontend;
+- conserva CORS same-origin por defecto y agrega allowlist opcional mediante
+  `ALLOWED_ORIGINS`;
+- no agrega autenticacion porque multiusuario y control de acceso siguen fuera
+  del MVP, pero queda documentado como decision previa a exposicion publica.
 
 Objetivo:
 
 - preparar el backend para operar sin exponer secretos ni aceptar input riesgoso.
 
-Tareas:
+Implementacion realizada:
 
-- cargar secretos desde variables de entorno;
-- evitar hardcodear API keys;
-- configurar CORS segun ambiente;
-- limitar longitudes de `query`, `location`, `notes` y filtros;
-- validar URLs;
-- sanitizar parametros de ordenamiento;
-- evitar interpolacion SQL manual.
+1. Configuracion web:
+   - se agrega `apps/web/lib/config/runtime.ts` para validar `APP_ENV`,
+     `LOG_LEVEL`, `ALLOWED_ORIGINS`, limite de body JSON, pool PostgreSQL y
+     `DB_SSL`;
+   - en `production`, la app web requiere `DATABASE_URL` y
+     `GOOGLE_PLACES_API_KEY`;
+   - `.env.example` documenta los nuevos placeholders operativos.
+2. API routes:
+   - el envelope de error conserva `error.code`, `error.message`,
+     `error.correlation_id` y `error.details`;
+   - `X-Correlation-Id` se acepta solo con caracteres operativos y maximo 128
+     caracteres;
+   - requests JSON con `Content-Length` mayor a
+     `API_JSON_BODY_LIMIT_BYTES` se rechazan antes de parsear;
+   - CORS responde solo a origins configurados en `ALLOWED_ORIGINS`; sin esa
+     variable, el backend queda same-origin;
+   - se agregan preflight `OPTIONS` a las API routes actuales.
+3. Headers y healthcheck:
+   - `next.config.ts` define headers basicos: `X-Content-Type-Options`,
+     `Referrer-Policy`, `X-Frame-Options` y CSP compatible con el dashboard y
+     embeds de Google Maps;
+   - `GET /api/health` ya no expone mensajes crudos de conexion PostgreSQL.
+4. Validacion y persistencia:
+   - filtros de negocios y busquedas rechazan `page` y `page_size` invalidos
+     con `validation_error` en vez de coercion silenciosa;
+   - `order_by` sigue sanitizado mediante allowlist;
+   - SQL dinamico sigue limitado a builders parametrizados.
+5. Workers:
+   - `WorkerSettings` valida entorno, log level y rangos numericos;
+   - en `production`, el worker requiere `DATABASE_URL` y
+     `GOOGLE_PLACES_API_KEY`;
+   - logs y errores persistidos redactan `DATABASE_URL`, API keys y parametros
+     `key=`;
+   - normalizacion operativa acepta solo URLs `http`/`https` para mapas y
+     websites, y mantiene redes sociales/directorios como no website propio.
+6. CSV:
+   - exportacion neutraliza valores que podrian ejecutarse como formulas en
+     planillas.
 
 Entregables:
 
 - settings seguros;
 - documentacion de `.env`;
 - validaciones de input.
+- redaccion de logs;
+- CORS same-origin con allowlist opcional;
+- headers de seguridad basicos;
+- tests de configuracion, hardening de API, CSV, normalizacion y workers.
 
 Criterio de aceptacion:
 
-- el sistema puede correr en desarrollo y produccion con configuracion externa.
+- el sistema puede correr en desarrollo y produccion con configuracion externa;
+- las API routes mantienen los contratos HTTP del frontend;
+- los tests backend pasan sin requerir Google real ni base externa;
+- errores publicos no filtran secretos ni mensajes crudos de PostgreSQL.
+
+Siguiente paso recomendado:
+
+- continuar con Fase 16 para documentar despliegue reproducible, bootstrap de
+  entorno nuevo, migraciones, comandos de worker y checklist operativo por
+  ambiente;
+- antes de un deploy publico, decidir una puerta minima de acceso porque el MVP
+  aun no incluye autenticacion ni multiusuario.
 
 ### Fase 16 - Preparacion para despliegue
 
+Estado:
+
+- fase de documentacion operativa y estandarizacion de bootstrap;
+- no agrega nuevas reglas de negocio ni endpoints;
+- no cambia contratos frontend/backend.
+
 Objetivo:
 
-- dejar una forma reproducible de levantar backend y workers.
+- permitir que un entorno nuevo levante web, DB y worker siguiendo una
+  secuencia unica y verificable.
 
-Tareas:
+Implementacion requerida:
 
-- documentar comandos de install;
-- documentar comandos de build;
-- documentar comandos de migracion;
-- documentar comando de worker;
-- documentar variables requeridas;
-- agregar Dockerfile si se decide containerizar;
-- agregar docker-compose local con PostgreSQL si se prioriza DX.
+1. Topologia y alcance operativo:
+   - declarar `apps/web` como unidad desplegable del MVP para frontend y API
+     routes same-origin;
+   - dejar explicito que las API routes corren en runtime Node.js, no Edge;
+   - documentar que PostgreSQL debe ser alcanzable desde la app web;
+   - documentar que el worker Python es batch/one-shot, drena corridas
+     pendientes y termina;
+   - dejar definido que produccion usa `cron` o scheduler externo para el
+     worker, no un daemon continuo;
+   - registrar que Docker y `docker-compose` quedan como opcion futura no
+     bloqueante.
+2. Bootstrap reproducible:
+   - declarar `npm` como package manager operativo del repo;
+   - fijar prerequisitos minimos: Node compatible con Next.js 15, npm,
+     Python 3.11+, PostgreSQL y `psql`;
+   - documentar `.env` desde `.env.example`;
+   - documentar `DATABASE_URL` y la necesidad de una base PostgreSQL
+     modificable;
+   - documentar instalacion oficial:
+     - `npm install`;
+     - `python3 -m pip install -e 'services/workers[test]'`.
+3. Base de datos:
+   - documentar migraciones en orden exacto:
+     - `database/migrations/001_create_mvp_schema.sql`;
+     - `database/migrations/002_add_search_run_observability.sql`;
+   - documentar `database/seeds/001_mvp_demo_data.sql` solo para desarrollo y
+     demos, no como requisito de produccion.
+4. Ejecucion:
+   - documentar arranque web en desarrollo con
+     `./scripts/dev/start-web.sh`;
+   - documentar arranque web en produccion con
+     `npm --workspace apps/web run build` y
+     `npm --workspace apps/web run start`;
+   - documentar ejecucion del worker con:
+     - `./scripts/dev/run-worker.sh`;
+     - `python3 -m workers`.
+5. Variables por proceso:
+   - documentar para web:
+     `APP_ENV`, `DATABASE_URL`, `GOOGLE_PLACES_API_KEY`, `DB_SSL`,
+     `ALLOWED_ORIGINS`, `API_JSON_BODY_LIMIT_BYTES`, `DB_POOL_MAX`,
+     `DB_IDLE_TIMEOUT_MS`, `DB_CONNECTION_TIMEOUT_MS`,
+     `DB_QUERY_TIMEOUT_MS`, `LOG_LEVEL`;
+   - documentar para worker:
+     `APP_ENV`, `DATABASE_URL`, `GOOGLE_PLACES_API_KEY`,
+     `GOOGLE_GEOCODING_API_KEY`, `GOOGLE_REQUEST_TIMEOUT_SECONDS`,
+     `GOOGLE_DAILY_REQUEST_LIMIT`, `GOOGLE_QUOTA_STATE_PATH`,
+     `DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE`, `LOG_LEVEL`;
+   - dejar explicito que `GOOGLE_PLACES_API_KEY` hoy es requisito de arranque
+     en `production` para web y worker;
+   - dejar explicito que `DATABASE_URL` es requisito practico para ejecutar el
+     worker aunque settings lo tolere vacio;
+   - dejar explicito que `GOOGLE_QUOTA_STATE_PATH` persiste estado local y en
+     entornos efimeros puede reiniciarse.
+6. Smoke checks operativos:
+   - documentar verificacion de:
+     - `GET /api/health`;
+     - `GET /api/businesses`;
+     - `GET /api/businesses/{id}`;
+     - `PATCH /api/businesses/{id}`;
+     - `POST /api/search` seguido de ejecucion de worker y validacion de
+       persistencia en `search_runs`.
+7. Coherencia con frontend:
+   - dejar como invariante que el frontend consume rutas relativas `/api/...`;
+   - documentar que no existe `API_BASE_URL` en el MVP actual;
+   - documentar que la UI actual no cubre toda la superficie backend
+     documentada;
+   - documentar que el ordenamiento local de la pantalla de negocios no
+     equivale al orden global del backend.
 
 Entregables:
 
-- README tecnico backend o seccion equivalente;
-- scripts de bootstrap;
-- migraciones listas para correr.
+- Fase 16 reescrita con comandos exactos y alcance verificable;
+- `docs/architecture/backend-runtime.md` alineado como runbook operativo;
+- `.env.example` y referencias de entorno actualizadas;
+- `README.md` raiz consistente con el estado real del repositorio;
+- checklist operativo por ambiente y referencia cruzada al runtime actual;
+- siguientes pasos logicos explicitados al cierre de la fase.
 
 Criterio de aceptacion:
 
-- un entorno nuevo puede levantar API, DB y worker siguiendo documentacion.
+- un entorno limpio puede instalar dependencias, aplicar migraciones, sembrar
+  datos de desarrollo, levantar web, ejecutar worker y validar contratos HTTP
+  sin adivinar comandos;
+- la documentacion distingue claramente que aplica solo a desarrollo y que
+  aplica a produccion;
+- el despliegue documentado no contradice la arquitectura frontend same-origin
+  ni el modo batch real del worker.
+
+Siguiente paso recomendado:
+
+1. Ejecutar una verificacion completa de bootstrap en entorno limpio.
+2. Cerrar Fase 17 con checklist de cierre MVP.
+3. Definir puerta minima de acceso antes de exposicion publica.
+4. Definir operacion real del worker en despliegue:
+   `cron`, scheduler o proceso supervisado.
+5. Resolver, si se necesita produccion duradera, la persistencia del estado de
+   cuota de Google.
+6. Evaluar recien despues containerizacion o CI/CD como mejora operativa, no
+   como requisito del MVP actual.
 
 ### Fase 17 - Criterios de cierre MVP
 
@@ -1692,22 +1966,20 @@ Estado actual del roadmap:
 - Fase 12 ya esta cerrada en backend para listado, filtros, paginacion y CSV;
 - Fase 13 ya quedo implementada con trazabilidad basica, logs estructurados y
   metadata operativa persistida;
-- Fase 15 sigue teniendo avances parciales en validaciones y configuracion
-  operativa, pero no esta cerrada como fase completa.
+- Fase 14 ya quedo implementada como hardening de cobertura backend,
+  route-level tests y regresiones de deduplicacion operativa;
+- Fase 15 ya quedo implementada como hardening de seguridad y configuracion
+  operativa para API routes, workers, CORS, logs, CSV y documentacion runtime.
 
 Siguientes pasos logicos desde el estado actual:
 
-1. Fase 14.
-2. Fase 15.
-3. Fase 16.
-4. Fase 17.
+1. Fase 16.
+2. Fase 17.
 
 Dependencias practicas:
 
-- Fase 14 debe cerrar la verificacion pendiente del backend ya implementado,
-  con foco en routes, traduccion de errores e integracion API -> worker;
-- Fase 15 debe endurecer configuracion y operacion una vez exista mejor
-  observabilidad y cobertura de pruebas;
+- Fase 15 debe mantenerse alineada con el frontend: las pantallas siguen
+  consumiendo API routes same-origin y no duplican reglas backend;
 - Fase 16 y Fase 17 ganan valor cuando el worker ya procesa corridas reales.
 
 ## 14. Notas de mantenimiento

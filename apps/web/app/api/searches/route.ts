@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { parseSearchFilters } from "@shared/index";
 
 import {
+  corsPreflight,
   logApiEvent,
   searchParamsToObject,
   validationError,
@@ -10,6 +11,10 @@ import {
 import { listSearchRuns } from "@/lib/services/search-service";
 
 export const runtime = "nodejs";
+
+export function OPTIONS(request: Request) {
+  return corsPreflight(request);
+}
 
 export async function GET(request: Request) {
   return withApiRoute(request, { route: "/api/searches" }, async (context) => {

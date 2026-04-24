@@ -520,6 +520,7 @@ Los errores de API routes tienen una forma comun:
   "error": {
     "code": "validation_error",
     "message": "Invalid request",
+    "correlation_id": "corr-123",
     "details": ["status is not a valid lead status"]
   }
 }
@@ -531,7 +532,8 @@ Los errores de API routes tienen una forma comun:
 {
   "error": {
     "code": "not_found",
-    "message": "Business not found"
+    "message": "Business not found",
+    "correlation_id": "corr-123"
   }
 }
 ```

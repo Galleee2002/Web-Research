@@ -8,8 +8,8 @@ import type { BusinessSource, SearchRunStatus } from "../constants/domain";
 import type { SearchCreate, SearchFilters } from "../types/search";
 import {
   isRecord,
-  parsePaginationParams,
   parseRequiredString,
+  parseStrictPaginationParams,
   type ValidationResult,
 } from "./pagination";
 
@@ -40,7 +40,7 @@ export function parseSearchCreate(input: unknown): ValidationResult<SearchCreate
 export function parseSearchFilters(input: unknown): ValidationResult<SearchFilters> {
   const record = isRecord(input) ? input : {};
   const errors: string[] = [];
-  const pagination = parsePaginationParams(record);
+  const pagination = parseStrictPaginationParams(record, errors);
 
   const status = record.status;
   let parsedStatus: SearchRunStatus | undefined;

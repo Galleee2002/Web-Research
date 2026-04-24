@@ -145,6 +145,23 @@ def test_normalize_google_place_filters_social_profiles_as_non_websites():
     assert business.lng == -58.38
 
 
+def test_normalize_google_place_rejects_non_http_maps_urls_and_directory_websites():
+    business = normalize_google_place(
+        {
+            "id": "place-1",
+            "displayName": {"text": "Cafe Demo"},
+            "formattedAddress": "Calle Falsa 123, Buenos Aires, Argentina",
+            "websiteUri": "https://yelp.com/biz/cafedemo",
+            "googleMapsUri": "javascript:alert(1)",
+        },
+        geocoding_response=None,
+    )
+
+    assert business.website is None
+    assert business.has_website is False
+    assert business.maps_url is None
+
+
 def test_normalize_google_place_requires_display_name_text():
     try:
         normalize_google_place({"id": "place-1", "displayName": {}}, None)

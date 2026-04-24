@@ -6,6 +6,10 @@ def test_normalize_dedupe_text_collapses_case_spacing_and_punctuation():
     assert normalize_dedupe_text(" Clinica  Demo, S.R.L. ") == "clinicademosrl"
 
 
+def test_normalize_dedupe_text_removes_diacritics():
+    assert normalize_dedupe_text("Clínica Démo") == "clinicademo"
+
+
 def test_repository_merge_payload_preserves_manual_fields_and_fills_missing_data():
     repository = WorkerRepository("postgres://unused")
     existing = {
@@ -99,3 +103,48 @@ def test_find_existing_business_returns_name_address_strategy_when_external_id_m
 
     assert existing == {"id": "business-1"}
     assert dedupe_strategy == "name_address"
+
+
+def test_find_existing_business_does_not_name_address_match_existing_external_id():
+    repository = WorkerRepository("postgres://unused")
+
+    class FakeResult:
+        def __init__(self, row):
+            self.row = row
+
+        def fetchone(self):
+            return self.row
+
+    class FakeConnection:
+        def __init__(self):
+            self.calls = 0
+
+        def execute(self, sql, *_args, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return FakeResult(None)
+            if "external_id is null" in sql:
+                return FakeResult(None)
+            return FakeResult({"id": "business-1", "external_id": "place-other"})
+
+    existing, dedupe_strategy = repository._find_existing_business(
+        FakeConnection(),
+        NormalizedBusiness(
+            external_id="place-1",
+            name="Clinica Demo",
+            category="Dentist",
+            address="Av. Siempre Viva 123",
+            city="Buenos Aires",
+            region="CABA",
+            country="Argentina",
+            lat=-34.6037,
+            lng=-58.3816,
+            phone="011 5555 1234",
+            website=None,
+            has_website=False,
+            maps_url=None,
+        ),
+    )
+
+    assert existing is None
+    assert dedupe_strategy is None

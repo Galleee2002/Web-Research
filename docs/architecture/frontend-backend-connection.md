@@ -157,6 +157,9 @@ El frontend deberia:
 - no asumir que un cambio fue guardado si la API responde error;
 - poder mostrar `error.correlation_id` como referencia de soporte o debug;
 - no crear taxonomias de error paralelas a las del backend.
+- no replicar reglas backend de CORS, website detection, URL validation,
+  deduplicacion ni CSV; esas decisiones pertenecen a API routes, servicios y
+  workers.
 
 ## Ejemplo simple de helper
 

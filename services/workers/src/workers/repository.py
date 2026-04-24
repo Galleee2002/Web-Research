@@ -1,6 +1,7 @@
 from collections.abc import Callable
 import logging
 import re
+import unicodedata
 from typing import Any
 
 import psycopg
@@ -20,7 +21,12 @@ def normalize_dedupe_text(value: str | None) -> str:
     if value is None:
         return ""
 
-    normalized = _NON_ALNUM_PATTERN.sub("", value.strip().lower())
+    without_diacritics = "".join(
+        char
+        for char in unicodedata.normalize("NFKD", value.strip().lower())
+        if not unicodedata.combining(char)
+    )
+    normalized = _NON_ALNUM_PATTERN.sub("", without_diacritics)
     return normalized
 
 
@@ -337,8 +343,27 @@ class WorkerRepository:
             select *
             from businesses
             where source = %s
-              and regexp_replace(lower(name), '[^a-z0-9]+', '', 'g') = %s
-              and regexp_replace(lower(coalesce(address, '')), '[^a-z0-9]+', '', 'g') = %s
+              and external_id is null
+              and regexp_replace(
+                translate(
+                  lower(name),
+                  'áàâäãåéèêëíìîïóòôöõúùûüñç',
+                  'aaaaaaeeeeiiiiooooouuuunc'
+                ),
+                '[^a-z0-9]+',
+                '',
+                'g'
+              ) = %s
+              and regexp_replace(
+                translate(
+                  lower(coalesce(address, '')),
+                  'áàâäãåéèêëíìîïóòôöõúùûüñç',
+                  'aaaaaaeeeeiiiiooooouuuunc'
+                ),
+                '[^a-z0-9]+',
+                '',
+                'g'
+              ) = %s
             order by created_at asc
             limit 1
             """,

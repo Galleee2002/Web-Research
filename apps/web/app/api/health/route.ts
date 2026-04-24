@@ -1,6 +1,8 @@
 import { Client } from "pg";
 
-import { logApiEvent, withApiRoute } from "@/lib/api/http";
+import { corsPreflight, logApiEvent, withApiRoute } from "@/lib/api/http";
+import type { OperationContext } from "@/lib/api/http";
+import { getRuntimeConfig } from "@/lib/config/runtime";
 
 type DatabaseHealth =
   | {
@@ -20,8 +22,12 @@ type HealthResponse = {
   database: DatabaseHealth;
 };
 
-async function checkDatabase(): Promise<DatabaseHealth> {
-  const connectionString = process.env.DATABASE_URL;
+export function OPTIONS(request: Request) {
+  return corsPreflight(request);
+}
+
+async function checkDatabase(context: OperationContext): Promise<DatabaseHealth> {
+  const connectionString = getRuntimeConfig().databaseUrl;
 
   if (!connectionString) {
     return {
@@ -44,10 +50,16 @@ async function checkDatabase(): Promise<DatabaseHealth> {
       reachable: true
     };
   } catch (error) {
+    logApiEvent("healthcheck_database_unreachable", context, {
+      error_stage: "health",
+      error_code: "database_error",
+      error_message: error instanceof Error ? error.message : "Unknown database error"
+    });
+
     return {
       configured: true,
       reachable: false,
-      error: error instanceof Error ? error.message : "Unknown database error"
+      error: "Database is not reachable"
     };
   } finally {
     await client.end().catch(() => undefined);
@@ -56,11 +68,11 @@ async function checkDatabase(): Promise<DatabaseHealth> {
 
 export async function GET(request: Request): Promise<Response> {
   return withApiRoute(request, { route: "/api/health" }, async (context) => {
-    const database = await checkDatabase();
+    const database = await checkDatabase(context.operationContext);
     const status = database.configured && !database.reachable ? 503 : 200;
     const body: HealthResponse = {
       app: "business-lead-finder",
-      environment: process.env.APP_ENV ?? "development",
+      environment: getRuntimeConfig().appEnv,
       timestamp: new Date().toISOString(),
       database
     };

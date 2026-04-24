@@ -19,10 +19,19 @@ function escapeCsv(value: CsvValue): string {
     return "";
   }
 
-  const text = String(value);
-  if (/[",\n\r]/.test(text)) {
+  const rawText = String(value);
+  const text = neutralizeFormula(rawText);
+  if (isFormulaLike(rawText) || /[",\n\r]/.test(text)) {
     return `"${text.replaceAll('"', '""')}"`;
   }
 
   return text;
+}
+
+function neutralizeFormula(value: string): string {
+  return isFormulaLike(value) ? `'${value}` : value;
+}
+
+function isFormulaLike(value: string): boolean {
+  return /^[=+\-@\t\r]/.test(value);
 }

@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import urlsplit
 
 from contracts import NormalizedBusiness, validate_normalized_business
 from normalization.website_detection import detect_own_website
@@ -32,7 +33,7 @@ def normalize_google_place(
             or raw_place.get("nationalPhoneNumber")
         ),
         website=detected_website.website,
-        maps_url=_optional_text(raw_place.get("googleMapsUri")),
+        maps_url=_optional_http_url(raw_place.get("googleMapsUri")),
         has_website=detected_website.has_website,
     )
 
@@ -45,6 +46,22 @@ def _optional_text(value: Any) -> str | None:
 
     stripped = value.strip()
     return stripped or None
+
+
+def _optional_http_url(value: Any) -> str | None:
+    text = _optional_text(value)
+    if text is None:
+        return None
+
+    try:
+        parsed = urlsplit(text)
+    except ValueError:
+        return None
+
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+
+    return text
 
 
 def _nested_text(payload: dict[str, Any], *path: str) -> str | None:

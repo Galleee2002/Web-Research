@@ -107,3 +107,42 @@ export function parsePaginationParams(input: unknown): PaginationParams {
     page_size: Math.min(requestedPageSize, MAX_PAGE_SIZE),
   };
 }
+
+export function parseStrictPaginationParams(
+  input: unknown,
+  errors: string[],
+): PaginationParams {
+  const record = isRecord(input) ? input : {};
+
+  return {
+    page: parsePositiveInteger(record.page, "page", DEFAULT_PAGE, errors),
+    page_size: Math.min(
+      parsePositiveInteger(
+        record.page_size,
+        "page_size",
+        DEFAULT_PAGE_SIZE,
+        errors,
+      ),
+      MAX_PAGE_SIZE,
+    ),
+  };
+}
+
+function parsePositiveInteger(
+  value: unknown,
+  key: string,
+  fallback: number,
+  errors: string[],
+): number {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    errors.push(`${key} must be a positive integer`);
+    return fallback;
+  }
+
+  return parsed;
+}
