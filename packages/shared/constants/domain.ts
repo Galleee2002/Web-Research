@@ -21,6 +21,10 @@ export const BUSINESS_SOURCES = ["google_places"] as const;
 
 export type BusinessSource = (typeof BUSINESS_SOURCES)[number];
 
+export const OPPORTUNITY_RATINGS = [1, 2, 3, 4, 5] as const;
+
+export type OpportunityRating = (typeof OPPORTUNITY_RATINGS)[number];
+
 export const DEFAULT_BUSINESS_SOURCE: BusinessSource = "google_places";
 
 export function isLeadStatus(value: unknown): value is LeadStatus {
@@ -38,5 +42,13 @@ export function isBusinessSource(value: unknown): value is BusinessSource {
   return (
     typeof value === "string" &&
     BUSINESS_SOURCES.includes(value as BusinessSource)
+  );
+}
+
+export function isOpportunityRating(value: unknown): value is OpportunityRating {
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    OPPORTUNITY_RATINGS.includes(value as OpportunityRating)
   );
 }

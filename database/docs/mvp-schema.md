@@ -11,6 +11,9 @@ archivos SQL planos. Todavia no requiere un framework de migraciones.
   e indices del MVP.
 - `database/migrations/002_add_search_run_observability.sql`: amplia
   `search_runs` con columnas operativas para trazabilidad.
+- `database/migrations/003_create_opportunities.sql`: crea la tabla
+  `opportunities`, agrega el rating manual de 1 a 5 estrellas y hace backfill
+  para negocios existentes sin website.
 - `database/seeds/001_mvp_demo_data.sql`: archivo intencionalmente vacio para
   evitar reinsertar datos demo/mock en la base.
 
@@ -21,6 +24,7 @@ Configurar `DATABASE_URL` apuntando a una base PostgreSQL modificable y correr:
 ```sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/001_create_mvp_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/002_add_search_run_observability.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/003_create_opportunities.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/seeds/001_mvp_demo_data.sql
 ```
 
@@ -40,7 +44,9 @@ a cargar datos ficticios.
 - `search_runs` ahora tambien puede persistir `correlation_id`, `error_code`,
   `error_stage` y un resumen `observability` en `jsonb` para diagnostico.
 - `businesses.status` guarda el estado manual del lead con `new`, `reviewed`,
-  `contacted` y `discarded`.
+  `contacted`, `discarded` y `opportunities`.
+- `opportunities` es una entidad comercial separada 1:1 con `businesses`.
+  Guarda el `rating` manual de priorizacion; `null` significa sin puntuar.
 - `lead_status` no se crea para el MVP. El estado vive en `businesses`, y
   `businesses.notes` guarda la nota interna actual. Se puede agregar una tabla
   historica luego si auditoria o multiples usuarios entran en alcance.
@@ -62,7 +68,7 @@ La base ayuda a deduplicar, pero no es dueña de toda la politica:
 - La Fase 10 implementa esa politica en `services/workers/src/persistence`:
   primero busca por `(source, external_id)`, luego por `name + address`
   canonicalizados solo contra filas sin `external_id`, y preserva siempre
-  `businesses.status` y `businesses.notes`.
+  `businesses.status`, `businesses.notes` y `opportunities.rating`.
 
 ## Validaciones
 
@@ -72,7 +78,8 @@ Los constraints principales fuerzan:
 - fuentes y estados permitidos;
 - `total_found` no negativo;
 - rangos validos de latitud y longitud;
-- `website is null` implica `has_website = false`.
+- `website is null` implica `has_website = false`;
+- `opportunities.rating` dentro de `1..5` o `null`.
 
 La base solo fuerza esa coherencia minima. La clasificacion completa de
 website propio vive en workers: redes sociales, WhatsApp, Google Maps,

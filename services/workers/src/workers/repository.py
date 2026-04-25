@@ -172,6 +172,7 @@ class WorkerRepository:
                                 external_id=business.external_id,
                             )
                         )
+                        self._ensure_opportunity(connection, inserted["id"], business.has_website)
                         log_event(
                             logger,
                             logging.INFO,
@@ -206,6 +207,11 @@ class WorkerRepository:
                         where id = %(id)s
                         """,
                         payload,
+                    )
+                    self._ensure_opportunity(
+                        connection,
+                        existing["id"],
+                        payload["has_website"],
                     )
                     results.append(
                         UpsertResult(
@@ -408,6 +414,24 @@ class WorkerRepository:
         if isinstance(existing, str) and existing.strip():
             return existing
         return incoming
+
+    def _ensure_opportunity(
+        self,
+        connection: psycopg.Connection[Any],
+        business_id: str,
+        has_website: bool,
+    ) -> None:
+        if has_website:
+            return
+
+        connection.execute(
+            """
+            insert into opportunities (business_id, rating)
+            values (%s, null)
+            on conflict (business_id) do nothing
+            """,
+            (business_id,),
+        )
 
     def _map_search_run(self, row: dict[str, Any]) -> SearchRun:
         return SearchRun(
