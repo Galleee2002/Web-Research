@@ -5,7 +5,7 @@ alter table businesses
 
 alter table businesses
   add constraint businesses_status_allowed check (
-    status in ('new', 'reviewed', 'contacted', 'discarded', 'opportunities')
+    status in ('new', 'reviewed', 'contacted', 'discarded')
   );
 
 commit;

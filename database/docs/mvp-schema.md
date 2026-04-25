@@ -44,7 +44,7 @@ a cargar datos ficticios.
 - `search_runs` ahora tambien puede persistir `correlation_id`, `error_code`,
   `error_stage` y un resumen `observability` en `jsonb` para diagnostico.
 - `businesses.status` guarda el estado manual del lead con `new`, `reviewed`,
-  `contacted`, `discarded` y `opportunities`.
+  `contacted` y `discarded`.
 - `opportunities` es una entidad comercial separada 1:1 con `businesses`.
   Guarda el `rating` manual de priorizacion; `null` significa sin puntuar.
 - `lead_status` no se crea para el MVP. El estado vive en `businesses`, y

@@ -53,14 +53,14 @@ describe("shared contracts", () => {
 
   it("validates business status updates and preserves nullable notes", () => {
     const result = parseBusinessStatusUpdate({
-      status: "opportunities",
+      status: "reviewed",
       notes: null,
     });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value).toEqual({
-        status: "opportunities",
+        status: "reviewed",
         notes: null,
       });
     }
@@ -73,7 +73,7 @@ describe("shared contracts", () => {
       page: "2",
       page_size: "999",
       has_website: "false",
-      status: "opportunities",
+      status: "reviewed",
       city: " Buenos Aires ",
       category: " Dentist ",
       query: " centro ",
@@ -86,7 +86,7 @@ describe("shared contracts", () => {
         page: 2,
         page_size: MAX_PAGE_SIZE,
         has_website: false,
-        status: "opportunities",
+        status: "reviewed",
         city: "Buenos Aires",
         category: "Dentist",
         query: "centro",

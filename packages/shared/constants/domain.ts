@@ -3,7 +3,6 @@ export const LEAD_STATUSES = [
   "reviewed",
   "contacted",
   "discarded",
-  "opportunities",
 ] as const;
 
 export type LeadStatus = (typeof LEAD_STATUSES)[number];

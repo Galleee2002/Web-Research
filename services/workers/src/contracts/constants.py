@@ -1,4 +1,4 @@
-LEAD_STATUSES = ("new", "reviewed", "contacted", "discarded", "opportunities")
+LEAD_STATUSES = ("new", "reviewed", "contacted", "discarded")
 SEARCH_RUN_STATUSES = ("pending", "processing", "completed", "failed")
 
 BUSINESS_SOURCE_GOOGLE_PLACES = "google_places"
