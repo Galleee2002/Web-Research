@@ -4,6 +4,8 @@ import {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
   parseBusinessStatusUpdate,
+  parseOpportunityFilters,
+  parseOpportunityRatingUpdate,
   parsePaginationParams,
   parseSearchCreate,
 } from "./index";
@@ -62,5 +64,65 @@ describe("shared contracts", () => {
     }
 
     expect(parseBusinessStatusUpdate({ status: "archived" }).ok).toBe(false);
+  });
+
+  it("accepts valid opportunity rating updates and allows clearing the rating", () => {
+    expect(parseOpportunityRatingUpdate({ rating: 1 })).toEqual({
+      ok: true,
+      value: { rating: 1 },
+    });
+    expect(parseOpportunityRatingUpdate({ rating: 5 })).toEqual({
+      ok: true,
+      value: { rating: 5 },
+    });
+    expect(parseOpportunityRatingUpdate({ rating: null })).toEqual({
+      ok: true,
+      value: { rating: null },
+    });
+  });
+
+  it("rejects invalid opportunity rating payloads", () => {
+    expect(parseOpportunityRatingUpdate({})).toEqual({
+      ok: false,
+      errors: ["rating is required"],
+    });
+    expect(parseOpportunityRatingUpdate({ rating: 0 }).ok).toBe(false);
+    expect(parseOpportunityRatingUpdate({ rating: 6 }).ok).toBe(false);
+    expect(parseOpportunityRatingUpdate({ rating: 3.5 }).ok).toBe(false);
+    expect(parseOpportunityRatingUpdate({ rating: "5" }).ok).toBe(false);
+  });
+
+  it("parses opportunity filters and accepts rating ordering", () => {
+    const result = parseOpportunityFilters({
+      page: "2",
+      page_size: "10",
+      status: "reviewed",
+      city: " Buenos Aires ",
+      category: " Dentist ",
+      query: " clinic ",
+      order_by: "rating",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        page: 2,
+        page_size: 10,
+        status: "reviewed",
+        city: "Buenos Aires",
+        category: "Dentist",
+        query: "clinic",
+        order_by: "rating",
+      },
+    });
+  });
+
+  it("rejects invalid opportunity ordering", () => {
+    const result = parseOpportunityFilters({ order_by: "invalid" });
+
+    expect(result).toEqual({
+      ok: false,
+      errors: ["order_by must be rating, created_at, name, or city"],
+    });
   });
 });

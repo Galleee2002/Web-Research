@@ -206,4 +206,28 @@ on conflict (id) do update set
   notes = excluded.notes,
   updated_at = excluded.updated_at;
 
+insert into opportunities (
+  business_id,
+  rating
+)
+select
+  businesses.id,
+  case businesses.id
+    when '22222222-2222-4222-8222-222222222221' then 5
+    when '22222222-2222-4222-8222-222222222223' then 4
+    when '22222222-2222-4222-8222-222222222224' then 2
+    when '22222222-2222-4222-8222-222222222226' then null
+    else null
+  end
+from businesses
+where businesses.id in (
+  '22222222-2222-4222-8222-222222222221',
+  '22222222-2222-4222-8222-222222222223',
+  '22222222-2222-4222-8222-222222222224',
+  '22222222-2222-4222-8222-222222222226'
+)
+on conflict (business_id) do update set
+  rating = excluded.rating,
+  updated_at = now();
+
 commit;

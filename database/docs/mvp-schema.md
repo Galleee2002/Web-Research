@@ -11,6 +11,9 @@ archivos SQL planos. Todavia no requiere un framework de migraciones.
   e indices del MVP.
 - `database/migrations/002_add_search_run_observability.sql`: amplia
   `search_runs` con columnas operativas para trazabilidad.
+- `database/migrations/003_create_opportunities.sql`: crea la tabla
+  `opportunities`, agrega el rating manual de 1 a 5 estrellas y hace backfill
+  para negocios existentes sin website.
 - `database/seeds/001_mvp_demo_data.sql`: inserta datos demo deterministas para
   desarrollo local y futuras pruebas de API.
 
@@ -21,6 +24,7 @@ Configurar `DATABASE_URL` apuntando a una base PostgreSQL modificable y correr:
 ```sh
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/001_create_mvp_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/002_add_search_run_observability.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/003_create_opportunities.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/seeds/001_mvp_demo_data.sql
 ```
 
@@ -40,6 +44,8 @@ reaplicarse durante el desarrollo contra la misma base local.
   `error_stage` y un resumen `observability` en `jsonb` para diagnostico.
 - `businesses.status` guarda el estado manual del lead con `new`, `reviewed`,
   `contacted` y `discarded`.
+- `opportunities` es una entidad comercial separada 1:1 con `businesses`.
+  Guarda el `rating` manual de priorizacion; `null` significa sin puntuar.
 - `lead_status` no se crea para el MVP. El estado vive en `businesses`, y
   `businesses.notes` guarda la nota interna actual. Se puede agregar una tabla
   historica luego si auditoria o multiples usuarios entran en alcance.

@@ -99,3 +99,25 @@ def test_find_existing_business_returns_name_address_strategy_when_external_id_m
 
     assert existing == {"id": "business-1"}
     assert dedupe_strategy == "name_address"
+
+
+def test_ensure_opportunity_inserts_placeholder_row_only_for_businesses_without_website():
+    repository = WorkerRepository("postgres://unused")
+
+    class FakeConnection:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, query, params):
+            self.calls.append((query, params))
+
+    connection = FakeConnection()
+
+    repository._ensure_opportunity(connection, "business-1", False)
+    repository._ensure_opportunity(connection, "business-2", True)
+
+    assert len(connection.calls) == 1
+    query, params = connection.calls[0]
+    assert "insert into opportunities" in query
+    assert "on conflict (business_id) do nothing" in query
+    assert params == ("business-1",)
