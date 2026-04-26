@@ -2,6 +2,7 @@ import type {
   OpportunityDetailRead,
   OpportunityFilters,
   OpportunityRatingUpdate,
+  OpportunityUpdate,
   OpportunityRead,
   PaginatedResponse,
 } from "@shared/index";
@@ -11,6 +12,7 @@ import type { OperationContext } from "@/lib/api/http";
 import {
   findOpportunityById as defaultFindOpportunityById,
   findOpportunities as defaultFindOpportunities,
+  updateOpportunity as defaultUpdateOpportunity,
   updateOpportunityRating as defaultUpdateOpportunityRating,
 } from "@/lib/db/opportunities";
 
@@ -18,12 +20,14 @@ interface OpportunityServiceDependencies {
   findOpportunities: typeof defaultFindOpportunities;
   findOpportunityById: typeof defaultFindOpportunityById;
   updateOpportunityRating: typeof defaultUpdateOpportunityRating;
+  updateOpportunity: typeof defaultUpdateOpportunity;
 }
 
 const defaultOpportunityServiceDependencies = {
   findOpportunities: defaultFindOpportunities,
   findOpportunityById: defaultFindOpportunityById,
   updateOpportunityRating: defaultUpdateOpportunityRating,
+  updateOpportunity: defaultUpdateOpportunity,
 } satisfies OpportunityServiceDependencies;
 
 export async function listOpportunities(
@@ -49,4 +53,13 @@ export async function setOpportunityRating(
   deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
 ): Promise<OpportunityDetailRead | null> {
   return deps.updateOpportunityRating(id, payload, context);
+}
+
+export async function setOpportunity(
+  id: string,
+  payload: OpportunityUpdate,
+  context: OperationContext,
+  deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
+): Promise<OpportunityDetailRead | null> {
+  return deps.updateOpportunity(id, payload, context);
 }

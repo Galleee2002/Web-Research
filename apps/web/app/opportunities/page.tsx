@@ -1,7 +1,7 @@
 "use client";
 
-import { Star } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronDown, Save, Star } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { OpportunityRead, PaginatedResponse } from "@shared/index";
 
@@ -21,43 +21,35 @@ export default function OpportunitiesPage() {
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [statusDraftById, setStatusDraftById] = useState<
+    Record<string, OpportunityRead["status"]>
+  >({});
+
+  const loadOpportunities = useCallback(async () => {
+    setLoadState("loading");
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch("/api/opportunities", {
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error(await readResponseError(response));
+      }
+
+      const body = (await response.json()) as PaginatedResponse<OpportunityRead>;
+      setItems(body.items);
+      setLoadState("ready");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not load opportunities");
+      setLoadState("error");
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    async function loadOpportunities() {
-      setLoadState("loading");
-      setErrorMessage(null);
-
-      try {
-        const response = await fetch("/api/opportunities", {
-          cache: "no-store",
-        });
-
-        if (!response.ok) {
-          throw new Error(await readResponseError(response));
-        }
-
-        const body = (await response.json()) as PaginatedResponse<OpportunityRead>;
-
-        if (!cancelled) {
-          setItems(body.items);
-          setLoadState("ready");
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(error instanceof Error ? error.message : "Could not load opportunities");
-          setLoadState("error");
-        }
-      }
-    }
-
     void loadOpportunities();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [loadOpportunities]);
 
   async function handleRatingChange(opportunityId: string, rating: number | null) {
     setPendingId(opportunityId);
@@ -90,19 +82,44 @@ export default function OpportunitiesPage() {
     }
   }
 
+  async function handleStatusChange(opportunityId: string, status: OpportunityRead["status"]) {
+    setPendingId(opportunityId);
+    setErrorMessage(null);
+
+    try {
+      const response = await fetch(`/api/opportunities/${opportunityId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await readResponseError(response));
+      }
+
+      const updated = (await response.json()) as OpportunityRead;
+
+      await loadOpportunities();
+      setStatusDraftById((current) => {
+        const next = { ...current };
+        delete next[opportunityId];
+        return next;
+      });
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Could not update opportunity");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   const showEmpty = loadState === "ready" && items.length === 0;
 
   return (
     <section className="dashboard-content opportunity-board" aria-labelledby="opportunities-title">
       <header className="dashboard-content__header opportunity-board__header">
-        <div>
-          <p className="opportunity-board__eyebrow">Commercial Prioritization</p>
-          <h2 id="opportunities-title">Opportunities</h2>
-        </div>
-        <div className="opportunity-board__meta">
-          <span>{items.length} visible</span>
-          <span>Sorted by stars</span>
-        </div>
+        <h2 id="opportunities-title">Opportunities</h2>
       </header>
 
       <div className="opportunity-board__body">
@@ -113,9 +130,31 @@ export default function OpportunitiesPage() {
         ) : null}
 
         {loadState === "loading" || loadState === "idle" ? (
-          <div className="dashboard-empty-state" role="status" aria-live="polite">
-            <div className="dashboard-empty-state__content">
-              <p className="dashboard-empty-state__title">Loading opportunities...</p>
+          <div className="opportunity-table" role="status" aria-live="polite" aria-label="Loading opportunities">
+            <div className="opportunity-table__head" role="rowgroup" aria-hidden>
+              <div className="opportunity-table__row opportunity-table__row--head" role="row">
+                <span role="columnheader">Business</span>
+                <span role="columnheader">Location</span>
+                <span role="columnheader">Status</span>
+                <span role="columnheader">Rating</span>
+              </div>
+            </div>
+            <div className="opportunity-table__body opportunity-table__body--skeleton" role="rowgroup" aria-hidden>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <article key={index} className="opportunity-table__row opportunity-table__row--skeleton" role="row">
+                  <div className="opportunity-skeleton-lines opportunity-skeleton-lines--business">
+                    <div className="opportunity-skeleton opportunity-skeleton--line opportunity-skeleton--line-lg" />
+                    <div className="opportunity-skeleton opportunity-skeleton--line opportunity-skeleton--line-md" />
+                    <div className="opportunity-skeleton opportunity-skeleton--line opportunity-skeleton--line-sm" />
+                  </div>
+                  <div className="opportunity-skeleton-lines opportunity-skeleton-lines--location">
+                    <div className="opportunity-skeleton opportunity-skeleton--line opportunity-skeleton--line-md" />
+                    <div className="opportunity-skeleton opportunity-skeleton--line opportunity-skeleton--line-lg" />
+                  </div>
+                  <div className="opportunity-skeleton opportunity-skeleton--status" />
+                  <div className="opportunity-skeleton opportunity-skeleton--rating" />
+                </article>
+              ))}
             </div>
           </div>
         ) : null}
@@ -150,6 +189,9 @@ export default function OpportunitiesPage() {
             <div className="opportunity-table__body" role="rowgroup">
               {items.map((opportunity) => {
                 const isPending = pendingId === opportunity.id;
+                const draftStatus = statusDraftById[opportunity.id];
+                const displayStatus = draftStatus ?? opportunity.status;
+                const hasUnsavedStatus = draftStatus !== undefined && draftStatus !== opportunity.status;
 
                 return (
                   <article
@@ -179,9 +221,33 @@ export default function OpportunitiesPage() {
                     </div>
 
                     <div className="opportunity-table__cell" role="cell">
-                      <span className={`opportunity-status opportunity-status--${opportunity.status}`}>
-                        {opportunity.status}
-                      </span>
+                      <div className="opportunity-status-actions">
+                        <StatusSelectMenu
+                          value={displayStatus}
+                          disabled={isPending}
+                          ariaLabel={`Change status for ${opportunity.name}`}
+                          onChange={(nextStatus) => {
+                            setStatusDraftById((current) => ({
+                              ...current,
+                              [opportunity.id]: nextStatus,
+                            }));
+                          }}
+                        />
+                        {hasUnsavedStatus ? (
+                          <button
+                            type="button"
+                            className="business-modal__save-notes"
+                            onClick={() => {
+                              void handleStatusChange(opportunity.id, displayStatus);
+                            }}
+                            disabled={isPending}
+                            aria-label={`Save new status for ${opportunity.name}`}
+                            title={`Save new status for ${opportunity.name}`}
+                          >
+                            <Save className="business-modal__save-notes-icon" aria-hidden />
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
 
                     <div className="opportunity-table__cell opportunity-table__cell--rating" role="cell">
@@ -233,13 +299,89 @@ export default function OpportunitiesPage() {
   );
 }
 
-function compareByRating(left: OpportunityRead, right: OpportunityRead): number {
-  const leftRating = left.rating ?? -1;
-  const rightRating = right.rating ?? -1;
+function StatusSelectMenu({
+  value,
+  onChange,
+  ariaLabel,
+  disabled,
+}: {
+  value: OpportunityRead["status"];
+  onChange: (next: OpportunityRead["status"]) => void;
+  ariaLabel: string;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
-  if (rightRating !== leftRating) {
-    return rightRating - leftRating;
-  }
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
 
-  return right.created_at.localeCompare(left.created_at);
+  return (
+    <div className="businesses-select opportunity-status-select" ref={rootRef}>
+      <button
+        type="button"
+        className="businesses-select__trigger businesses-select__trigger--status"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        disabled={disabled}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span className="businesses-select__trigger-label">
+          <span className={`businesses-status-pill businesses-status-pill--${value}`}>
+            {statusLabel(value)}
+          </span>
+        </span>
+        <ChevronDown
+          className={`businesses-select__chevron${open ? " businesses-select__chevron--open" : ""}`}
+          aria-hidden
+        />
+      </button>
+
+      {open ? (
+        <div className="businesses-select__menu" role="listbox">
+          {(["new", "reviewed", "contacted", "discarded"] as const).map((statusOption) => (
+            <button
+              key={statusOption}
+              type="button"
+              role="option"
+              aria-selected={statusOption === value}
+              data-active={statusOption === value ? "true" : undefined}
+              className="businesses-select__option"
+              onClick={() => {
+                onChange(statusOption);
+                setOpen(false);
+              }}
+            >
+              {statusLabel(statusOption)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
 }
+
+function statusLabel(status: OpportunityRead["status"]): string {
+  switch (status) {
+    case "new":
+      return "New";
+    case "reviewed":
+      return "Reviewed";
+    case "contacted":
+      return "Contacted";
+    case "discarded":
+      return "Discarded";
+    default:
+      return status;
+  }
+}
+

@@ -332,6 +332,16 @@ a {
   gap: 0.75rem;
 }
 
+.opportunity-table__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.opportunity-table__body--skeleton {
+  pointer-events: none;
+}
+
 .opportunity-table__row {
   display: grid;
   grid-template-columns: minmax(0, 2.3fr) minmax(0, 1.4fr) minmax(120px, 0.8fr) minmax(160px, 1fr);
@@ -341,6 +351,66 @@ a {
   border: 1px solid var(--border-soft);
   border-radius: 1rem;
   background: color-mix(in srgb, var(--surface-01) 86%, transparent);
+}
+
+.opportunity-table__row--skeleton {
+  min-height: 76px;
+}
+
+.opportunity-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--surface-03) 82%, transparent);
+}
+
+.opportunity-skeleton-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.opportunity-skeleton--line {
+  height: 0.62rem;
+  border-radius: 999px;
+}
+
+.opportunity-skeleton--line-lg {
+  width: 88%;
+}
+
+.opportunity-skeleton--line-md {
+  width: 70%;
+}
+
+.opportunity-skeleton--line-sm {
+  width: 46%;
+}
+
+.opportunity-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, #fff 42%, transparent),
+    transparent
+  );
+  animation: businesses-shimmer 1.45s ease-in-out infinite;
+}
+
+.opportunity-skeleton--status {
+  height: 24px;
+  width: 84px;
+  justify-self: start;
+}
+
+.opportunity-skeleton--rating {
+  height: 32px;
+  width: 132px;
+  justify-self: end;
 }
 
 .opportunity-table__row--head {
@@ -385,39 +455,93 @@ a {
   font-weight: 700;
 }
 
-.opportunity-status {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 92px;
-  padding: 0.45rem 0.65rem;
-  border-radius: 999px;
-  background: var(--surface-02);
-  color: var(--text-primary);
-  font-size: 0.82rem;
-  font-weight: 700;
-  text-transform: capitalize;
-}
-
-.opportunity-status--new {
-  background: rgba(0, 113, 227, 0.12);
-}
-
-.opportunity-status--reviewed {
-  background: rgba(52, 199, 89, 0.14);
-}
-
-.opportunity-status--contacted {
-  background: rgba(255, 159, 10, 0.18);
-}
-
-.opportunity-status--discarded {
-  background: rgba(255, 69, 58, 0.14);
-}
-
 .opportunity-table__cell--rating {
   display: flex;
   justify-content: flex-end;
+}
+
+.opportunity-status-select {
+  width: max-content;
+  min-width: 0;
+}
+
+.opportunity-status-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.opportunity-status-select .businesses-select__trigger {
+  width: auto;
+  min-height: 38px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.opportunity-status-select .businesses-select__trigger-label {
+  flex: 1;
+  justify-content: flex-start;
+}
+
+.opportunity-status-select .businesses-status-pill {
+  display: inline-block;
+  padding: 0.2rem 0.55rem;
+  border-radius: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: -0.08px;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--surface-03) 65%, transparent);
+}
+
+.opportunity-status-select .businesses-status-pill--new {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.opportunity-status-select .businesses-status-pill--reviewed {
+  color: var(--text-secondary);
+}
+
+.opportunity-status-select .businesses-status-pill--contacted {
+  color: #34c759;
+}
+
+[data-theme="dark"] .opportunity-status-select .businesses-status-pill--contacted {
+  color: #30d158;
+}
+
+.opportunity-status-select .businesses-status-pill--discarded {
+  color: #ff3b30;
+  background: color-mix(in srgb, #ff3b30 12%, transparent);
+  border: 1px solid color-mix(in srgb, #ff3b30 22%, transparent);
+}
+
+[data-theme="dark"] .opportunity-status-select .businesses-status-pill--discarded {
+  color: #ff453a;
+  background: color-mix(in srgb, #ff453a 14%, transparent);
+  border-color: color-mix(in srgb, #ff453a 26%, transparent);
+}
+
+.opportunity-status-select .businesses-select__chevron {
+  opacity: 0;
+}
+
+.opportunity-status-select .businesses-select__trigger[aria-expanded="true"] {
+  padding: 0 0.45rem;
+  border-color: var(--border-soft);
+  background: var(--surface-01);
+}
+
+.opportunity-status-select
+  .businesses-select__trigger[aria-expanded="true"]
+  .businesses-select__chevron {
+  opacity: 1;
+}
+
+.opportunity-status-select .businesses-select__menu {
+  min-width: max-content;
 }
 
 .opportunity-rating {

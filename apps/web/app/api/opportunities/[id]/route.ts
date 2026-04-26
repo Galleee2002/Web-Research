@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseOpportunityRatingUpdate } from "@shared/index";
+import { parseOpportunityUpdate } from "@shared/index";
 
 import {
   isUuid,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/api/http";
 import {
   getOpportunityById,
-  setOpportunityRating,
+  setOpportunity,
 } from "@/lib/services/opportunity-service";
 
 export const runtime = "nodejs";
@@ -47,13 +47,13 @@ export async function PATCH(request: Request, context: RouteContext) {
     }
 
     const payload = await request.json();
-    const parsed = parseOpportunityRatingUpdate(payload);
+    const parsed = parseOpportunityUpdate(payload);
 
     if (!parsed.ok) {
       return validationError(requestContext.correlationId, parsed.errors);
     }
 
-    const opportunity = await setOpportunityRating(
+    const opportunity = await setOpportunity(
       id,
       parsed.value,
       requestContext.operationContext,
