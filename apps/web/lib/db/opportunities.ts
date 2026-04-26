@@ -2,6 +2,7 @@ import type {
   OpportunityDetailRead,
   OpportunityFilters,
   OpportunityRatingUpdate,
+  OpportunityUpdate,
   OpportunityRead,
   PaginatedResponse,
 } from "@shared/index";
@@ -221,6 +222,62 @@ export async function updateOpportunityRating(
     [id, payload.rating],
     {
       operationName: "update_opportunity_rating",
+      context,
+    },
+  );
+
+  return result.rows[0] ? mapOpportunityDetail(result.rows[0]) : null;
+}
+
+export async function updateOpportunity(
+  id: string,
+  payload: OpportunityUpdate,
+  context: OperationContext,
+): Promise<OpportunityDetailRead | null> {
+  const hasRating = Object.hasOwn(payload, "rating");
+  const hasStatus = Object.hasOwn(payload, "status");
+
+  const result = await query<OpportunityRow>(
+    `
+      with target as (
+        select opportunities.id as opportunity_id, opportunities.business_id
+        from opportunities
+        inner join businesses on businesses.id = opportunities.business_id
+        where opportunities.id = $1
+          and businesses.has_website = false
+      ),
+      update_opportunity as (
+        update opportunities
+        set
+          rating = case when $2::boolean then $3 else opportunities.rating end,
+          updated_at = case
+            when $2::boolean and opportunities.rating is distinct from $3 then now()
+            else opportunities.updated_at
+          end
+        from target
+        where opportunities.id = target.opportunity_id
+      ),
+      update_business as (
+        update businesses
+        set
+          status = case when $4::boolean then $5 else businesses.status end,
+          updated_at = case
+            when $4::boolean and businesses.status is distinct from $5 then now()
+            else businesses.updated_at
+          end
+        from target
+        where businesses.id = target.business_id
+      )
+      select ${OPPORTUNITY_SELECT}
+      from opportunities
+      inner join businesses on businesses.id = opportunities.business_id
+      where opportunities.id = $1
+        and businesses.has_website = false
+      limit 1
+    `,
+    [id, hasRating, payload.rating ?? null, hasStatus, payload.status ?? null],
+    {
+      operationName: "update_opportunity",
       context,
     },
   );

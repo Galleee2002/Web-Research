@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getOpportunityByIdMock = vi.fn();
-const setOpportunityRatingMock = vi.fn();
+const setOpportunityMock = vi.fn();
 
 vi.mock("@/lib/services/opportunity-service", () => ({
   getOpportunityById: getOpportunityByIdMock,
-  setOpportunityRating: setOpportunityRatingMock,
+  setOpportunity: setOpportunityMock,
 }));
 
 describe("GET /api/opportunities/[id]", () => {
   beforeEach(() => {
     getOpportunityByIdMock.mockReset();
-    setOpportunityRatingMock.mockReset();
+    setOpportunityMock.mockReset();
   });
 
   it("returns 404 when the opportunity does not exist", async () => {
@@ -32,11 +32,11 @@ describe("GET /api/opportunities/[id]", () => {
 describe("PATCH /api/opportunities/[id]", () => {
   beforeEach(() => {
     getOpportunityByIdMock.mockReset();
-    setOpportunityRatingMock.mockReset();
+    setOpportunityMock.mockReset();
   });
 
   it("updates an opportunity rating", async () => {
-    setOpportunityRatingMock.mockResolvedValue({
+    setOpportunityMock.mockResolvedValue({
       id: "opportunity-1",
       rating: 4,
     });
@@ -56,7 +56,7 @@ describe("PATCH /api/opportunities/[id]", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(setOpportunityRatingMock).toHaveBeenCalledWith(
+    expect(setOpportunityMock).toHaveBeenCalledWith(
       "00000000-0000-4000-8000-000000000000",
       { rating: 4 },
       {
@@ -90,7 +90,7 @@ describe("PATCH /api/opportunities/[id]", () => {
   });
 
   it("returns 404 when the opportunity does not exist", async () => {
-    setOpportunityRatingMock.mockResolvedValue(null);
+    setOpportunityMock.mockResolvedValue(null);
 
     const response = await import("./route").then(({ PATCH }) =>
       PATCH(
