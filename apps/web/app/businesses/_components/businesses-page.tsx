@@ -214,7 +214,7 @@ export function BusinessesPage() {
                 : {}),
             order_by: "created_at"
           },
-          { signal: controller.signal }
+          { signal: controller.signal, cache: "no-store" }
         );
         if (!cancelled) {
           setItems(data.items);
@@ -291,7 +291,8 @@ export function BusinessesPage() {
       setDetailError(null);
       try {
         const data = await fetchBusinessById(businessId, {
-          signal: controller.signal
+          signal: controller.signal,
+          cache: "no-store"
         });
         if (!cancelled) {
           setActiveBusiness(data);

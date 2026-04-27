@@ -247,6 +247,20 @@ export default function OpportunitiesPage() {
                             <Save className="business-modal__save-notes-icon" aria-hidden />
                           </button>
                         ) : null}
+                        {opportunity.status !== "discarded" ? (
+                          <button
+                            type="button"
+                            className="opportunity-status-actions__discard"
+                            onClick={() => {
+                              void handleStatusChange(opportunity.id, "discarded");
+                            }}
+                            disabled={isPending}
+                            aria-label={`Discard opportunity for ${opportunity.name}`}
+                            title={`Discard opportunity for ${opportunity.name}`}
+                          >
+                            Discard
+                          </button>
+                        ) : null}
                       </div>
                     </div>
 
