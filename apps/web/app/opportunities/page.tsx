@@ -38,11 +38,14 @@ export default function OpportunitiesPage() {
         throw new Error(await readResponseError(response));
       }
 
-      const body = (await response.json()) as PaginatedResponse<OpportunityRead>;
+      const body =
+        (await response.json()) as PaginatedResponse<OpportunityRead>;
       setItems(body.items);
       setLoadState("ready");
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not load opportunities");
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not load opportunities"
+      );
       setLoadState("error");
     }
   }, []);
@@ -51,7 +54,10 @@ export default function OpportunitiesPage() {
     void loadOpportunities();
   }, [loadOpportunities]);
 
-  async function handleStatusChange(opportunityId: string, status: OpportunityRead["status"]) {
+  async function handleStatusChange(
+    opportunityId: string,
+    status: OpportunityRead["status"]
+  ) {
     setPendingId(opportunityId);
     setErrorMessage(null);
 
@@ -77,7 +83,9 @@ export default function OpportunitiesPage() {
         return next;
       });
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not update opportunity");
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not update opportunity"
+      );
     } finally {
       setPendingId(null);
     }
@@ -86,7 +94,10 @@ export default function OpportunitiesPage() {
   const showEmpty = loadState === "ready" && items.length === 0;
 
   return (
-    <section className="dashboard-content opportunity-board" aria-labelledby="opportunities-title">
+    <section
+      className="dashboard-content opportunity-board"
+      aria-labelledby="opportunities-title"
+    >
       <header className="dashboard-content__header opportunity-board__header">
         <h2 id="opportunities-title">Opportunities</h2>
       </header>
@@ -99,17 +110,37 @@ export default function OpportunitiesPage() {
         ) : null}
 
         {loadState === "loading" || loadState === "idle" ? (
-          <div className="opportunity-table" role="status" aria-live="polite" aria-label="Loading opportunities">
-            <div className="opportunity-table__head" role="rowgroup" aria-hidden>
-              <div className="opportunity-table__row opportunity-table__row--head" role="row">
+          <div
+            className="opportunity-table"
+            role="status"
+            aria-live="polite"
+            aria-label="Loading opportunities"
+          >
+            <div
+              className="opportunity-table__head"
+              role="rowgroup"
+              aria-hidden
+            >
+              <div
+                className="opportunity-table__row opportunity-table__row--head"
+                role="row"
+              >
                 <span role="columnheader">Business</span>
                 <span role="columnheader">Location</span>
                 <span role="columnheader">Status</span>
               </div>
             </div>
-            <div className="opportunity-table__body opportunity-table__body--skeleton" role="rowgroup" aria-hidden>
+            <div
+              className="opportunity-table__body opportunity-table__body--skeleton"
+              role="rowgroup"
+              aria-hidden
+            >
               {Array.from({ length: 6 }).map((_, index) => (
-                <article key={index} className="opportunity-table__row opportunity-table__row--skeleton" role="row">
+                <article
+                  key={index}
+                  className="opportunity-table__row opportunity-table__row--skeleton"
+                  role="row"
+                >
                   <div className="opportunity-skeleton-lines opportunity-skeleton-lines--business">
                     <div className="opportunity-skeleton opportunity-skeleton--line opportunity-skeleton--line-lg" />
                     <div className="opportunity-skeleton opportunity-skeleton--line opportunity-skeleton--line-md" />
@@ -127,25 +158,44 @@ export default function OpportunitiesPage() {
         ) : null}
 
         {loadState === "error" ? (
-          <div className="dashboard-empty-state" role="status" aria-live="polite">
+          <div
+            className="dashboard-empty-state"
+            role="status"
+            aria-live="polite"
+          >
             <div className="dashboard-empty-state__content">
-              <p className="dashboard-empty-state__title">Could not load opportunities.</p>
+              <p className="dashboard-empty-state__title">
+                Could not load opportunities.
+              </p>
             </div>
           </div>
         ) : null}
 
         {showEmpty ? (
-          <div className="dashboard-empty-state" role="status" aria-live="polite">
+          <div
+            className="dashboard-empty-state"
+            role="status"
+            aria-live="polite"
+          >
             <div className="dashboard-empty-state__content">
-              <p className="dashboard-empty-state__title">No opportunities available yet.</p>
+              <p className="dashboard-empty-state__title">
+                No opportunities available yet.
+              </p>
             </div>
           </div>
         ) : null}
 
         {loadState === "ready" && items.length > 0 ? (
-          <div className="opportunity-table" role="table" aria-label="Opportunity list">
+          <div
+            className="opportunity-table"
+            role="table"
+            aria-label="Opportunity list"
+          >
             <div className="opportunity-table__head" role="rowgroup">
-              <div className="opportunity-table__row opportunity-table__row--head" role="row">
+              <div
+                className="opportunity-table__row opportunity-table__row--head"
+                role="row"
+              >
                 <span role="columnheader">Business</span>
                 <span role="columnheader">Location</span>
                 <span role="columnheader">Status</span>
@@ -157,7 +207,9 @@ export default function OpportunitiesPage() {
                 const isPending = pendingId === opportunity.id;
                 const draftStatus = statusDraftById[opportunity.id];
                 const displayStatus = draftStatus ?? opportunity.status;
-                const hasUnsavedStatus = draftStatus !== undefined && draftStatus !== opportunity.status;
+                const hasUnsavedStatus =
+                  draftStatus !== undefined &&
+                  draftStatus !== opportunity.status;
 
                 return (
                   <article
@@ -166,7 +218,10 @@ export default function OpportunitiesPage() {
                     role="row"
                     aria-busy={isPending}
                   >
-                    <div className="opportunity-table__cell opportunity-table__cell--business" role="cell">
+                    <div
+                      className="opportunity-table__cell opportunity-table__cell--business"
+                      role="cell"
+                    >
                       <div className="opportunity-table__primary">
                         <h3>{opportunity.name}</h3>
                         <p>{opportunity.category ?? "Uncategorized"}</p>
@@ -174,7 +229,11 @@ export default function OpportunitiesPage() {
                       <div className="opportunity-table__secondary">
                         <span>{opportunity.phone ?? "No phone"}</span>
                         {opportunity.maps_url ? (
-                          <a href={opportunity.maps_url} target="_blank" rel="noreferrer">
+                          <a
+                            href={opportunity.maps_url}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
                             Open map
                           </a>
                         ) : null}
@@ -204,13 +263,19 @@ export default function OpportunitiesPage() {
                             type="button"
                             className="business-modal__save-notes"
                             onClick={() => {
-                              void handleStatusChange(opportunity.id, displayStatus);
+                              void handleStatusChange(
+                                opportunity.id,
+                                displayStatus
+                              );
                             }}
                             disabled={isPending}
                             aria-label={`Save new status for ${opportunity.name}`}
                             title={`Save new status for ${opportunity.name}`}
                           >
-                            <Save className="business-modal__save-notes-icon" aria-hidden />
+                            <Save
+                              className="business-modal__save-notes-icon"
+                              aria-hidden
+                            />
                           </button>
                         ) : null}
                         {opportunity.status !== "discarded" ? (
@@ -218,7 +283,10 @@ export default function OpportunitiesPage() {
                             type="button"
                             className="opportunity-status-actions__discard"
                             onClick={() => {
-                              void handleStatusChange(opportunity.id, "discarded");
+                              void handleStatusChange(
+                                opportunity.id,
+                                "discarded"
+                              );
                             }}
                             disabled={isPending}
                             aria-label={`Discard opportunity for ${opportunity.name}`}
@@ -277,12 +345,16 @@ function StatusSelectMenu({
         onClick={() => setOpen((prev) => !prev)}
       >
         <span className="businesses-select__trigger-label">
-          <span className={`businesses-status-pill businesses-status-pill--${value}`}>
+          <span
+            className={`businesses-status-pill businesses-status-pill--${value}`}
+          >
             {statusLabel(value)}
           </span>
         </span>
         <ChevronDown
-          className={`businesses-select__chevron${open ? " businesses-select__chevron--open" : ""}`}
+          className={`businesses-select__chevron${
+            open ? " businesses-select__chevron--open" : ""
+          }`}
           aria-hidden
         />
       </button>
@@ -325,4 +397,3 @@ function statusLabel(status: OpportunityRead["status"]): string {
       return status;
   }
 }
-
