@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, Save, Star } from "lucide-react";
+import { ChevronDown, Save } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { OpportunityRead, PaginatedResponse } from "@shared/index";
@@ -50,37 +50,6 @@ export default function OpportunitiesPage() {
   useEffect(() => {
     void loadOpportunities();
   }, [loadOpportunities]);
-
-  async function handleRatingChange(opportunityId: string, rating: number | null) {
-    setPendingId(opportunityId);
-    setErrorMessage(null);
-
-    try {
-      const response = await fetch(`/api/opportunities/${opportunityId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ rating }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await readResponseError(response));
-      }
-
-      const updated = (await response.json()) as OpportunityRead;
-
-      setItems((currentItems) =>
-        [...currentItems]
-          .map((item) => (item.id === updated.id ? updated : item))
-          .sort(compareByRating),
-      );
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Could not update opportunity");
-    } finally {
-      setPendingId(null);
-    }
-  }
 
   async function handleStatusChange(opportunityId: string, status: OpportunityRead["status"]) {
     setPendingId(opportunityId);
@@ -136,7 +105,6 @@ export default function OpportunitiesPage() {
                 <span role="columnheader">Business</span>
                 <span role="columnheader">Location</span>
                 <span role="columnheader">Status</span>
-                <span role="columnheader">Rating</span>
               </div>
             </div>
             <div className="opportunity-table__body opportunity-table__body--skeleton" role="rowgroup" aria-hidden>
@@ -152,7 +120,6 @@ export default function OpportunitiesPage() {
                     <div className="opportunity-skeleton opportunity-skeleton--line opportunity-skeleton--line-lg" />
                   </div>
                   <div className="opportunity-skeleton opportunity-skeleton--status" />
-                  <div className="opportunity-skeleton opportunity-skeleton--rating" />
                 </article>
               ))}
             </div>
@@ -182,7 +149,6 @@ export default function OpportunitiesPage() {
                 <span role="columnheader">Business</span>
                 <span role="columnheader">Location</span>
                 <span role="columnheader">Status</span>
-                <span role="columnheader">Rating</span>
               </div>
             </div>
 
@@ -263,45 +229,6 @@ export default function OpportunitiesPage() {
                         ) : null}
                       </div>
                     </div>
-
-                    <div className="opportunity-table__cell opportunity-table__cell--rating" role="cell">
-                      <div
-                        className="opportunity-rating"
-                        role="radiogroup"
-                        aria-label={`Set rating for ${opportunity.name}`}
-                      >
-                        {[1, 2, 3, 4, 5].map((value) => {
-                          const isActive = (opportunity.rating ?? 0) >= value;
-
-                          return (
-                            <button
-                              key={value}
-                              type="button"
-                              className="opportunity-rating__button"
-                              onClick={() =>
-                                void handleRatingChange(
-                                  opportunity.id,
-                                  opportunity.rating === value ? null : value,
-                                )
-                              }
-                              disabled={isPending}
-                              aria-label={
-                                opportunity.rating === value
-                                  ? `Clear ${value} star rating`
-                                  : `Set ${value} star rating`
-                              }
-                              aria-checked={opportunity.rating === value}
-                              role="radio"
-                            >
-                              <Star
-                                className={`opportunity-rating__star${isActive ? " opportunity-rating__star--active" : ""}`}
-                                aria-hidden
-                              />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
                   </article>
                 );
               })}
@@ -362,7 +289,7 @@ function StatusSelectMenu({
 
       {open ? (
         <div className="businesses-select__menu" role="listbox">
-          {(["new", "reviewed", "contacted", "discarded"] as const).map((statusOption) => (
+          {(["new", "reviewed", "contacted"] as const).map((statusOption) => (
             <button
               key={statusOption}
               type="button"
@@ -399,13 +326,3 @@ function statusLabel(status: OpportunityRead["status"]): string {
   }
 }
 
-function compareByRating(a: OpportunityRead, b: OpportunityRead): number {
-  if (a.rating === null && b.rating !== null) return 1;
-  if (a.rating !== null && b.rating === null) return -1;
-  if (a.rating !== b.rating) return (b.rating ?? 0) - (a.rating ?? 0);
-
-  const createdAtDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  if (createdAtDiff !== 0) return createdAtDiff;
-
-  return a.id.localeCompare(b.id);
-}
