@@ -2,6 +2,8 @@ import type {
   OpportunityDetailRead,
   OpportunityFilters,
   OpportunityRatingUpdate,
+  OpportunitySelectionResult,
+  OpportunitySelectionUpdate,
   OpportunityUpdate,
   OpportunityRead,
   PaginatedResponse,
@@ -15,6 +17,7 @@ import type { SqlQuery } from "./searches";
 interface OpportunityRow {
   id: string;
   business_id: string;
+  is_selected: boolean;
   rating: number | null;
   name: string;
   category: string | null;
@@ -33,6 +36,7 @@ interface OpportunityRow {
 const OPPORTUNITY_SELECT = `
   opportunities.id,
   opportunities.business_id,
+  opportunities.is_selected,
   opportunities.rating,
   businesses.name,
   businesses.category,
@@ -63,6 +67,7 @@ function mapOpportunity(row: OpportunityRow): OpportunityRead {
   return {
     id: row.id,
     business_id: row.business_id,
+    is_selected: row.is_selected,
     rating: row.rating as OpportunityRead["rating"],
     name: row.name,
     category: row.category,
@@ -89,7 +94,10 @@ function buildOpportunityWhere(filters: OpportunityFilters): {
   clauses: string[];
   values: unknown[];
 } {
-  const clauses = ["businesses.has_website = false"];
+  const clauses = [
+    "opportunities.is_selected = true",
+    "businesses.status <> 'discarded'",
+  ];
   const values: unknown[] = [];
 
   if (filters.status !== undefined) {
@@ -189,7 +197,6 @@ export async function findOpportunityById(
       from opportunities
       inner join businesses on businesses.id = opportunities.business_id
       where opportunities.id = $1
-        and businesses.has_website = false
       limit 1
     `,
     [id],
@@ -216,7 +223,6 @@ export async function updateOpportunityRating(
       from businesses
       where opportunities.id = $1
         and businesses.id = opportunities.business_id
-        and businesses.has_website = false
       returning ${OPPORTUNITY_SELECT}
     `,
     [id, payload.rating],
@@ -244,7 +250,6 @@ export async function updateOpportunity(
         from opportunities
         inner join businesses on businesses.id = opportunities.business_id
         where opportunities.id = $1
-          and businesses.has_website = false
       ),
       update_opportunity as (
         update opportunities
@@ -272,7 +277,6 @@ export async function updateOpportunity(
       from opportunities
       inner join businesses on businesses.id = opportunities.business_id
       where opportunities.id = $1
-        and businesses.has_website = false
       limit 1
     `,
     [id, hasRating, payload.rating ?? null, hasStatus, payload.status ?? null],
@@ -283,4 +287,60 @@ export async function updateOpportunity(
   );
 
   return result.rows[0] ? mapOpportunityDetail(result.rows[0]) : null;
+}
+
+interface OpportunitySelectionRow {
+  opportunity_id: string;
+  business_id: string;
+  is_selected: boolean;
+  updated_at: Date | string;
+}
+
+export async function setOpportunitySelectionByBusinessId(
+  businessId: string,
+  payload: OpportunitySelectionUpdate,
+  context: OperationContext,
+): Promise<OpportunitySelectionResult | null> {
+  const result = await query<OpportunitySelectionRow>(
+    `
+      with existing_business as (
+        select id
+        from businesses
+        where id = $1
+        limit 1
+      ),
+      upserted as (
+        insert into opportunities (business_id, rating, is_selected)
+        select id, null, $2
+        from existing_business
+        on conflict (business_id) do update
+          set is_selected = excluded.is_selected,
+              updated_at = now()
+        returning id, business_id, is_selected, updated_at
+      )
+      select
+        upserted.id as opportunity_id,
+        upserted.business_id,
+        upserted.is_selected,
+        upserted.updated_at
+      from upserted
+      limit 1
+    `,
+    [businessId, payload.is_selected],
+    {
+      operationName: "set_opportunity_selection_by_business_id",
+      context,
+    },
+  );
+
+  if (!result.rows[0]) {
+    return null;
+  }
+
+  return {
+    opportunity_id: result.rows[0].opportunity_id,
+    business_id: result.rows[0].business_id,
+    is_selected: result.rows[0].is_selected,
+    updated_at: toIsoString(result.rows[0].updated_at),
+  };
 }

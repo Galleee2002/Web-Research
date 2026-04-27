@@ -168,5 +168,7 @@ def test_ensure_opportunity_inserts_placeholder_row_only_for_businesses_without_
     assert len(connection.calls) == 1
     query, params = connection.calls[0]
     assert "insert into opportunities" in query
+    assert "is_selected" in query
+    assert "false" in query
     assert "on conflict (business_id) do nothing" in query
     assert params == ("business-1",)

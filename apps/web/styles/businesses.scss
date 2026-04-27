@@ -706,6 +706,10 @@
   margin-top: 0;
 }
 
+.business-modal__section + .business-modal__section--cta {
+  margin-top: 0.7rem;
+}
+
 .business-modal__subtitle {
   margin: 0 0 0.55rem;
   font-size: 0.88rem;
@@ -912,6 +916,42 @@
   color: #ff3b30;
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+.business-modal__opportunity-cta-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.business-modal__opportunity-cta {
+  min-height: 42px;
+  padding: 0.55rem 1.35rem;
+  border: 1px solid transparent;
+  border-radius: 980px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.96rem;
+  font-weight: 500;
+  letter-spacing: -0.16px;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+.business-modal__opportunity-cta:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 86%, #fff);
+}
+
+.business-modal__opportunity-cta:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+.business-modal__opportunity-cta:disabled {
+  opacity: 0.72;
+  cursor: default;
 }
 
 .business-modal-skeleton {

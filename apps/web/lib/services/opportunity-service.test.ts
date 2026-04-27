@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getOpportunityById,
   listOpportunities,
+  setOpportunity,
   setOpportunityRating,
+  setOpportunitySelectionByBusinessId,
 } from "./opportunity-service";
 
 describe("opportunity service", () => {
@@ -32,6 +34,8 @@ describe("opportunity service", () => {
         findOpportunities,
         findOpportunityById: vi.fn(),
         updateOpportunityRating: vi.fn(),
+        updateOpportunity: vi.fn(),
+        setOpportunitySelectionByBusinessId: vi.fn(),
       },
     );
 
@@ -61,6 +65,8 @@ describe("opportunity service", () => {
         findOpportunities: vi.fn(),
         findOpportunityById,
         updateOpportunityRating: vi.fn(),
+        updateOpportunity: vi.fn(),
+        setOpportunitySelectionByBusinessId: vi.fn(),
       },
     );
 
@@ -82,6 +88,8 @@ describe("opportunity service", () => {
         findOpportunities: vi.fn(),
         findOpportunityById: vi.fn(),
         updateOpportunityRating,
+        updateOpportunity: vi.fn(),
+        setOpportunitySelectionByBusinessId: vi.fn(),
       },
     );
 
@@ -93,6 +101,72 @@ describe("opportunity service", () => {
     expect(result).toEqual({
       id: "opportunity-1",
       rating: 4,
+    });
+  });
+
+  it("delegates setOpportunity to the repository", async () => {
+    const updateOpportunity = vi.fn().mockResolvedValue({
+      id: "opportunity-1",
+      rating: null,
+      status: "reviewed",
+    });
+
+    const result = await setOpportunity(
+      "opportunity-1",
+      { status: "reviewed" },
+      context,
+      {
+        findOpportunities: vi.fn(),
+        findOpportunityById: vi.fn(),
+        updateOpportunityRating: vi.fn(),
+        updateOpportunity,
+        setOpportunitySelectionByBusinessId: vi.fn(),
+      },
+    );
+
+    expect(updateOpportunity).toHaveBeenCalledWith(
+      "opportunity-1",
+      { status: "reviewed" },
+      context,
+    );
+    expect(result).toEqual({
+      id: "opportunity-1",
+      rating: null,
+      status: "reviewed",
+    });
+  });
+
+  it("delegates setOpportunitySelectionByBusinessId to the repository", async () => {
+    const updateSelection = vi.fn().mockResolvedValue({
+      opportunity_id: "opportunity-1",
+      business_id: "business-1",
+      is_selected: true,
+      updated_at: "2026-04-27T00:00:00.000Z",
+    });
+
+    const result = await setOpportunitySelectionByBusinessId(
+      "business-1",
+      { is_selected: true },
+      context,
+      {
+        findOpportunities: vi.fn(),
+        findOpportunityById: vi.fn(),
+        updateOpportunityRating: vi.fn(),
+        updateOpportunity: vi.fn(),
+        setOpportunitySelectionByBusinessId: updateSelection,
+      },
+    );
+
+    expect(updateSelection).toHaveBeenCalledWith(
+      "business-1",
+      { is_selected: true },
+      context,
+    );
+    expect(result).toEqual({
+      opportunity_id: "opportunity-1",
+      business_id: "business-1",
+      is_selected: true,
+      updated_at: "2026-04-27T00:00:00.000Z",
     });
   });
 });

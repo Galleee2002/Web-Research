@@ -2,6 +2,8 @@ import type {
   OpportunityDetailRead,
   OpportunityFilters,
   OpportunityRatingUpdate,
+  OpportunitySelectionResult,
+  OpportunitySelectionUpdate,
   OpportunityUpdate,
   OpportunityRead,
   PaginatedResponse,
@@ -12,6 +14,7 @@ import type { OperationContext } from "@/lib/api/http";
 import {
   findOpportunityById as defaultFindOpportunityById,
   findOpportunities as defaultFindOpportunities,
+  setOpportunitySelectionByBusinessId as defaultSetOpportunitySelectionByBusinessId,
   updateOpportunity as defaultUpdateOpportunity,
   updateOpportunityRating as defaultUpdateOpportunityRating,
 } from "@/lib/db/opportunities";
@@ -21,6 +24,7 @@ interface OpportunityServiceDependencies {
   findOpportunityById: typeof defaultFindOpportunityById;
   updateOpportunityRating: typeof defaultUpdateOpportunityRating;
   updateOpportunity: typeof defaultUpdateOpportunity;
+  setOpportunitySelectionByBusinessId: typeof defaultSetOpportunitySelectionByBusinessId;
 }
 
 const defaultOpportunityServiceDependencies = {
@@ -28,6 +32,7 @@ const defaultOpportunityServiceDependencies = {
   findOpportunityById: defaultFindOpportunityById,
   updateOpportunityRating: defaultUpdateOpportunityRating,
   updateOpportunity: defaultUpdateOpportunity,
+  setOpportunitySelectionByBusinessId: defaultSetOpportunitySelectionByBusinessId,
 } satisfies OpportunityServiceDependencies;
 
 export async function listOpportunities(
@@ -62,4 +67,13 @@ export async function setOpportunity(
   deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
 ): Promise<OpportunityDetailRead | null> {
   return deps.updateOpportunity(id, payload, context);
+}
+
+export async function setOpportunitySelectionByBusinessId(
+  businessId: string,
+  payload: OpportunitySelectionUpdate,
+  context: OperationContext,
+  deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
+): Promise<OpportunitySelectionResult | null> {
+  return deps.setOpportunitySelectionByBusinessId(businessId, payload, context);
 }

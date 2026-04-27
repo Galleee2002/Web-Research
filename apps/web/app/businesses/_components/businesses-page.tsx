@@ -73,6 +73,17 @@ function buildMapEmbedUrl(detail: BusinessDetailRead): string | null {
   return null;
 }
 
+async function readOpportunitySelectionError(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as {
+      error?: { message?: string };
+    };
+    return body.error?.message ?? "Could not update opportunities selection.";
+  } catch {
+    return "Could not update opportunities selection.";
+  }
+}
+
 function SelectMenu<T extends string>({
   value,
   options,
@@ -172,6 +183,8 @@ export function BusinessesPage() {
   const [statusDirty, setStatusDirty] = useState(false);
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaveError, setNotesSaveError] = useState<string | null>(null);
+  const [selectionSaving, setSelectionSaving] = useState(false);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -319,6 +332,7 @@ export function BusinessesPage() {
     setStatusDraft(nextStatus);
     setStatusDirty(false);
     setNotesSaveError(null);
+    setSelectionError(null);
   }, [activeBusiness]);
 
   useEffect(() => {
@@ -371,6 +385,44 @@ export function BusinessesPage() {
       setNotesSaving(false);
     }
   }, [activeBusiness, notesDirty, notesDraft, notesSaving, statusDirty, statusDraft]);
+
+  const handleToggleOpportunitySelection = useCallback(async () => {
+    if (!activeBusiness || selectionSaving) return;
+
+    setSelectionSaving(true);
+    setSelectionError(null);
+    const nextValue = !activeBusiness.opportunity_selected;
+
+    try {
+      const response = await fetch(
+        `/api/opportunities/businesses/${activeBusiness.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ is_selected: nextValue })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await readOpportunitySelectionError(response));
+      }
+
+      const body = (await response.json()) as { is_selected: boolean };
+      setActiveBusiness((current) =>
+        current ? { ...current, opportunity_selected: body.is_selected } : current
+      );
+    } catch (error) {
+      setSelectionError(
+        error instanceof Error
+          ? error.message
+          : "Could not update opportunities selection."
+      );
+    } finally {
+      setSelectionSaving(false);
+    }
+  }, [activeBusiness, selectionSaving]);
 
   const copyIfPresent = useCallback(async (rawValue: string | null) => {
     const value = rawValue?.trim() ?? "";
@@ -953,6 +1005,30 @@ export function BusinessesPage() {
                         {notesSaveError ? (
                           <p className="business-modal__notes-error" role="alert">
                             {notesSaveError}
+                          </p>
+                        ) : null}
+                      </section>
+
+                      <section className="business-modal__section business-modal__section--cta">
+                        <div className="business-modal__opportunity-cta-wrap">
+                          <button
+                            type="button"
+                            className="business-modal__opportunity-cta"
+                            onClick={() => {
+                              void handleToggleOpportunitySelection();
+                            }}
+                            disabled={selectionSaving}
+                          >
+                            {selectionSaving
+                              ? "Saving..."
+                              : activeBusiness.opportunity_selected
+                                ? "Remove from Opportunities"
+                                : "Add to Opportunities"}
+                          </button>
+                        </div>
+                        {selectionError ? (
+                          <p className="business-modal__notes-error" role="alert">
+                            {selectionError}
                           </p>
                         ) : null}
                       </section>

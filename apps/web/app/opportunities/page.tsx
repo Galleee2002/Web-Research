@@ -385,3 +385,13 @@ function statusLabel(status: OpportunityRead["status"]): string {
   }
 }
 
+function compareByRating(a: OpportunityRead, b: OpportunityRead): number {
+  if (a.rating === null && b.rating !== null) return 1;
+  if (a.rating !== null && b.rating === null) return -1;
+  if (a.rating !== b.rating) return (b.rating ?? 0) - (a.rating ?? 0);
+
+  const createdAtDiff = new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  if (createdAtDiff !== 0) return createdAtDiff;
+
+  return a.id.localeCompare(b.id);
+}

@@ -7,6 +7,8 @@ import { INPUT_LIMITS } from "../constants/pagination";
 import type {
   OpportunityFilters,
   OpportunityRatingUpdate,
+  OpportunitySelectionUpdate,
+  OpportunityUpdate,
 } from "../types/opportunity";
 import {
   isRecord,
@@ -37,6 +39,71 @@ export function parseOpportunityRatingUpdate(
   }
 
   return { ok: true, value: { rating: input.rating } };
+}
+
+export function parseOpportunityUpdate(
+  input: unknown,
+): ValidationResult<OpportunityUpdate> {
+  if (!isRecord(input)) {
+    return { ok: false, errors: ["payload must be an object"] };
+  }
+
+  const hasRating = Object.hasOwn(input, "rating");
+  const hasStatus = Object.hasOwn(input, "status");
+
+  if (!hasRating && !hasStatus) {
+    return { ok: false, errors: ["at least one of rating or status is required"] };
+  }
+
+  const errors: string[] = [];
+  const next: OpportunityUpdate = {};
+
+  if (hasRating) {
+    if (input.rating === null) {
+      next.rating = null;
+    } else if (isOpportunityRating(input.rating)) {
+      next.rating = input.rating;
+    } else {
+      errors.push("rating must be an integer from 1 to 5 or null");
+    }
+  }
+
+  if (hasStatus) {
+    if (isLeadStatus(input.status)) {
+      next.status = input.status;
+    } else {
+      errors.push("status is not a valid lead status");
+    }
+  }
+
+  if (errors.length > 0) {
+    return { ok: false, errors };
+  }
+
+  return { ok: true, value: next };
+}
+
+export function parseOpportunitySelectionUpdate(
+  input: unknown,
+): ValidationResult<OpportunitySelectionUpdate> {
+  if (!isRecord(input)) {
+    return { ok: false, errors: ["payload must be an object"] };
+  }
+
+  if (!Object.hasOwn(input, "is_selected")) {
+    return { ok: false, errors: ["is_selected is required"] };
+  }
+
+  if (typeof input.is_selected !== "boolean") {
+    return { ok: false, errors: ["is_selected must be true or false"] };
+  }
+
+  return {
+    ok: true,
+    value: {
+      is_selected: input.is_selected,
+    },
+  };
 }
 
 export function parseOpportunityFilters(
