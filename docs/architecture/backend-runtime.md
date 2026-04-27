@@ -145,11 +145,10 @@ Copiar `.env.example` a `.env` y ajustar al menos:
 
 ### 3. Aplicar migraciones
 
-Ejecutar en este orden:
+Ejecutar todas las migraciones versionadas:
 
 ```sh
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/001_create_mvp_schema.sql
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/002_add_search_run_observability.sql
+./scripts/dev/run-migrations.sh
 ```
 
 ### 4. Seed de desarrollo

@@ -240,11 +240,30 @@ export async function findBusinessById(
   const result = await query<BusinessRow>(
     `
       select
-        ${BUSINESS_SELECT},
+        businesses.id,
+        businesses.search_run_id,
+        businesses.external_id,
+        businesses.source,
+        businesses.name,
+        businesses.category,
+        businesses.address,
+        businesses.city,
+        businesses.region,
+        businesses.country,
+        businesses.lat,
+        businesses.lng,
+        businesses.phone,
+        businesses.website,
+        businesses.has_website,
+        businesses.maps_url,
+        businesses.status,
+        businesses.notes,
+        businesses.created_at,
+        businesses.updated_at,
         coalesce(opportunities.is_selected, false) as opportunity_selected
       from businesses
       left join opportunities on opportunities.business_id = businesses.id
-      where id = $1
+      where businesses.id = $1
       limit 1
     `,
     [id],
