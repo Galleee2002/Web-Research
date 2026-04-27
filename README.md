@@ -35,6 +35,12 @@ Install Python worker dependencies:
 python3 -m pip install -e 'services/workers[test]'
 ```
 
+Apply database migrations:
+
+```sh
+./scripts/dev/run-migrations.sh
+```
+
 Start the web app in development:
 
 ```sh

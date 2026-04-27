@@ -426,8 +426,8 @@ class WorkerRepository:
 
         connection.execute(
             """
-            insert into opportunities (business_id, rating)
-            values (%s, null)
+            insert into opportunities (business_id, rating, is_selected)
+            values (%s, null, false)
             on conflict (business_id) do nothing
             """,
             (business_id,),

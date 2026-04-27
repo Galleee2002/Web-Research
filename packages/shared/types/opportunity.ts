@@ -3,6 +3,7 @@ import type { LeadStatus, OpportunityRating } from "../constants/domain";
 export interface OpportunityRead {
   id: string;
   business_id: string;
+  is_selected: boolean;
   rating: OpportunityRating | null;
   name: string;
   category: string | null;
@@ -23,6 +24,22 @@ export interface OpportunityDetailRead extends OpportunityRead {
 
 export interface OpportunityRatingUpdate {
   rating: OpportunityRating | null;
+}
+
+export interface OpportunityUpdate {
+  rating?: OpportunityRating | null;
+  status?: LeadStatus;
+}
+
+export interface OpportunitySelectionUpdate {
+  is_selected: boolean;
+}
+
+export interface OpportunitySelectionResult {
+  opportunity_id: string;
+  business_id: string;
+  is_selected: boolean;
+  updated_at: string;
 }
 
 export interface OpportunityFilters {

@@ -471,6 +471,49 @@ a {
   gap: 0.5rem;
 }
 
+.opportunity-status-actions__discard {
+  min-height: 32px;
+  padding: 0.42rem 0.95rem;
+  border: 1px solid color-mix(in srgb, #ff3b30 34%, var(--border-soft));
+  border-radius: 980px;
+  background: color-mix(in srgb, #ff3b30 10%, var(--surface-01));
+  color: #ff3b30;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: -0.08px;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease;
+}
+
+.opportunity-status-actions__discard:hover:not(:disabled) {
+  background: color-mix(in srgb, #ff3b30 18%, var(--surface-01));
+  border-color: color-mix(in srgb, #ff3b30 44%, var(--border-soft));
+}
+
+.opportunity-status-actions__discard:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+.opportunity-status-actions__discard:disabled {
+  opacity: 0.68;
+  cursor: progress;
+}
+
+[data-theme="dark"] .opportunity-status-actions__discard {
+  color: #ff453a;
+  border-color: color-mix(in srgb, #ff453a 40%, var(--border-soft));
+  background: color-mix(in srgb, #ff453a 14%, var(--surface-01));
+}
+
+[data-theme="dark"] .opportunity-status-actions__discard:hover:not(:disabled) {
+  background: color-mix(in srgb, #ff453a 24%, var(--surface-01));
+}
+
 .opportunity-status-select .businesses-select__trigger {
   width: auto;
   min-height: 38px;

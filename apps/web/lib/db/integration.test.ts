@@ -147,8 +147,8 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
 
     const insertOpportunityResult = await query<{ id: string }>(
       `
-        insert into opportunities (business_id, rating)
-        values ($1, null)
+        insert into opportunities (business_id, rating, is_selected)
+        values ($1, null, true)
         returning id
       `,
       [businessId],
@@ -171,6 +171,8 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
       );
 
       expect(list.items.some((item) => item.id === opportunityId)).toBe(true);
+      const listedOpportunity = list.items.find((item) => item.id === opportunityId);
+      expect(listedOpportunity?.is_selected).toBe(true);
 
       const opportunity = await findOpportunityById(opportunityId, context);
       expect(opportunity?.rating).toBeNull();
@@ -188,6 +190,21 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
         context,
       );
       expect(cleared?.rating).toBeNull();
+
+      const detail = await findBusinessById(businessId, context);
+      expect(detail?.opportunity_selected).toBe(true);
+
+      await updateBusinessLeadStatus(businessId, { status: "discarded" }, context);
+      const discardedList = await findOpportunities(
+        {
+          page: 1,
+          page_size: 20,
+          order_by: "rating",
+          query: suffix,
+        },
+        context,
+      );
+      expect(discardedList.items.some((item) => item.id === opportunityId)).toBe(false);
     } finally {
       await query("delete from businesses where id = $1", [businessId], {
         operationName: "cleanup_opportunity_business",

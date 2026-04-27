@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Business list (all leads or opportunities-only): `GET /api/businesses` or `GET /api/opportunities`.
+ * Businesses list: loads data from `GET /api/businesses` (PostgreSQL via Next API).
+ * Verificar BD: `/api/health` (database.reachable) y respuesta de esta lista (`total`, `items`).
  * @see docs/architecture/frontend-backend-connection.md
  */
 
@@ -29,11 +30,8 @@ import {
   BusinessesApiError,
   fetchBusinessById,
   fetchBusinessesPage,
-  fetchOpportunitiesPage,
   patchBusinessById
 } from "@/lib/api/businesses-client";
-
-export type BusinessListVariant = "businesses" | "opportunities";
 
 type StatusFilter = LeadStatus | "all";
 type WebsiteFilter = "all" | "yes" | "no";
@@ -52,8 +50,6 @@ function statusLabel(s: LeadStatus): string {
       return "Contacted";
     case "discarded":
       return "Discarded";
-    case "opportunities":
-      return "Opportunity";
     default:
       return s;
   }
@@ -75,6 +71,17 @@ function buildMapEmbedUrl(detail: BusinessDetailRead): string | null {
     return detail.maps_url;
   }
   return null;
+}
+
+async function readOpportunitySelectionError(response: Response): Promise<string> {
+  try {
+    const body = (await response.json()) as {
+      error?: { message?: string };
+    };
+    return body.error?.message ?? "Could not update opportunities selection.";
+  } catch {
+    return "Could not update opportunities selection.";
+  }
 }
 
 function SelectMenu<T extends string>({
@@ -152,12 +159,7 @@ function SelectMenu<T extends string>({
 
 const SEARCH_DEBOUNCE_MS = 350;
 
-export function BusinessListPage({ variant }: { variant: BusinessListVariant }) {
-  const isOpportunities = variant === "opportunities";
-  const pageTitle = isOpportunities ? "Opportunities" : "Businesses";
-  const titleId = isOpportunities ? "opportunities-title" : "businesses-title";
-  const searchInputId = isOpportunities ? "opportunities-search-input" : "businesses-search-input";
-
+export function BusinessesPage() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -181,6 +183,8 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
   const [statusDirty, setStatusDirty] = useState(false);
   const [notesSaving, setNotesSaving] = useState(false);
   const [notesSaveError, setNotesSaveError] = useState<string | null>(null);
+  const [selectionSaving, setSelectionSaving] = useState(false);
+  const [selectionError, setSelectionError] = useState<string | null>(null);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -196,27 +200,22 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
     async function load() {
       setLoading(true);
       setFetchError(null);
-      const listParams = {
-        page: 1,
-        page_size: MAX_PAGE_SIZE,
-        ...(debouncedQuery !== "" ? { query: debouncedQuery } : {}),
-        ...(websiteFilter === "yes"
-          ? { has_website: true as const }
-          : websiteFilter === "no"
-            ? { has_website: false as const }
-            : {}),
-        order_by: "created_at" as const
-      };
       try {
-        const data = isOpportunities
-          ? await fetchOpportunitiesPage(listParams, { signal: controller.signal })
-          : await fetchBusinessesPage(
-              {
-                ...listParams,
-                ...(statusFilter !== "all" ? { status: statusFilter } : {})
-              },
-              { signal: controller.signal }
-            );
+        const data = await fetchBusinessesPage(
+          {
+            page: 1,
+            page_size: MAX_PAGE_SIZE,
+            ...(debouncedQuery !== "" ? { query: debouncedQuery } : {}),
+            ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+            ...(websiteFilter === "yes"
+              ? { has_website: true }
+              : websiteFilter === "no"
+                ? { has_website: false }
+                : {}),
+            order_by: "created_at"
+          },
+          { signal: controller.signal, cache: "no-store" }
+        );
         if (!cancelled) {
           setItems(data.items);
           setTotal(data.total);
@@ -230,9 +229,7 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
             ? e.message
             : e instanceof Error
               ? e.message
-              : isOpportunities
-                ? "Could not load opportunities."
-                : "Could not load businesses.";
+              : "Could not load businesses.";
         if (!cancelled) {
           setItems([]);
           setTotal(0);
@@ -250,7 +247,7 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
       cancelled = true;
       controller.abort();
     };
-  }, [debouncedQuery, statusFilter, websiteFilter, isOpportunities]);
+  }, [debouncedQuery, statusFilter, websiteFilter]);
 
   const onSort = useCallback((key: SortKey) => {
     setSort((prev) =>
@@ -294,7 +291,8 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
       setDetailError(null);
       try {
         const data = await fetchBusinessById(businessId, {
-          signal: controller.signal
+          signal: controller.signal,
+          cache: "no-store"
         });
         if (!cancelled) {
           setActiveBusiness(data);
@@ -335,6 +333,7 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
     setStatusDraft(nextStatus);
     setStatusDirty(false);
     setNotesSaveError(null);
+    setSelectionError(null);
   }, [activeBusiness]);
 
   useEffect(() => {
@@ -388,6 +387,44 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
     }
   }, [activeBusiness, notesDirty, notesDraft, notesSaving, statusDirty, statusDraft]);
 
+  const handleToggleOpportunitySelection = useCallback(async () => {
+    if (!activeBusiness || selectionSaving) return;
+
+    setSelectionSaving(true);
+    setSelectionError(null);
+    const nextValue = !activeBusiness.opportunity_selected;
+
+    try {
+      const response = await fetch(
+        `/api/opportunities/businesses/${activeBusiness.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ is_selected: nextValue })
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(await readOpportunitySelectionError(response));
+      }
+
+      const body = (await response.json()) as { is_selected: boolean };
+      setActiveBusiness((current) =>
+        current ? { ...current, opportunity_selected: body.is_selected } : current
+      );
+    } catch (error) {
+      setSelectionError(
+        error instanceof Error
+          ? error.message
+          : "Could not update opportunities selection."
+      );
+    } finally {
+      setSelectionSaving(false);
+    }
+  }, [activeBusiness, selectionSaving]);
+
   const copyIfPresent = useCallback(async (rawValue: string | null) => {
     const value = rawValue?.trim() ?? "";
     if (value.length === 0) {
@@ -412,18 +449,18 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
   return (
     <section
       className="dashboard-content businesses-page"
-      aria-labelledby={titleId}
+      aria-labelledby="businesses-title"
     >
       <header className="dashboard-content__header">
-        <h2 id={titleId}>{pageTitle}</h2>
+        <h2 id="businesses-title">Businesses</h2>
       </header>
 
       <div className="businesses-page__body">
         <div className="businesses-toolbar">
-          <label className="businesses-search" htmlFor={searchInputId}>
+          <label className="businesses-search" htmlFor="businesses-search-input">
             <Search className="businesses-search__icon" aria-hidden />
             <input
-              id={searchInputId}
+              id="businesses-search-input"
               className="businesses-search__input"
               type="search"
               placeholder="Search by name (server filter)"
@@ -434,31 +471,28 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
           </label>
 
           <div className="businesses-toolbar__filters">
-            {!isOpportunities ? (
-              <SelectMenu<StatusFilter>
-                ariaLabel="Filter by lead status"
-                value={statusFilter}
-                onChange={setStatusFilter}
-                rootClassName="businesses-select--status-root"
-                triggerClassName="businesses-select__trigger businesses-select__trigger--status"
-                options={[
-                  { value: "all", label: "All" },
-                  { value: "new", label: "New" },
-                  { value: "reviewed", label: "Reviewed" },
-                  { value: "opportunities", label: "Opportunity" },
-                  { value: "contacted", label: "Contacted" },
-                  { value: "discarded", label: "Discarded" }
-                ]}
-                triggerContent={
-                  <span className="businesses-select__trigger-label">
-                    Status:{" "}
-                    {statusFilter === "all"
-                      ? "All"
-                      : statusLabel(statusFilter as LeadStatus)}
-                  </span>
-                }
-              />
-            ) : null}
+            <SelectMenu<StatusFilter>
+              ariaLabel="Filter by lead status"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              rootClassName="businesses-select--status-root"
+              triggerClassName="businesses-select__trigger businesses-select__trigger--status"
+              options={[
+                { value: "all", label: "All" },
+                { value: "new", label: "New" },
+                { value: "reviewed", label: "Reviewed" },
+                { value: "contacted", label: "Contacted" },
+                { value: "discarded", label: "Discarded" }
+              ]}
+              triggerContent={
+                <span className="businesses-select__trigger-label">
+                  Status:{" "}
+                  {statusFilter === "all"
+                    ? "All"
+                    : statusLabel(statusFilter as LeadStatus)}
+                </span>
+              }
+            />
 
             <SelectMenu<WebsiteFilter>
               ariaLabel="Filter by website presence"
@@ -496,15 +530,7 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
 
         {!fetchError && !loading && total > 0 ? (
           <p className="businesses-meta" aria-live="polite">
-            {total}{" "}
-            {isOpportunities
-              ? total === 1
-                ? "opportunity"
-                : "opportunities"
-              : total === 1
-                ? "business"
-                : "businesses"}{" "}
-            from API
+            {total} {total === 1 ? "business" : "businesses"} from API
             {items.length < total ? ` · ${items.length} loaded (page size cap)` : null}
           </p>
         ) : null}
@@ -620,11 +646,7 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
               ) : displayRows.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
-                    <p className="businesses-empty">
-                      {isOpportunities
-                        ? "No opportunities match your filters."
-                        : "No businesses match your filters."}
-                    </p>
+                    <p className="businesses-empty">No businesses match your filters.</p>
                   </td>
                 </tr>
               ) : (
@@ -956,7 +978,6 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
                             ) {
                               opts.push({ value: "new", label: "New" });
                             }
-                            opts.push({ value: "opportunities", label: "Opportunity" });
                             opts.push({ value: "contacted", label: "Contacted" });
                             opts.push({ value: "discarded", label: "Discarded" });
                             return opts;
@@ -988,6 +1009,30 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
                           </p>
                         ) : null}
                       </section>
+
+                      <section className="business-modal__section business-modal__section--cta">
+                        <div className="business-modal__opportunity-cta-wrap">
+                          <button
+                            type="button"
+                            className="business-modal__opportunity-cta"
+                            onClick={() => {
+                              void handleToggleOpportunitySelection();
+                            }}
+                            disabled={selectionSaving}
+                          >
+                            {selectionSaving
+                              ? "Saving..."
+                              : activeBusiness.opportunity_selected
+                                ? "Remove from Opportunities"
+                                : "Add to Opportunities"}
+                          </button>
+                        </div>
+                        {selectionError ? (
+                          <p className="business-modal__notes-error" role="alert">
+                            {selectionError}
+                          </p>
+                        ) : null}
+                      </section>
                     </>
                   ) : (
                     <p className="business-modal__state">Business detail unavailable.</p>
@@ -1000,8 +1045,4 @@ export function BusinessListPage({ variant }: { variant: BusinessListVariant }) 
       ) : null}
     </section>
   );
-}
-
-export function BusinessesPage() {
-  return <BusinessListPage variant="businesses" />;
 }

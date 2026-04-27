@@ -7,6 +7,8 @@ import {
   parseBusinessStatusUpdate,
   parseOpportunityFilters,
   parseOpportunityRatingUpdate,
+  parseOpportunitySelectionUpdate,
+  parseOpportunityUpdate,
   parsePaginationParams,
   parseSearchCreate,
   parseSearchFilters,
@@ -145,6 +147,49 @@ describe("shared contracts", () => {
     expect(parseOpportunityRatingUpdate({ rating: 6 }).ok).toBe(false);
     expect(parseOpportunityRatingUpdate({ rating: 3.5 }).ok).toBe(false);
     expect(parseOpportunityRatingUpdate({ rating: "5" }).ok).toBe(false);
+  });
+
+  it("parses opportunity updates for rating and status changes", () => {
+    expect(parseOpportunityUpdate({ rating: 4 })).toEqual({
+      ok: true,
+      value: { rating: 4 },
+    });
+    expect(parseOpportunityUpdate({ rating: null, status: "reviewed" })).toEqual({
+      ok: true,
+      value: { rating: null, status: "reviewed" },
+    });
+    expect(parseOpportunityUpdate({ status: "contacted" })).toEqual({
+      ok: true,
+      value: { status: "contacted" },
+    });
+  });
+
+  it("rejects invalid opportunity update payloads", () => {
+    expect(parseOpportunityUpdate({})).toEqual({
+      ok: false,
+      errors: ["at least one of rating or status is required"],
+    });
+    expect(parseOpportunityUpdate({ rating: 6 }).ok).toBe(false);
+    expect(parseOpportunityUpdate({ status: "archived" }).ok).toBe(false);
+  });
+
+  it("parses and validates manual opportunity selection payloads", () => {
+    expect(parseOpportunitySelectionUpdate({ is_selected: true })).toEqual({
+      ok: true,
+      value: { is_selected: true },
+    });
+    expect(parseOpportunitySelectionUpdate({ is_selected: false })).toEqual({
+      ok: true,
+      value: { is_selected: false },
+    });
+    expect(parseOpportunitySelectionUpdate({})).toEqual({
+      ok: false,
+      errors: ["is_selected is required"],
+    });
+    expect(parseOpportunitySelectionUpdate({ is_selected: "true" })).toEqual({
+      ok: false,
+      errors: ["is_selected must be true or false"],
+    });
   });
 
   it("parses opportunity filters and accepts rating ordering", () => {
