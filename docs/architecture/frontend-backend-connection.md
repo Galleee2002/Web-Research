@@ -6,6 +6,12 @@ Este documento resume los pasos simples para que el frontend consuma los
 endpoints backend del MVP. El frontend no debe conectarse directamente a
 PostgreSQL; siempre debe usar las API routes de Next.js.
 
+Este documento debe leerse junto con
+`docs/architecture/backend-implementation-tasks.md` y
+`docs/architecture/frontend-implementation-tasks.md`. Para el cierre MVP,
+`packages/shared` es la fuente de verdad contractual para enums, filtros y
+shapes compartidos.
+
 ## Base recomendada
 
 Crear un cliente en `apps/web/lib/api` que centralice `fetch`, arme query params
@@ -20,6 +26,23 @@ Funciones minimas:
 - `getBusiness(id)`;
 - `updateBusiness(id, payload)`;
 - `buildExportUrl(params)`.
+
+Congelacion contractual del MVP:
+
+- endpoints vigentes:
+  `POST /api/search`,
+  `GET /api/searches`,
+  `GET /api/businesses`,
+  `GET /api/businesses/{id}`,
+  `PATCH /api/businesses/{id}`,
+  `GET /api/export`;
+- filtros vigentes de `GET /api/businesses` y `GET /api/export`:
+  `page`, `page_size`, `has_website`, `status`, `city`, `category`, `query`,
+  `order_by`;
+- estados de lead vigentes:
+  `new`, `reviewed`, `contacted`, `discarded`;
+- envelopes de error:
+  toda respuesta de error debe incluir `error.correlation_id`.
 
 ## Endpoints
 
@@ -82,6 +105,11 @@ Uso frontend:
 - omitir filtros vacios;
 - volver a `page = 1` cuando cambian filtros;
 - usar la respuesta `items`, `total`, `page` y `page_size` para paginar.
+- interpretar `has_website=false` como negocios sin website propio, incluyendo
+  casos donde el proveedor devolvio una red social, WhatsApp, Google Maps,
+  directorio o URL invalida rechazada por backend.
+- no replicar en frontend la lista de dominios ni la decision de si una URL
+  cuenta como website propio.
 
 ### Ver detalle de negocio
 
@@ -123,6 +151,18 @@ Uso frontend:
 - iniciar descarga desde el navegador;
 - no generar CSV en frontend.
 
+Reglas de coherencia frontend-backend:
+
+- el frontend no debe recalcular `has_website`;
+- el frontend no debe implementar deduplicacion;
+- el frontend no debe generar CSV por su cuenta;
+- cualquier discrepancia detectada en contratos o nombres de filtros debe
+  corregirse primero en `packages/shared` y luego reflejarse en rutas,
+  servicios y documentacion;
+- mientras `apps/web/app/page.tsx` y `apps/web/app/businesses/page.tsx` sigan
+  como placeholder, esta documentacion solo puede respaldar coherencia
+  contractual, no cierre funcional end-to-end.
+
 ## Manejo basico de errores
 
 Errores esperados:
@@ -152,6 +192,9 @@ El frontend deberia:
 - no asumir que un cambio fue guardado si la API responde error;
 - poder mostrar `error.correlation_id` como referencia de soporte o debug;
 - no crear taxonomias de error paralelas a las del backend.
+- no replicar reglas backend de CORS, website detection, URL validation,
+  deduplicacion ni CSV; esas decisiones pertenecen a API routes, servicios y
+  workers.
 
 ## Ejemplo simple de helper
 

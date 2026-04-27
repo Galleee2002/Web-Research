@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { getRuntimeConfig } from "@/lib/config/runtime";
+
 import { logError, logInfo, type LogFields } from "./logger";
 
 export type ApiErrorCode =
@@ -33,6 +35,7 @@ export interface ApiRequestContext extends OperationContext {
   request: Request;
   startedAt: number;
   operationContext: OperationContext;
+  validationErrors: string[];
 }
 
 interface ApiRouteOptions {
@@ -124,7 +127,18 @@ export async function withApiRoute(
   });
 
   try {
+    const requestValidationErrors = [
+      ...context.validationErrors,
+      ...validateRequestSize(request)
+    ];
+    if (requestValidationErrors.length > 0) {
+      const response = validationError(context.correlationId, requestValidationErrors);
+      applyCorsHeaders(response, request);
+      return response;
+    }
+
     const response = await handler(context);
+    applyCorsHeaders(response, request);
 
     logInfo("api_request_succeeded", {
       correlation_id: context.correlationId,
@@ -142,6 +156,7 @@ export async function withApiRoute(
     return response;
   } catch (error) {
     const response = errorToResponse(context, error);
+    applyCorsHeaders(response, request);
 
     logError("api_request_failed", {
       correlation_id: context.correlationId,
@@ -178,7 +193,14 @@ export function logApiEvent(event: string, context: OperationContext, fields: Lo
 }
 
 function createApiRequestContext(request: Request, route: string): ApiRequestContext {
-  const correlationId = request.headers.get("x-correlation-id")?.trim() || randomUUID();
+  const inboundCorrelationId = request.headers.get("x-correlation-id")?.trim();
+  const validationErrors: string[] = [];
+  let correlationId = inboundCorrelationId || randomUUID();
+
+  if (inboundCorrelationId && !isValidCorrelationId(inboundCorrelationId)) {
+    validationErrors.push("X-Correlation-Id is invalid");
+    correlationId = randomUUID();
+  }
 
   return {
     request,
@@ -186,12 +208,68 @@ function createApiRequestContext(request: Request, route: string): ApiRequestCon
     method: request.method,
     correlationId,
     startedAt: Date.now(),
+    validationErrors,
     operationContext: {
       correlationId,
       method: request.method,
       route
     }
   };
+}
+
+function isValidCorrelationId(value: string): boolean {
+  return /^[A-Za-z0-9._:-]{1,128}$/.test(value);
+}
+
+function validateRequestSize(request: Request): string[] {
+  if (!["POST", "PUT", "PATCH"].includes(request.method)) {
+    return [];
+  }
+
+  const contentType = request.headers.get("content-type") ?? "";
+  if (!contentType.toLowerCase().includes("application/json")) {
+    return [];
+  }
+
+  const contentLength = request.headers.get("content-length");
+  if (contentLength === null) {
+    return [];
+  }
+
+  const parsed = Number(contentLength);
+  if (!Number.isFinite(parsed)) {
+    return ["Content-Length must be a number"];
+  }
+
+  return parsed > getRuntimeConfig().apiJsonBodyLimitBytes
+    ? ["request body is too large"]
+    : [];
+}
+
+function applyCorsHeaders(response: Response, request: Request): void {
+  const origin = request.headers.get("origin");
+  if (!origin) {
+    return;
+  }
+
+  const { allowedOrigins } = getRuntimeConfig();
+  if (!allowedOrigins.includes(origin)) {
+    return;
+  }
+
+  response.headers.set("Access-Control-Allow-Origin", origin);
+  response.headers.set("Vary", "Origin");
+  response.headers.set("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
+  response.headers.set(
+    "Access-Control-Allow-Headers",
+    "Content-Type,Accept,X-Correlation-Id"
+  );
+}
+
+export function corsPreflight(request: Request): Response {
+  const response = new Response(null, { status: 204 });
+  applyCorsHeaders(response, request);
+  return response;
 }
 
 function errorToResponse(

@@ -3,10 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
+  parseBusinessFilters,
   parseBusinessStatusUpdate,
   parseGooglePlacesSearchRequest,
+  parseOpportunityFilters,
+  parseOpportunityRatingUpdate,
+  parseOpportunitySelectionUpdate,
+  parseOpportunityUpdate,
   parsePaginationParams,
   parseSearchCreate,
+  parseSearchFilters,
 } from "./index";
 
 describe("shared contracts", () => {
@@ -78,5 +84,161 @@ describe("shared contracts", () => {
     }
 
     expect(parseBusinessStatusUpdate({ status: "archived" }).ok).toBe(false);
+  });
+
+  it("parses business filters used by the dashboard and rejects unsupported order fields", () => {
+    const result = parseBusinessFilters({
+      page: "2",
+      page_size: "999",
+      has_website: "false",
+      status: "reviewed",
+      city: " Buenos Aires ",
+      category: " Dentist ",
+      query: " centro ",
+      order_by: "city",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual({
+        page: 2,
+        page_size: MAX_PAGE_SIZE,
+        has_website: false,
+        status: "reviewed",
+        city: "Buenos Aires",
+        category: "Dentist",
+        query: "centro",
+        order_by: "city",
+      });
+    }
+
+    expect(parseBusinessFilters({ order_by: "category" }).ok).toBe(false);
+    expect(parseBusinessFilters({ has_website: "maybe" }).ok).toBe(false);
+    expect(parseBusinessFilters({ page: "0" }).ok).toBe(false);
+    expect(parseBusinessFilters({ page_size: "abc" }).ok).toBe(false);
+  });
+
+  it("parses search filters with source default and rejects invalid status", () => {
+    const result = parseSearchFilters({
+      page: "3",
+      page_size: "5",
+      status: "completed",
+      source: "google_places",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual({
+        page: 3,
+        page_size: 5,
+        status: "completed",
+        source: "google_places",
+      });
+    }
+
+    expect(parseSearchFilters({ status: "archived" }).ok).toBe(false);
+  });
+
+  it("accepts valid opportunity rating updates and allows clearing the rating", () => {
+    expect(parseOpportunityRatingUpdate({ rating: 1 })).toEqual({
+      ok: true,
+      value: { rating: 1 },
+    });
+    expect(parseOpportunityRatingUpdate({ rating: 5 })).toEqual({
+      ok: true,
+      value: { rating: 5 },
+    });
+    expect(parseOpportunityRatingUpdate({ rating: null })).toEqual({
+      ok: true,
+      value: { rating: null },
+    });
+  });
+
+  it("rejects invalid opportunity rating payloads", () => {
+    expect(parseOpportunityRatingUpdate({})).toEqual({
+      ok: false,
+      errors: ["rating is required"],
+    });
+    expect(parseOpportunityRatingUpdate({ rating: 0 }).ok).toBe(false);
+    expect(parseOpportunityRatingUpdate({ rating: 6 }).ok).toBe(false);
+    expect(parseOpportunityRatingUpdate({ rating: 3.5 }).ok).toBe(false);
+    expect(parseOpportunityRatingUpdate({ rating: "5" }).ok).toBe(false);
+  });
+
+  it("parses opportunity updates for rating and status changes", () => {
+    expect(parseOpportunityUpdate({ rating: 4 })).toEqual({
+      ok: true,
+      value: { rating: 4 },
+    });
+    expect(parseOpportunityUpdate({ rating: null, status: "reviewed" })).toEqual({
+      ok: true,
+      value: { rating: null, status: "reviewed" },
+    });
+    expect(parseOpportunityUpdate({ status: "contacted" })).toEqual({
+      ok: true,
+      value: { status: "contacted" },
+    });
+  });
+
+  it("rejects invalid opportunity update payloads", () => {
+    expect(parseOpportunityUpdate({})).toEqual({
+      ok: false,
+      errors: ["at least one of rating or status is required"],
+    });
+    expect(parseOpportunityUpdate({ rating: 6 }).ok).toBe(false);
+    expect(parseOpportunityUpdate({ status: "archived" }).ok).toBe(false);
+  });
+
+  it("parses and validates manual opportunity selection payloads", () => {
+    expect(parseOpportunitySelectionUpdate({ is_selected: true })).toEqual({
+      ok: true,
+      value: { is_selected: true },
+    });
+    expect(parseOpportunitySelectionUpdate({ is_selected: false })).toEqual({
+      ok: true,
+      value: { is_selected: false },
+    });
+    expect(parseOpportunitySelectionUpdate({})).toEqual({
+      ok: false,
+      errors: ["is_selected is required"],
+    });
+    expect(parseOpportunitySelectionUpdate({ is_selected: "true" })).toEqual({
+      ok: false,
+      errors: ["is_selected must be true or false"],
+    });
+  });
+
+  it("parses opportunity filters and accepts rating ordering", () => {
+    const result = parseOpportunityFilters({
+      page: "2",
+      page_size: "10",
+      status: "reviewed",
+      city: " Buenos Aires ",
+      category: " Dentist ",
+      query: " clinic ",
+      order_by: "rating",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        page: 2,
+        page_size: 10,
+        status: "reviewed",
+        city: "Buenos Aires",
+        category: "Dentist",
+        query: "clinic",
+        order_by: "rating",
+      },
+    });
+  });
+
+  it("rejects invalid opportunity ordering", () => {
+    const result = parseOpportunityFilters({ order_by: "invalid" });
+
+    expect(result).toEqual({
+      ok: false,
+      errors: ["order_by must be rating, created_at, name, or city"],
+    });
   });
 });

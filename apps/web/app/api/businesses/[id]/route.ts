@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { parseBusinessStatusUpdate } from "@shared/index";
 
 import {
+  corsPreflight,
   isUuid,
   notFound,
   validationError,
@@ -10,6 +11,10 @@ import {
 import { getBusinessById, updateBusinessStatus } from "@/lib/services/business-service";
 
 export const runtime = "nodejs";
+
+export function OPTIONS(request: Request) {
+  return corsPreflight(request);
+}
 
 interface RouteContext {
   params: Promise<{

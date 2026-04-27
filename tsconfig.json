@@ -13,10 +13,9 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["apps/web/*"],
-      "@shared/*": ["packages/shared/*"]
+      "@/*": ["./apps/web/*"],
+      "@shared/*": ["./packages/shared/*"]
     },
     "types": ["node", "vitest/globals"]
   },

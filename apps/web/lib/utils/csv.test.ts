@@ -20,4 +20,20 @@ describe("toCsv", () => {
       'name,notes,has_website,website\n"Clinica, Centro","Dijo ""llamar""\nmanana",false,'
     );
   });
+
+  it("neutralizes spreadsheet formulas in exported values", () => {
+    const csv = toCsv(
+      ["name", "address"],
+      [
+        {
+          name: "=IMPORTXML(\"https://example.com\")",
+          address: "+541155551234"
+        }
+      ]
+    );
+
+    expect(csv).toBe(
+      'name,address\n"\'=IMPORTXML(""https://example.com"")","\'+541155551234"'
+    );
+  });
 });

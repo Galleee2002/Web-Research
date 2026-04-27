@@ -1,6 +1,7 @@
 from collections.abc import Callable
 import logging
 import re
+import unicodedata
 from typing import Any
 
 import psycopg
@@ -20,7 +21,12 @@ def normalize_dedupe_text(value: str | None) -> str:
     if value is None:
         return ""
 
-    normalized = _NON_ALNUM_PATTERN.sub("", value.strip().lower())
+    without_diacritics = "".join(
+        char
+        for char in unicodedata.normalize("NFKD", value.strip().lower())
+        if not unicodedata.combining(char)
+    )
+    normalized = _NON_ALNUM_PATTERN.sub("", without_diacritics)
     return normalized
 
 
@@ -166,6 +172,7 @@ class WorkerRepository:
                                 external_id=business.external_id,
                             )
                         )
+                        self._ensure_opportunity(connection, inserted["id"], business.has_website)
                         log_event(
                             logger,
                             logging.INFO,
@@ -200,6 +207,11 @@ class WorkerRepository:
                         where id = %(id)s
                         """,
                         payload,
+                    )
+                    self._ensure_opportunity(
+                        connection,
+                        existing["id"],
+                        payload["has_website"],
                     )
                     results.append(
                         UpsertResult(
@@ -337,8 +349,27 @@ class WorkerRepository:
             select *
             from businesses
             where source = %s
-              and regexp_replace(lower(name), '[^a-z0-9]+', '', 'g') = %s
-              and regexp_replace(lower(coalesce(address, '')), '[^a-z0-9]+', '', 'g') = %s
+              and external_id is null
+              and regexp_replace(
+                translate(
+                  lower(name),
+                  'áàâäãåéèêëíìîïóòôöõúùûüñç',
+                  'aaaaaaeeeeiiiiooooouuuunc'
+                ),
+                '[^a-z0-9]+',
+                '',
+                'g'
+              ) = %s
+              and regexp_replace(
+                translate(
+                  lower(coalesce(address, '')),
+                  'áàâäãåéèêëíìîïóòôöõúùûüñç',
+                  'aaaaaaeeeeiiiiooooouuuunc'
+                ),
+                '[^a-z0-9]+',
+                '',
+                'g'
+              ) = %s
             order by created_at asc
             limit 1
             """,
@@ -383,6 +414,24 @@ class WorkerRepository:
         if isinstance(existing, str) and existing.strip():
             return existing
         return incoming
+
+    def _ensure_opportunity(
+        self,
+        connection: psycopg.Connection[Any],
+        business_id: str,
+        has_website: bool,
+    ) -> None:
+        if has_website:
+            return
+
+        connection.execute(
+            """
+            insert into opportunities (business_id, rating, is_selected)
+            values (%s, null, false)
+            on conflict (business_id) do nothing
+            """,
+            (business_id,),
+        )
 
     def _map_search_run(self, row: dict[str, Any]) -> SearchRun:
         return SearchRun(

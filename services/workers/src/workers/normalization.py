@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import urlsplit
 
 from contracts import NormalizedBusiness, validate_normalized_business
 from ingestion.google_places.errors import GoogleInvalidResponseError
@@ -50,6 +51,25 @@ def _to_float(value: Any) -> float | None:
         return float(value)
 
     return None
+
+
+def _safe_http_url(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip()
+    if not normalized:
+        return None
+
+    try:
+        parsed = urlsplit(normalized)
+    except ValueError:
+        return None
+
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return None
+
+    return normalized
 
 
 def _extract_geocoding_component(
@@ -147,8 +167,6 @@ def normalize_google_place(
         ),
         website=website,
         has_website=has_website,
-        maps_url=place.get("googleMapsUri")
-        if isinstance(place.get("googleMapsUri"), str)
-        else None,
+        maps_url=_safe_http_url(place.get("googleMapsUri")),
     )
     return validate_normalized_business(business)

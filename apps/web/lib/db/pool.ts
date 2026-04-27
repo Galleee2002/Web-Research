@@ -3,19 +3,29 @@ import pg from "pg";
 import { logError, logInfo } from "@/lib/api/logger";
 
 import { DatabaseOperationError, type OperationContext } from "@/lib/api/http";
+import { getRuntimeConfig } from "@/lib/config/runtime";
 
 const { Pool } = pg;
 
 let pool: pg.Pool | undefined;
 
 export function getPool(): pg.Pool {
-  const connectionString = process.env.DATABASE_URL;
+  const config = getRuntimeConfig();
+  const connectionString = config.databaseUrl;
 
   if (!connectionString) {
     throw new Error("DATABASE_URL is required");
   }
 
-  pool ??= new Pool({ connectionString });
+  pool ??= new Pool({
+    connectionString,
+    max: config.dbPoolMax,
+    idleTimeoutMillis: config.dbIdleTimeoutMs,
+    connectionTimeoutMillis: config.dbConnectionTimeoutMs,
+    query_timeout: config.dbQueryTimeoutMs,
+    statement_timeout: config.dbQueryTimeoutMs,
+    ...(config.dbSsl ? { ssl: { rejectUnauthorized: true } } : {})
+  });
   return pool;
 }
 

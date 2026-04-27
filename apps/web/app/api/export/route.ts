@@ -1,6 +1,7 @@
 import { parseBusinessFilters } from "@shared/index";
 
 import {
+  corsPreflight,
   logApiEvent,
   searchParamsToObject,
   validationError,
@@ -10,6 +11,10 @@ import { listBusinessesForExport } from "@/lib/services/business-service";
 import { toCsv } from "@/lib/utils/csv";
 
 export const runtime = "nodejs";
+
+export function OPTIONS(request: Request) {
+  return corsPreflight(request);
+}
 
 const EXPORT_COLUMNS = [
   "name",

@@ -30,6 +30,7 @@ interface BusinessRow {
   maps_url: string | null;
   status: BusinessRead["status"];
   notes: string | null;
+  opportunity_selected?: boolean | null;
   created_at: Date | string;
   updated_at: Date | string;
 }
@@ -101,6 +102,7 @@ export function mapBusinessDetail(row: BusinessRow): BusinessDetailRead {
     lat: toNumber(row.lat),
     lng: toNumber(row.lng),
     notes: row.notes,
+    opportunity_selected: row.opportunity_selected ?? false,
     created_at: toIsoString(row.created_at),
     updated_at: toIsoString(row.updated_at)
   };
@@ -237,9 +239,31 @@ export async function findBusinessById(
 ): Promise<BusinessDetailRead | null> {
   const result = await query<BusinessRow>(
     `
-      select ${BUSINESS_SELECT}
+      select
+        businesses.id,
+        businesses.search_run_id,
+        businesses.external_id,
+        businesses.source,
+        businesses.name,
+        businesses.category,
+        businesses.address,
+        businesses.city,
+        businesses.region,
+        businesses.country,
+        businesses.lat,
+        businesses.lng,
+        businesses.phone,
+        businesses.website,
+        businesses.has_website,
+        businesses.maps_url,
+        businesses.status,
+        businesses.notes,
+        businesses.created_at,
+        businesses.updated_at,
+        coalesce(opportunities.is_selected, false) as opportunity_selected
       from businesses
-      where id = $1
+      left join opportunities on opportunities.business_id = businesses.id
+      where businesses.id = $1
       limit 1
     `,
     [id],
@@ -259,13 +283,39 @@ export async function updateBusinessLeadStatus(
 ): Promise<BusinessDetailRead | null> {
   const result = await query<BusinessRow>(
     `
-      update businesses
-      set
-        status = $2,
-        notes = case when $3::boolean then $4::text else notes end,
-        updated_at = now()
-      where id = $1
-      returning ${BUSINESS_SELECT}
+      with updated_business as (
+        update businesses
+        set
+          status = $2,
+          notes = case when $3::boolean then $4::text else notes end,
+          updated_at = now()
+        where id = $1
+        returning *
+      )
+      select
+        updated_business.id,
+        updated_business.search_run_id,
+        updated_business.external_id,
+        updated_business.source,
+        updated_business.name,
+        updated_business.category,
+        updated_business.address,
+        updated_business.city,
+        updated_business.region,
+        updated_business.country,
+        updated_business.lat,
+        updated_business.lng,
+        updated_business.phone,
+        updated_business.website,
+        updated_business.has_website,
+        updated_business.maps_url,
+        updated_business.status,
+        updated_business.notes,
+        coalesce(opportunities.is_selected, false) as opportunity_selected,
+        updated_business.created_at,
+        updated_business.updated_at
+      from updated_business
+      left join opportunities on opportunities.business_id = updated_business.id
     `,
     [id, payload.status, Object.hasOwn(payload, "notes"), payload.notes ?? null],
     {

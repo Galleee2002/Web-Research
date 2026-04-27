@@ -5,7 +5,7 @@ import type { BusinessFilters, BusinessStatusUpdate } from "../types/business";
 import {
   isRecord,
   parseOptionalString,
-  parsePaginationParams,
+  parseStrictPaginationParams,
   type ValidationResult,
 } from "./pagination";
 
@@ -63,7 +63,7 @@ export function parseBusinessStatusUpdate(
 export function parseBusinessFilters(input: unknown): ValidationResult<BusinessFilters> {
   const record = isRecord(input) ? input : {};
   const errors: string[] = [];
-  const pagination = parsePaginationParams(record);
+  const pagination = parseStrictPaginationParams(record, errors);
 
   const hasWebsite = parseBoolean(record.has_website);
   if (record.has_website !== undefined && hasWebsite === undefined) {

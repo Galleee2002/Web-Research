@@ -1,0 +1,31 @@
+{
+  "status": "OK",
+  "results": [
+    {
+      "formatted_address": "Av. Santa Fe 1234, C1059 ABT, Buenos Aires, Argentina",
+      "address_components": [
+        {
+          "long_name": "Buenos Aires",
+          "short_name": "CABA",
+          "types": ["locality", "political"]
+        },
+        {
+          "long_name": "Ciudad Autonoma de Buenos Aires",
+          "short_name": "CABA",
+          "types": ["administrative_area_level_1", "political"]
+        },
+        {
+          "long_name": "Argentina",
+          "short_name": "AR",
+          "types": ["country", "political"]
+        }
+      ],
+      "geometry": {
+        "location": {
+          "lat": -34.5956,
+          "lng": -58.3942
+        }
+      }
+    }
+  ]
+}

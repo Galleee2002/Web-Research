@@ -22,6 +22,7 @@ export interface BusinessDetailRead extends BusinessRead {
   lat: number | null;
   lng: number | null;
   notes: string | null;
+  opportunity_selected: boolean;
   created_at: string;
   updated_at: string;
 }

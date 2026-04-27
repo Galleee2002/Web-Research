@@ -19,6 +19,10 @@ BLOCKED_WEBSITE_HOSTS = {
     "google.com",
     "www.google.com",
     "maps.google.com",
+    "yelp.com",
+    "www.yelp.com",
+    "tripadvisor.com",
+    "www.tripadvisor.com",
 }
 
 

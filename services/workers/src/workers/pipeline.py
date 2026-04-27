@@ -6,7 +6,7 @@ from ingestion.google_places.adapter import extract_places
 
 from .models import SearchRun, SearchRunProcessingResult
 from .normalization import normalize_google_place
-from .observability import classify_error_code, log_event, utc_now_iso
+from .observability import classify_error_code, log_event, redact_sensitive_text, utc_now_iso
 
 logger = logging.getLogger(__name__)
 
@@ -224,4 +224,4 @@ class WorkerPipeline:
 
     def _summarize_error(self, error: Exception) -> str:
         message = str(error).strip() or error.__class__.__name__
-        return message[:500]
+        return redact_sensitive_text(message)[:500]
