@@ -4,6 +4,7 @@ import {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
   parseBusinessStatusUpdate,
+  parseGooglePlacesSearchRequest,
   parsePaginationParams,
   parseSearchCreate,
 } from "./index";
@@ -31,6 +32,21 @@ describe("shared contracts", () => {
     });
 
     expect(result.ok).toBe(false);
+  });
+
+  it("accepts a valid google places request after trimming text inputs", () => {
+    const result = parseGooglePlacesSearchRequest({
+      query: " pizzerias ",
+      location: " Miami, FL ",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value).toEqual({
+        query: "pizzerias",
+        location: "Miami, FL",
+      });
+    }
   });
 
   it("caps page size at the documented maximum", () => {
