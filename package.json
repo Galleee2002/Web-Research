@@ -5,10 +5,10 @@
     "apps/web"
   ],
   "scripts": {
-    "dev": "./scripts/dev/start-web.sh",
+    "dev": "node ./scripts/dev/start-web.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "web:dev": "./scripts/dev/start-web.sh",
+    "web:dev": "node ./scripts/dev/start-web.mjs",
     "web:build": "npm --workspace apps/web run build",
     "web:test": "npm --workspace apps/web run test",
     "workers:run": "python3 -m workers",

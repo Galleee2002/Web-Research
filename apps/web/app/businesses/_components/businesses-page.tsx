@@ -1,8 +1,7 @@
 "use client";
 
 /**
- * Businesses list: loads data from `GET /api/businesses` (PostgreSQL via Next API).
- * Verificar BD: `/api/health` (database.reachable) y respuesta de esta lista (`total`, `items`).
+ * Business list (all leads or opportunities-only): `GET /api/businesses` or `GET /api/opportunities`.
  * @see docs/architecture/frontend-backend-connection.md
  */
 
@@ -30,8 +29,11 @@ import {
   BusinessesApiError,
   fetchBusinessById,
   fetchBusinessesPage,
+  fetchOpportunitiesPage,
   patchBusinessById
 } from "@/lib/api/businesses-client";
+
+export type BusinessListVariant = "businesses" | "opportunities";
 
 type StatusFilter = LeadStatus | "all";
 type WebsiteFilter = "all" | "yes" | "no";
@@ -50,6 +52,8 @@ function statusLabel(s: LeadStatus): string {
       return "Contacted";
     case "discarded":
       return "Discarded";
+    case "opportunities":
+      return "Opportunity";
     default:
       return s;
   }
@@ -148,7 +152,12 @@ function SelectMenu<T extends string>({
 
 const SEARCH_DEBOUNCE_MS = 350;
 
-export function BusinessesPage() {
+export function BusinessListPage({ variant }: { variant: BusinessListVariant }) {
+  const isOpportunities = variant === "opportunities";
+  const pageTitle = isOpportunities ? "Opportunities" : "Businesses";
+  const titleId = isOpportunities ? "opportunities-title" : "businesses-title";
+  const searchInputId = isOpportunities ? "opportunities-search-input" : "businesses-search-input";
+
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -187,22 +196,27 @@ export function BusinessesPage() {
     async function load() {
       setLoading(true);
       setFetchError(null);
+      const listParams = {
+        page: 1,
+        page_size: MAX_PAGE_SIZE,
+        ...(debouncedQuery !== "" ? { query: debouncedQuery } : {}),
+        ...(websiteFilter === "yes"
+          ? { has_website: true as const }
+          : websiteFilter === "no"
+            ? { has_website: false as const }
+            : {}),
+        order_by: "created_at" as const
+      };
       try {
-        const data = await fetchBusinessesPage(
-          {
-            page: 1,
-            page_size: MAX_PAGE_SIZE,
-            ...(debouncedQuery !== "" ? { query: debouncedQuery } : {}),
-            ...(statusFilter !== "all" ? { status: statusFilter } : {}),
-            ...(websiteFilter === "yes"
-              ? { has_website: true }
-              : websiteFilter === "no"
-                ? { has_website: false }
-                : {}),
-            order_by: "created_at"
-          },
-          { signal: controller.signal }
-        );
+        const data = isOpportunities
+          ? await fetchOpportunitiesPage(listParams, { signal: controller.signal })
+          : await fetchBusinessesPage(
+              {
+                ...listParams,
+                ...(statusFilter !== "all" ? { status: statusFilter } : {})
+              },
+              { signal: controller.signal }
+            );
         if (!cancelled) {
           setItems(data.items);
           setTotal(data.total);
@@ -216,7 +230,9 @@ export function BusinessesPage() {
             ? e.message
             : e instanceof Error
               ? e.message
-              : "Could not load businesses.";
+              : isOpportunities
+                ? "Could not load opportunities."
+                : "Could not load businesses.";
         if (!cancelled) {
           setItems([]);
           setTotal(0);
@@ -234,7 +250,7 @@ export function BusinessesPage() {
       cancelled = true;
       controller.abort();
     };
-  }, [debouncedQuery, statusFilter, websiteFilter]);
+  }, [debouncedQuery, statusFilter, websiteFilter, isOpportunities]);
 
   const onSort = useCallback((key: SortKey) => {
     setSort((prev) =>
@@ -396,18 +412,18 @@ export function BusinessesPage() {
   return (
     <section
       className="dashboard-content businesses-page"
-      aria-labelledby="businesses-title"
+      aria-labelledby={titleId}
     >
       <header className="dashboard-content__header">
-        <h2 id="businesses-title">Businesses</h2>
+        <h2 id={titleId}>{pageTitle}</h2>
       </header>
 
       <div className="businesses-page__body">
         <div className="businesses-toolbar">
-          <label className="businesses-search" htmlFor="businesses-search-input">
+          <label className="businesses-search" htmlFor={searchInputId}>
             <Search className="businesses-search__icon" aria-hidden />
             <input
-              id="businesses-search-input"
+              id={searchInputId}
               className="businesses-search__input"
               type="search"
               placeholder="Search by name (server filter)"
@@ -418,28 +434,31 @@ export function BusinessesPage() {
           </label>
 
           <div className="businesses-toolbar__filters">
-            <SelectMenu<StatusFilter>
-              ariaLabel="Filter by lead status"
-              value={statusFilter}
-              onChange={setStatusFilter}
-              rootClassName="businesses-select--status-root"
-              triggerClassName="businesses-select__trigger businesses-select__trigger--status"
-              options={[
-                { value: "all", label: "All" },
-                { value: "new", label: "New" },
-                { value: "reviewed", label: "Reviewed" },
-                { value: "contacted", label: "Contacted" },
-                { value: "discarded", label: "Discarded" }
-              ]}
-              triggerContent={
-                <span className="businesses-select__trigger-label">
-                  Status:{" "}
-                  {statusFilter === "all"
-                    ? "All"
-                    : statusLabel(statusFilter as LeadStatus)}
-                </span>
-              }
-            />
+            {!isOpportunities ? (
+              <SelectMenu<StatusFilter>
+                ariaLabel="Filter by lead status"
+                value={statusFilter}
+                onChange={setStatusFilter}
+                rootClassName="businesses-select--status-root"
+                triggerClassName="businesses-select__trigger businesses-select__trigger--status"
+                options={[
+                  { value: "all", label: "All" },
+                  { value: "new", label: "New" },
+                  { value: "reviewed", label: "Reviewed" },
+                  { value: "opportunities", label: "Opportunity" },
+                  { value: "contacted", label: "Contacted" },
+                  { value: "discarded", label: "Discarded" }
+                ]}
+                triggerContent={
+                  <span className="businesses-select__trigger-label">
+                    Status:{" "}
+                    {statusFilter === "all"
+                      ? "All"
+                      : statusLabel(statusFilter as LeadStatus)}
+                  </span>
+                }
+              />
+            ) : null}
 
             <SelectMenu<WebsiteFilter>
               ariaLabel="Filter by website presence"
@@ -477,7 +496,15 @@ export function BusinessesPage() {
 
         {!fetchError && !loading && total > 0 ? (
           <p className="businesses-meta" aria-live="polite">
-            {total} {total === 1 ? "business" : "businesses"} from API
+            {total}{" "}
+            {isOpportunities
+              ? total === 1
+                ? "opportunity"
+                : "opportunities"
+              : total === 1
+                ? "business"
+                : "businesses"}{" "}
+            from API
             {items.length < total ? ` · ${items.length} loaded (page size cap)` : null}
           </p>
         ) : null}
@@ -593,7 +620,11 @@ export function BusinessesPage() {
               ) : displayRows.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
-                    <p className="businesses-empty">No businesses match your filters.</p>
+                    <p className="businesses-empty">
+                      {isOpportunities
+                        ? "No opportunities match your filters."
+                        : "No businesses match your filters."}
+                    </p>
                   </td>
                 </tr>
               ) : (
@@ -925,6 +956,7 @@ export function BusinessesPage() {
                             ) {
                               opts.push({ value: "new", label: "New" });
                             }
+                            opts.push({ value: "opportunities", label: "Opportunity" });
                             opts.push({ value: "contacted", label: "Contacted" });
                             opts.push({ value: "discarded", label: "Discarded" });
                             return opts;
@@ -968,4 +1000,8 @@ export function BusinessesPage() {
       ) : null}
     </section>
   );
+}
+
+export function BusinessesPage() {
+  return <BusinessListPage variant="businesses" />;
 }
