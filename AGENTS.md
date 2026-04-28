@@ -31,8 +31,8 @@ and managing them from a dashboard and API.
 
 - The web app is executable, not just scaffolded.
 - The dashboard shell and section placeholder pages exist for `Dashboard`,
-  `Businesses`, `Scans`, `Alerts`, `Analytics`, `Reports`, `Integrations`, and
-  `Settings`.
+  `Businesses`, `Scans`, `Analytics`, and `Settings` (other areas use real screens
+  where implemented).
 - `/opportunities` is now a real screen backed by API data, with manual 5-star
   prioritization.
 - Thin Next.js API routes exist for:

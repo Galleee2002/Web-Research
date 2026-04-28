@@ -1,5 +1,5 @@
-import { SectionPlaceholder } from "../_components/section-placeholder";
+import { ScansPage } from "./_components/scans-page";
 
-export default function ScansPage() {
-  return <SectionPlaceholder section="scans" />;
+export default function ScansRoutePage() {
+  return <ScansPage />;
 }

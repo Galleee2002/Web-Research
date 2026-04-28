@@ -118,6 +118,20 @@ describe("shared contracts", () => {
     expect(parseBusinessFilters({ page_size: "abc" }).ok).toBe(false);
   });
 
+  it("parses optional search_run_id as UUID and rejects invalid values", () => {
+    const id = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11";
+    const ok = parseBusinessFilters({ page: "1", page_size: "20", search_run_id: id });
+    expect(ok.ok).toBe(true);
+    if (ok.ok) {
+      expect(ok.value.search_run_id).toBe(id);
+    }
+
+    expect(parseBusinessFilters({ search_run_id: "not-a-uuid" }).ok).toBe(false);
+    expect(parseBusinessFilters({ search_run_id: 123 as unknown as string }).ok).toBe(
+      false,
+    );
+  });
+
   it("parses search filters with source default and rejects invalid status", () => {
     const result = parseSearchFilters({
       page: "3",

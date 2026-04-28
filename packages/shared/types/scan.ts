@@ -6,12 +6,16 @@ export interface ScanListItem {
   provider: string | null;
   providerEndpoint: string | null;
   httpStatus: number | null;
+  /** DB `search_runs.status` (e.g. completed, failed). */
+  status: SearchRunStatus;
   startedAt: string | null;
   completedAt: string | null;
   errorCode: string | null;
   correlationId: string | null;
   observability: Record<string, unknown>;
 }
+
+export type ScanStartedAtOrder = "asc" | "desc";
 
 export interface ScanFilters {
   page: number;
@@ -20,6 +24,8 @@ export interface ScanFilters {
   status?: SearchRunStatus;
   from?: string;
   to?: string;
+  /** Sort scans by `started_at`. Defaults to `desc` when omitted (API / DB). */
+  started_at_order?: ScanStartedAtOrder;
 }
 
 export interface PaginatedScansResponse {

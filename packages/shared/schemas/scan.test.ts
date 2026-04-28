@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseScanFilters } from "@shared/index";
+import { DEFAULT_PAGE_SIZE, parseScanFilters } from "@shared/index";
 
 describe("parseScanFilters", () => {
   it("should parse valid scan filters with default pagination", () => {
@@ -7,11 +7,12 @@ describe("parseScanFilters", () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.page).toBe(1);
-      expect(result.value.page_size).toBe(10);
+      expect(result.value.page_size).toBe(DEFAULT_PAGE_SIZE);
       expect(result.value.provider).toBeUndefined();
       expect(result.value.status).toBeUndefined();
       expect(result.value.from).toBeUndefined();
       expect(result.value.to).toBeUndefined();
+      expect(result.value.started_at_order).toBeUndefined();
     }
   });
 
@@ -71,10 +72,22 @@ describe("parseScanFilters", () => {
       page: 1,
       page_size: 500,
     });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors.some((e) => e.includes("page_size"))).toBe(true);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.page_size).toBeLessThanOrEqual(100);
     }
+  });
+
+  it("parses started_at_order asc and desc and rejects invalid", () => {
+    const asc = parseScanFilters({ started_at_order: "asc" });
+    expect(asc.ok).toBe(true);
+    if (asc.ok) expect(asc.value.started_at_order).toBe("asc");
+
+    const desc = parseScanFilters({ started_at_order: "desc" });
+    expect(desc.ok).toBe(true);
+    if (desc.ok) expect(desc.value.started_at_order).toBe("desc");
+
+    expect(parseScanFilters({ started_at_order: "sideways" }).ok).toBe(false);
   });
 
   it("should reject invalid page", () => {

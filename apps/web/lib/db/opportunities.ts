@@ -255,7 +255,14 @@ export async function updateOpportunity(
         update opportunities
         set
           rating = case when $2::boolean then $3 else opportunities.rating end,
+          is_selected = case
+            when $4::boolean and $5::text = 'discarded' then false
+            else opportunities.is_selected
+          end,
           updated_at = case
+            when $4::boolean
+              and $5::text = 'discarded'
+              and opportunities.is_selected is distinct from false then now()
             when $2::boolean and opportunities.rating is distinct from $3 then now()
             else opportunities.updated_at
           end

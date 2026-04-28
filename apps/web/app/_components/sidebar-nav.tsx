@@ -12,13 +12,10 @@ import {
 import { createPortal } from "react-dom";
 import type { ComponentType } from "react";
 import {
-  Bell,
   BriefcaseBusiness,
   ChartColumn,
-  ChartPie,
   FolderOpen,
   LayoutDashboard,
-  Link2,
   MoreHorizontal,
   Moon,
   ScanSearch,
@@ -37,26 +34,20 @@ const navItems: NavItem[] = [
   { label: "Businesses", href: "/businesses", icon: BriefcaseBusiness },
   { label: "Opportunities", href: "/opportunities", icon: FolderOpen },
   { label: "Scans", href: "/scans", icon: ScanSearch },
-  { label: "Alerts", href: "/alerts", icon: Bell },
-  { label: "Analytics", href: "/analytics", icon: ChartPie },
-  { label: "Reports", href: "/reports", icon: ChartColumn },
-  { label: "Integrations", href: "/integrations", icon: Link2 },
+  { label: "Analytics", href: "/analytics", icon: ChartColumn },
   { label: "Settings", href: "/settings", icon: Settings }
 ];
 
 const mobileBarItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
   { label: "Businesses", href: "/businesses", icon: BriefcaseBusiness },
-  { label: "Analytics", href: "/analytics", icon: ChartPie },
+  { label: "Opportunities", href: "/opportunities", icon: FolderOpen },
   { label: "Settings", href: "/settings", icon: Settings }
 ];
 
 const moreSheetItems: NavItem[] = [
-  { label: "Opportunities", href: "/opportunities", icon: FolderOpen },
-  { label: "Scans", href: "/scans", icon: ScanSearch },
-  { label: "Alerts", href: "/alerts", icon: Bell },
-  { label: "Reports", href: "/reports", icon: ChartColumn },
-  { label: "Integrations", href: "/integrations", icon: Link2 }
+  { label: "Analytics", href: "/analytics", icon: ChartColumn },
+  { label: "Scans", href: "/scans", icon: ScanSearch }
 ];
 
 const moreRoutePrefixes = moreSheetItems.map((x) => x.href);

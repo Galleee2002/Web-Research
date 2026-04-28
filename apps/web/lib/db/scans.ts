@@ -1,4 +1,4 @@
-import type { ScanListItem, ScanFilters } from "@shared/index";
+import { isSearchRunStatus, type ScanFilters, type ScanListItem } from "@shared/index";
 import type { OperationContext } from "@/lib/api/http";
 import { query } from "./pool";
 
@@ -17,7 +17,7 @@ export async function getProviderCalls(
   filters: ScanFilters,
   context: OperationContext
 ): Promise<{ rows: ScanListItem[]; total: number }> {
-  const { page, page_size, provider, status, from, to } = filters;
+  const { page, page_size, provider, status, from, to, started_at_order } = filters;
   const offset = (page - 1) * page_size;
   const limit = page_size;
 
@@ -49,6 +49,8 @@ export async function getProviderCalls(
 
   const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
 
+  const startedAtSqlOrder = started_at_order === "asc" ? "ASC" : "DESC";
+
   // Obtener total
   const countResult = await query(
     `SELECT COUNT(*) as total FROM search_runs ${whereClause}`,
@@ -70,7 +72,7 @@ export async function getProviderCalls(
       status
     FROM search_runs
     ${whereClause}
-    ORDER BY started_at DESC
+    ORDER BY started_at ${startedAtSqlOrder} NULLS LAST
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}
   `;
 
@@ -83,6 +85,7 @@ export async function getProviderCalls(
     provider: row.provider,
     providerEndpoint: row.provider,
     httpStatus: null,
+    status: isSearchRunStatus(row.status) ? row.status : "pending",
     startedAt: row.started_at ? new Date(row.started_at).toISOString() : null,
     completedAt: row.completed_at ? new Date(row.completed_at).toISOString() : null,
     errorCode: row.error_code,

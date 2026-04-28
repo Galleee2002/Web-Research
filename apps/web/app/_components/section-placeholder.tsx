@@ -1,12 +1,9 @@
 import type { ComponentType } from "react";
 import {
-  Bell,
   BriefcaseBusiness,
   ChartColumn,
-  ChartPie,
   FolderOpen,
   LayoutDashboard,
-  Link2,
   ScanSearch,
   Settings
 } from "lucide-react";
@@ -16,10 +13,7 @@ export type SectionKey =
   | "businesses"
   | "opportunities"
   | "scans"
-  | "alerts"
   | "analytics"
-  | "reports"
-  | "integrations"
   | "settings";
 
 type SectionContent = {
@@ -49,25 +43,10 @@ const sectionContent: Record<SectionKey, SectionContent> = {
     message: "No scans available yet.",
     icon: ScanSearch
   },
-  alerts: {
-    title: "Alerts",
-    message: "No alerts available yet.",
-    icon: Bell
-  },
   analytics: {
     title: "Analytics",
     message: "No analytics available yet.",
-    icon: ChartPie
-  },
-  reports: {
-    title: "Reports",
-    message: "No reports available yet.",
     icon: ChartColumn
-  },
-  integrations: {
-    title: "Integrations",
-    message: "No integrations available yet.",
-    icon: Link2
   },
   settings: {
     title: "Settings",

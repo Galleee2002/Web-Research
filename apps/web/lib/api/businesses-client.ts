@@ -12,6 +12,7 @@ export type ListBusinessesQuery = {
   query?: string;
   status?: LeadStatus;
   has_website?: boolean;
+  search_run_id?: string;
   order_by?: "created_at" | "name" | "city";
 };
 
@@ -60,6 +61,9 @@ export async function fetchBusinessesPage(
       : {}),
     ...(params.status !== undefined ? { status: params.status } : {}),
     ...(params.has_website !== undefined ? { has_website: params.has_website } : {}),
+    ...(params.search_run_id !== undefined && params.search_run_id !== ""
+      ? { search_run_id: params.search_run_id }
+      : {}),
     order_by: params.order_by ?? "created_at"
   });
 

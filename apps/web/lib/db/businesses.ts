@@ -137,7 +137,15 @@ function buildBusinessWhere(filters: BusinessFilters): {
 
   if (filters.query !== undefined) {
     values.push(`%${filters.query}%`);
-    clauses.push(`name ilike $${values.length}`);
+    const queryParam = values.length;
+    clauses.push(
+      `(name ilike $${queryParam} OR id::text ilike $${queryParam})`
+    );
+  }
+
+  if (filters.search_run_id !== undefined) {
+    values.push(filters.search_run_id);
+    clauses.push(`search_run_id = $${values.length}::uuid`);
   }
 
   return { clauses, values };

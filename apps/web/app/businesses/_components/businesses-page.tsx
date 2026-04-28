@@ -55,6 +55,54 @@ function statusLabel(s: LeadStatus): string {
   }
 }
 
+function effectiveLeadStatus(
+  business: BusinessDetailRead,
+  statusDirty: boolean,
+  statusDraft: LeadStatus,
+): LeadStatus {
+  return statusDirty ? statusDraft : business.status;
+}
+
+function isBusinessOpportunityCtaDisabled(
+  business: BusinessDetailRead,
+  selectionSaving: boolean,
+  statusDirty: boolean,
+  statusDraft: LeadStatus,
+): boolean {
+  if (selectionSaving) return true;
+  const status = effectiveLeadStatus(business, statusDirty, statusDraft);
+  if (status === "discarded") return true;
+  if (
+    !business.opportunity_selected &&
+    status !== "new" &&
+    status !== "reviewed"
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function businessOpportunityCtaTitle(
+  business: BusinessDetailRead,
+  selectionSaving: boolean,
+  statusDirty: boolean,
+  statusDraft: LeadStatus,
+): string | undefined {
+  if (selectionSaving) return "Saving…";
+  const status = effectiveLeadStatus(business, statusDirty, statusDraft);
+  if (status === "discarded") {
+    return "Discarded leads cannot be added to Opportunities.";
+  }
+  if (
+    !business.opportunity_selected &&
+    status !== "new" &&
+    status !== "reviewed"
+  ) {
+    return "Only New or Reviewed leads can be added to Opportunities.";
+  }
+  return undefined;
+}
+
 function compareUuid(a: string, b: string): number {
   return a.localeCompare(b, undefined, { sensitivity: "base" });
 }
@@ -390,6 +438,20 @@ export function BusinessesPage() {
   const handleToggleOpportunitySelection = useCallback(async () => {
     if (!activeBusiness || selectionSaving) return;
 
+    const status = effectiveLeadStatus(
+      activeBusiness,
+      statusDirty,
+      statusDraft,
+    );
+    if (status === "discarded") return;
+    if (
+      !activeBusiness.opportunity_selected &&
+      status !== "new" &&
+      status !== "reviewed"
+    ) {
+      return;
+    }
+
     setSelectionSaving(true);
     setSelectionError(null);
     const nextValue = !activeBusiness.opportunity_selected;
@@ -423,7 +485,7 @@ export function BusinessesPage() {
     } finally {
       setSelectionSaving(false);
     }
-  }, [activeBusiness, selectionSaving]);
+  }, [activeBusiness, selectionSaving, statusDirty, statusDraft]);
 
   const copyIfPresent = useCallback(async (rawValue: string | null) => {
     const value = rawValue?.trim() ?? "";
@@ -463,7 +525,7 @@ export function BusinessesPage() {
               id="businesses-search-input"
               className="businesses-search__input"
               type="search"
-              placeholder="Search by name (server filter)"
+              placeholder="Search by name or ID (server filter)"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               autoComplete="off"
@@ -1018,7 +1080,18 @@ export function BusinessesPage() {
                             onClick={() => {
                               void handleToggleOpportunitySelection();
                             }}
-                            disabled={selectionSaving}
+                            disabled={isBusinessOpportunityCtaDisabled(
+                              activeBusiness,
+                              selectionSaving,
+                              statusDirty,
+                              statusDraft,
+                            )}
+                            title={businessOpportunityCtaTitle(
+                              activeBusiness,
+                              selectionSaving,
+                              statusDirty,
+                              statusDraft,
+                            )}
                           >
                             {selectionSaving
                               ? "Saving..."

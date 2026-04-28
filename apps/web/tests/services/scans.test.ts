@@ -26,6 +26,7 @@ describe("scans service", () => {
         provider: "google_places",
         providerEndpoint: "google_places",
         httpStatus: null,
+        status: "completed",
         startedAt: "2026-04-27T10:00:00Z",
         completedAt: "2026-04-27T10:00:05Z",
         errorCode: null,

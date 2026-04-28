@@ -1,0 +1,734 @@
+.scans-page {
+  color-scheme: light dark;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+}
+
+.scans-page__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 1.25rem 1.5rem 1.5rem;
+  gap: 1rem;
+}
+
+.scans-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+}
+
+.scans-toolbar__tail {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.75rem 1rem;
+  min-width: 0;
+}
+
+/* Match `.businesses-search` height (44px) and padding for toolbar alignment. */
+.scans-toolbar__search {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: min(22rem, 100%);
+  flex: 1 1 16rem;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 0.85rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-01);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.scans-toolbar__search:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-soft));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.scans-toolbar__search-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.scans-toolbar__search-input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.15px;
+  outline: 0;
+}
+
+.scans-toolbar__search-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.scans-toolbar__dates {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 0.85rem;
+  align-items: flex-end;
+}
+
+.scans-toolbar__date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.scans-toolbar__date-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.scans-toolbar__date-shell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  box-sizing: border-box;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 0.7rem 0 0.55rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-01);
+  color: var(--text-primary);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.scans-toolbar__date-shell:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border-soft));
+}
+
+.scans-toolbar__date-shell:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border-soft));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.scans-toolbar__date-shell-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  opacity: 0.9;
+}
+
+.scans-toolbar__date-input {
+  min-width: 9.5rem;
+  flex: 1;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: -0.15px;
+  color-scheme: light dark;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+/* Hide native calendar / clear affordances — we use the leading Lucide icon only. */
+.scans-toolbar__date-input::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.scans-toolbar__date-input::-webkit-clear-button {
+  display: none;
+}
+
+.scans-toolbar__date-input::-moz-calendar-picker-indicator {
+  display: none;
+}
+
+.scans-toolbar__outcome-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+  min-width: 0;
+}
+
+.scans-toolbar__outcome-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.scans-toolbar__outcome-select.businesses-select--status-root {
+  width: 11.5rem;
+  min-width: 11.5rem;
+  max-width: 11.5rem;
+}
+
+.scans-toolbar__outcome-trigger {
+  box-sizing: border-box;
+  min-height: 44px;
+  height: 44px;
+}
+
+.scans-toolbar__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-sizing: border-box;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 0.85rem;
+  border-radius: 0.7rem;
+  border: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface-01) 88%, transparent);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+
+.scans-toolbar__sort:hover {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--border-soft));
+  color: var(--accent-strong);
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-01));
+}
+
+.scans-toolbar__sort:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+.scans-toolbar__sort-icon {
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.scans-toolbar__sort-text {
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+
+/* Mobile: 3 rows — full-width search; From | To 50/50; Status ~70% + Date ~30% */
+@media (max-width: 900px) {
+  .scans-toolbar {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .scans-toolbar__search {
+    flex: none;
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .scans-toolbar__dates {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 0.65rem;
+    width: 100%;
+    align-items: end;
+  }
+
+  .scans-toolbar__date-group {
+    min-width: 0;
+  }
+
+  .scans-toolbar__date-shell {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .scans-toolbar__date-input {
+    min-width: 0;
+  }
+
+  .scans-toolbar__tail {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+    gap: 0.5rem;
+    align-items: end;
+    width: 100%;
+  }
+
+  .scans-toolbar__outcome-wrap {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .scans-toolbar__outcome-select.businesses-select--status-root {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .scans-toolbar__sort {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+    padding-left: 0.35rem;
+    padding-right: 0.35rem;
+  }
+}
+
+.scans-page__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  width: 100%;
+}
+
+.scan-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 1rem 1.15rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-01);
+  box-shadow: var(--card-shadow);
+}
+
+.scan-card__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.95fr) minmax(0, 1.05fr) auto;
+  grid-template-areas: "lead times status eye";
+  align-items: center;
+  gap: 0.9rem 1.15rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.scan-card__lead {
+  grid-area: lead;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.scan-card__title {
+  margin: 0;
+  min-width: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.12px;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.scan-card__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.scan-card__detail-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.scan-card__detail-value {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+  word-break: break-word;
+}
+
+.scan-card__detail-value--mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.8rem;
+}
+
+.scan-card__times {
+  grid-area: times;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.scan-card__time-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.scan-card__time-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.scan-card__time-value {
+  font-size: 0.86rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+.scan-card__status-block {
+  grid-area: status;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-start;
+}
+
+.scan-card__status-heading {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.scan-card__status-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.55rem;
+  min-width: 0;
+}
+
+.scan-card__pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.2;
+}
+
+.scan-card__pill--ok {
+  background: color-mix(in srgb, #34c759 16%, var(--surface-01));
+  color: color-mix(in srgb, #0d3d1a 80%, var(--text-primary));
+  border: 1px solid color-mix(in srgb, #34c759 32%, var(--border-soft));
+}
+
+[data-theme="dark"] .scan-card__pill--ok {
+  color: #8ee59a;
+  background: color-mix(in srgb, #34c759 14%, var(--surface-02));
+  border-color: color-mix(in srgb, #34c759 25%, var(--border-soft));
+}
+
+.scan-card__pill--error {
+  background: color-mix(in srgb, #c62828 12%, var(--surface-01));
+  color: #b71c1c;
+  border: 1px solid color-mix(in srgb, #c62828 35%, var(--border-soft));
+}
+
+[data-theme="dark"] .scan-card__pill--error {
+  color: #ff8a8a;
+  background: color-mix(in srgb, #c62828 12%, var(--surface-02));
+  border-color: color-mix(in srgb, #c62828 32%, var(--border-soft));
+}
+
+.scan-card__pill--running {
+  background: color-mix(in srgb, var(--surface-03) 80%, var(--surface-01));
+  color: var(--text-secondary);
+  border: 1px solid var(--border-soft);
+  text-transform: none;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.scan-card__details-cta {
+  grid-area: eye;
+  justify-self: end;
+  align-self: center;
+}
+
+.scan-card__details-cta-label {
+  display: none;
+}
+
+/* Shimmer loading cards — same animation as businesses / opportunities (businesses-shimmer). */
+.scan-card--skeleton {
+  pointer-events: none;
+}
+
+.scan-card__skel {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--surface-03) 86%, transparent);
+}
+
+.scan-card__skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, #fff 42%, transparent),
+    transparent
+  );
+  animation: businesses-shimmer 1.45s ease-in-out infinite;
+}
+
+.scan-card__skel--title {
+  height: 1.31rem;
+  width: min(42%, 12.5rem);
+  border-radius: 0.45rem;
+}
+
+.scan-card__skel--label {
+  width: 3.45rem;
+  height: 0.55rem;
+  border-radius: 999px;
+}
+
+.scan-card__skel--line--run {
+  width: 78%;
+  height: 0.82rem;
+  border-radius: 999px;
+}
+
+.scan-card__skel--line--corr {
+  width: 86%;
+  height: 0.82rem;
+  border-radius: 999px;
+}
+
+.scan-card__skel--line--time {
+  width: 100%;
+  max-width: 11.5rem;
+  height: 0.86rem;
+  border-radius: 999px;
+}
+
+.scan-card__skel--pill {
+  width: 3.4rem;
+  height: 1.45rem;
+  border-radius: 999px;
+}
+
+.scan-card__skeleton-cta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: -0.35rem 0;
+}
+
+.scan-card__skel--eye {
+  width: 44px;
+  height: 44px;
+  border-radius: 0.65rem;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .scan-card__row {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "lead"
+      "times"
+      "status"
+      "eye";
+    align-items: stretch;
+    gap: 0.75rem 0;
+  }
+
+  .scan-card__status-block {
+    width: 100%;
+  }
+
+  .scan-card__details-cta.businesses-icon-button {
+    justify-self: center;
+    width: 100%;
+    max-width: 18rem;
+    margin: 0.35rem auto 0;
+    height: auto;
+    min-height: 44px;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-soft);
+    border-radius: 0.7rem;
+    background: color-mix(in srgb, var(--surface-02) 55%, var(--surface-01));
+    gap: 0.45rem;
+  }
+
+  .scan-card__details-cta.businesses-icon-button:hover {
+    background: color-mix(in srgb, var(--accent) 10%, var(--surface-01));
+  }
+
+  .scan-card__details-cta-label {
+    display: inline;
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: -0.12px;
+    color: var(--text-primary);
+  }
+
+  .scan-card--skeleton .scan-card__skeleton-cta {
+    justify-self: center;
+    width: 100%;
+    max-width: 18rem;
+    margin: 0.35rem auto 0;
+    height: auto;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .scan-card--skeleton .scan-card__skel--eye {
+    width: 100%;
+    min-height: 44px;
+    height: auto;
+    border-radius: 0.7rem;
+  }
+}
+
+.scans-modal-list {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.scans-modal-list th {
+  text-align: left;
+  padding: 0.45rem 0.5rem 0.55rem;
+  color: var(--text-tertiary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.scans-modal-list td {
+  padding: 0;
+  vertical-align: middle;
+  border-bottom: 1px solid color-mix(in srgb, var(--border-soft) 70%, transparent);
+}
+
+.scans-modal-list tr:last-child td {
+  border-bottom: none;
+}
+
+.scans-modal-copy {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 0.55rem 0.5rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.scans-modal-copy:hover {
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-01));
+  color: var(--text-primary);
+}
+
+.scans-modal-copy:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+.scans-modal-copy--id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.scans-modal-copy--name {
+  font-weight: 500;
+}
+
+.scans-modal-empty {
+  margin: 0.5rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.88rem;
+}
+
+.scans-modal-hint {
+  margin: 0 0 0.75rem;
+  color: var(--text-tertiary);
+  font-size: 0.82rem;
+}
+
+.scans-modal__run-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.5rem;
+  margin: 0;
+  max-width: 100%;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--text-tertiary);
+}
+
+.scans-modal__run-id-label {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  color: var(--text-tertiary);
+}
+
+.scans-modal__run-id-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
