@@ -1066,6 +1066,41 @@
 
   .businesses-toolbar {
     padding-top: 0.5rem;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .businesses-toolbar .businesses-search {
+    width: 100%;
+    flex: 0 0 auto;
+  }
+
+  .businesses-toolbar__filters {
+    display: grid;
+    grid-template-columns: minmax(0, 13fr) minmax(0, 7fr);
+    gap: 0.5rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .businesses-toolbar__filters .businesses-select {
+    min-width: 0;
+  }
+
+  .businesses-toolbar__filters .businesses-select--status-root {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .businesses-toolbar__filters .businesses-select:not(.businesses-select--status-root) {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .businesses-toolbar__filters .businesses-select__trigger {
+    width: 100%;
+    min-width: 0;
   }
 
   .businesses-table thead th,

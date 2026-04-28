@@ -40,6 +40,8 @@ export interface BusinessFilters {
   city?: string;
   category?: string;
   query?: string;
+  /** When set, only businesses created under this search run are returned. */
+  search_run_id?: string;
   order_by?: "created_at" | "name" | "city";
 }
 

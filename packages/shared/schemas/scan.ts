@@ -1,7 +1,7 @@
 import { isSearchRunStatus } from "../constants/domain";
 import { DEFAULT_PAGE, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "../constants/pagination";
 import type { SearchRunStatus } from "../constants/domain";
-import type { ScanFilters } from "../types/scan";
+import type { ScanFilters, ScanStartedAtOrder } from "../types/scan";
 import {
   isRecord,
   parseOptionalString,
@@ -41,6 +41,16 @@ export function parseScanFilters(input: unknown): ValidationResult<ScanFilters> 
     errors
   );
 
+  const startedAtOrderRaw = record.started_at_order;
+  let startedAtOrder: ScanStartedAtOrder | undefined;
+  if (startedAtOrderRaw !== undefined && startedAtOrderRaw !== null && startedAtOrderRaw !== "") {
+    if (startedAtOrderRaw !== "asc" && startedAtOrderRaw !== "desc") {
+      errors.push("started_at_order must be asc or desc");
+    } else {
+      startedAtOrder = startedAtOrderRaw;
+    }
+  }
+
   if (errors.length > 0) {
     return { ok: false, errors };
   }
@@ -53,6 +63,7 @@ export function parseScanFilters(input: unknown): ValidationResult<ScanFilters> 
       ...(status === undefined ? {} : { status }),
       ...(from === undefined ? {} : { from }),
       ...(to === undefined ? {} : { to }),
+      ...(startedAtOrder === undefined ? {} : { started_at_order: startedAtOrder }),
     },
   };
 }

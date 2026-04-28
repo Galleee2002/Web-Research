@@ -28,7 +28,9 @@ describe("business query builder", () => {
     expect(query.text).toContain("status = $2");
     expect(query.text).toContain("city = $3");
     expect(query.text).toContain("category = $4");
-    expect(query.text).toContain("name ilike $5");
+    expect(query.text).toContain(
+      "(name ilike $5 OR id::text ilike $5)"
+    );
     expect(query.text).toContain("order by name asc");
     expect(query.text).toContain("limit $6 offset $7");
   });
@@ -67,7 +69,9 @@ describe("business query builder", () => {
     expect(query.text).toContain("status = $2");
     expect(query.text).toContain("city = $3");
     expect(query.text).toContain("category = $4");
-    expect(query.text).toContain("name ilike $5");
+    expect(query.text).toContain(
+      "(name ilike $5 OR id::text ilike $5)"
+    );
     expect(query.text).toContain("order by city asc");
     expect(query.text).not.toContain("limit");
     expect(query.text).not.toContain("offset");

@@ -11,6 +11,32 @@ import {
 
 const ORDER_BY_FIELDS = ["created_at", "name", "city"] as const;
 
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function parseOptionalSearchRunId(
+  record: Record<string, unknown>,
+  errors: string[],
+): string | undefined {
+  const raw = record.search_run_id;
+  if (raw === undefined) {
+    return undefined;
+  }
+  if (typeof raw !== "string") {
+    errors.push("search_run_id must be a string");
+    return undefined;
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+  if (!UUID_RE.test(trimmed)) {
+    errors.push("search_run_id must be a valid UUID");
+    return undefined;
+  }
+  return trimmed;
+}
+
 function parseBoolean(value: unknown): boolean | undefined {
   if (typeof value === "boolean") {
     return value;
@@ -108,6 +134,8 @@ export function parseBusinessFilters(input: unknown): ValidationResult<BusinessF
     orderBy = orderByValue as BusinessFilters["order_by"];
   }
 
+  const searchRunId = parseOptionalSearchRunId(record, errors);
+
   if (errors.length > 0) {
     return { ok: false, errors };
   }
@@ -121,6 +149,7 @@ export function parseBusinessFilters(input: unknown): ValidationResult<BusinessF
       ...(city === undefined ? {} : { city }),
       ...(category === undefined ? {} : { category }),
       ...(query === undefined ? {} : { query }),
+      ...(searchRunId === undefined ? {} : { search_run_id: searchRunId }),
       order_by: orderBy,
     },
   };
