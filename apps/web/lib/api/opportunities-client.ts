@@ -1,4 +1,8 @@
-import type { OpportunityRead, PaginatedResponse } from "@shared/index";
+import type {
+  OpportunityRead,
+  OpportunityUpdate,
+  PaginatedResponse,
+} from "@shared/index";
 
 import {
   ApiClientError,
@@ -36,13 +40,21 @@ export async function patchOpportunityStatus(
   status: OpportunityRead["status"],
   init?: RequestInit
 ): Promise<OpportunityRead> {
+  return patchOpportunity(id, { status }, init);
+}
+
+export async function patchOpportunity(
+  id: string,
+  payload: OpportunityUpdate,
+  init?: RequestInit
+): Promise<OpportunityRead> {
   const response = await fetch(`/api/opportunities/${id}`, {
     method: "PATCH",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ status }),
+    body: JSON.stringify(payload),
     ...init,
   });
   const body = await readJsonBody(response);

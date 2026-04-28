@@ -7,6 +7,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { OpportunityRead } from "@shared/index";
 import {
   fetchOpportunities,
+  patchOpportunity,
   patchOpportunityStatus,
 } from "@/lib/api/opportunities-client";
 
@@ -20,6 +21,7 @@ export default function OpportunitiesPage() {
   const [statusDraftById, setStatusDraftById] = useState<
     Record<string, OpportunityRead["status"]>
   >({});
+  const [notesDraftById, setNotesDraftById] = useState<Record<string, string>>({});
   const [discardPanelOpportunityId, setDiscardPanelOpportunityId] = useState<
     string | null
   >(null);
@@ -78,6 +80,46 @@ export default function OpportunitiesPage() {
       await loadOpportunities();
       setDiscardPanelOpportunityId(null);
       setStatusDraftById((current) => {
+        const next = { ...current };
+        delete next[opportunityId];
+        return next;
+      });
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Could not update opportunity"
+      );
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function handleOpportunitySave(
+    opportunityId: string,
+    nextStatus: OpportunityRead["status"],
+    nextNotes: string
+  ) {
+    setPendingId(opportunityId);
+    setErrorMessage(null);
+
+    try {
+      const normalizedNotes = nextNotes.trim();
+      await patchOpportunity(
+        opportunityId,
+        {
+          status: nextStatus,
+          notes: normalizedNotes === "" ? null : nextNotes,
+        },
+        { cache: "no-store" }
+      );
+
+      await loadOpportunities();
+      setDiscardPanelOpportunityId(null);
+      setStatusDraftById((current) => {
+        const next = { ...current };
+        delete next[opportunityId];
+        return next;
+      });
+      setNotesDraftById((current) => {
         const next = { ...current };
         delete next[opportunityId];
         return next;
@@ -232,7 +274,11 @@ export default function OpportunitiesPage() {
                 const hasUnsavedStatus =
                   draftStatus !== undefined &&
                   draftStatus !== opportunity.status;
-
+                const draftNotes = notesDraftById[opportunity.id];
+                const displayNotes = draftNotes ?? (opportunity.notes ?? "");
+                const hasUnsavedNotes =
+                  draftNotes !== undefined &&
+                  draftNotes !== (opportunity.notes ?? "");
                 const discardPanelOpen =
                   discardPanelOpportunityId === opportunity.id;
 
@@ -266,6 +312,45 @@ export default function OpportunitiesPage() {
                             >
                               Open map
                             </a>
+                          ) : null}
+                        </div>
+                        <div className="opportunity-table__notes-edit">
+                          <textarea
+                            className="business-modal__notes-input"
+                            rows={4}
+                            placeholder="Add internal notes for this business…"
+                            value={displayNotes}
+                            disabled={isPending}
+                            onChange={(event) => {
+                              const nextValue = event.target.value;
+                              setNotesDraftById((current) => ({
+                                ...current,
+                                [opportunity.id]: nextValue,
+                              }));
+                            }}
+                          />
+                          {hasUnsavedNotes ? (
+                            <div className="opportunity-table__notes-actions">
+                              <button
+                                type="button"
+                                className="business-modal__save-notes"
+                                onClick={() => {
+                                  void handleOpportunitySave(
+                                    opportunity.id,
+                                    displayStatus,
+                                    displayNotes
+                                  );
+                                }}
+                                disabled={isPending}
+                                aria-label={`Save notes for ${opportunity.name}`}
+                                title={`Save notes for ${opportunity.name}`}
+                              >
+                                <Save
+                                  className="business-modal__save-notes-icon"
+                                  aria-hidden
+                                />
+                              </button>
+                            </div>
                           ) : null}
                         </div>
                       </div>
@@ -302,14 +387,15 @@ export default function OpportunitiesPage() {
                               type="button"
                               className="business-modal__save-notes"
                               onClick={() => {
-                                void handleStatusChange(
+                                void handleOpportunitySave(
                                   opportunity.id,
-                                  displayStatus
+                                  displayStatus,
+                                  displayNotes
                                 );
                               }}
                               disabled={isPending}
-                              aria-label={`Save new status for ${opportunity.name}`}
-                              title={`Save new status for ${opportunity.name}`}
+                              aria-label={`Save status for ${opportunity.name}`}
+                              title={`Save status for ${opportunity.name}`}
                             >
                               <Save
                                 className="business-modal__save-notes-icon"

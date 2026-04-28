@@ -14,13 +14,12 @@ export interface OpportunityRead {
   has_website: boolean;
   status: LeadStatus;
   maps_url: string | null;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
 
-export interface OpportunityDetailRead extends OpportunityRead {
-  notes: string | null;
-}
+export interface OpportunityDetailRead extends OpportunityRead {}
 
 export interface OpportunityRatingUpdate {
   rating: OpportunityRating | null;
@@ -29,6 +28,7 @@ export interface OpportunityRatingUpdate {
 export interface OpportunityUpdate {
   rating?: OpportunityRating | null;
   status?: LeadStatus;
+  notes?: string | null;
 }
 
 export interface OpportunitySelectionUpdate {

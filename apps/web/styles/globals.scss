@@ -405,6 +405,16 @@
   font-weight: 700;
 }
 
+.opportunity-table__notes-edit {
+  margin-top: 0.4rem;
+}
+
+.opportunity-table__notes-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.45rem;
+}
+
 .opportunity-status-select {
   width: max-content;
   min-width: 0;
@@ -1052,6 +1062,10 @@
     flex-direction: column;
     align-items: stretch;
     gap: 0.35rem;
+  }
+
+  .opportunity-table__notes-actions {
+    justify-content: flex-start;
   }
 
   .opportunity-table__field-label--status {

@@ -179,7 +179,7 @@ describe("shared contracts", () => {
     expect(parseOpportunityRatingUpdate({ rating: "5" }).ok).toBe(false);
   });
 
-  it("parses opportunity updates for rating and status changes", () => {
+  it("parses opportunity updates for rating, status, and notes changes", () => {
     expect(parseOpportunityUpdate({ rating: 4 })).toEqual({
       ok: true,
       value: { rating: 4 },
@@ -192,12 +192,20 @@ describe("shared contracts", () => {
       ok: true,
       value: { status: "contacted" },
     });
+    expect(parseOpportunityUpdate({ notes: "Call back next week" })).toEqual({
+      ok: true,
+      value: { notes: "Call back next week" },
+    });
+    expect(parseOpportunityUpdate({ notes: null })).toEqual({
+      ok: true,
+      value: { notes: null },
+    });
   });
 
   it("rejects invalid opportunity update payloads", () => {
     expect(parseOpportunityUpdate({})).toEqual({
       ok: false,
-      errors: ["at least one of rating or status is required"],
+      errors: ["at least one of rating, status, or notes is required"],
     });
     expect(parseOpportunityUpdate({ rating: 6 }).ok).toBe(false);
     expect(parseOpportunityUpdate({ status: "archived" }).ok).toBe(false);

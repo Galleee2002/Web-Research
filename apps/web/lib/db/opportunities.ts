@@ -75,6 +75,7 @@ function mapOpportunity(row: OpportunityRow): OpportunityRead {
     has_website: row.has_website,
     status: row.status,
     maps_url: row.maps_url,
+    notes: row.notes,
     created_at: toIsoString(row.created_at),
     updated_at: toIsoString(row.updated_at),
   };
@@ -236,6 +237,7 @@ export async function updateOpportunity(
 ): Promise<OpportunityDetailRead | null> {
   const hasRating = Object.hasOwn(payload, "rating");
   const hasStatus = Object.hasOwn(payload, "status");
+  const hasNotes = Object.hasOwn(payload, "notes");
 
   const result = await query<OpportunityRow>(
     `
@@ -267,8 +269,10 @@ export async function updateOpportunity(
         update businesses
         set
           status = case when $4::boolean then $5 else businesses.status end,
+          notes = case when $6::boolean then $7 else businesses.notes end,
           updated_at = case
             when $4::boolean and businesses.status is distinct from $5 then now()
+            when $6::boolean and businesses.notes is distinct from $7 then now()
             else businesses.updated_at
           end
         from target
@@ -280,7 +284,15 @@ export async function updateOpportunity(
       where opportunities.id = $1
       limit 1
     `,
-    [id, hasRating, payload.rating ?? null, hasStatus, payload.status ?? null],
+    [
+      id,
+      hasRating,
+      payload.rating ?? null,
+      hasStatus,
+      payload.status ?? null,
+      hasNotes,
+      payload.notes ?? null,
+    ],
     {
       operationName: "update_opportunity",
       context,

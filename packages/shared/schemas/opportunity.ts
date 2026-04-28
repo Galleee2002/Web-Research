@@ -50,9 +50,10 @@ export function parseOpportunityUpdate(
 
   const hasRating = Object.hasOwn(input, "rating");
   const hasStatus = Object.hasOwn(input, "status");
+  const hasNotes = Object.hasOwn(input, "notes");
 
-  if (!hasRating && !hasStatus) {
-    return { ok: false, errors: ["at least one of rating or status is required"] };
+  if (!hasRating && !hasStatus && !hasNotes) {
+    return { ok: false, errors: ["at least one of rating, status, or notes is required"] };
   }
 
   const errors: string[] = [];
@@ -73,6 +74,22 @@ export function parseOpportunityUpdate(
       next.status = input.status;
     } else {
       errors.push("status is not a valid lead status");
+    }
+  }
+
+  if (hasNotes) {
+    if (input.notes === null) {
+      next.notes = null;
+    } else {
+      const parsedNotes = parseOptionalString(
+        input.notes,
+        "notes",
+        INPUT_LIMITS.notes,
+        errors,
+      );
+      if (parsedNotes !== undefined) {
+        next.notes = parsedNotes;
+      }
     }
   }
 
