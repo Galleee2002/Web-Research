@@ -4,7 +4,9 @@ import type {
   BusinessStatusUpdate,
   LeadStatus,
   PaginatedResponse,
-  SearchRead
+  SearchCreate,
+  SearchRead,
+  SearchRunStatus
 } from "@shared/index";
 import {
   ApiClientError,
@@ -42,6 +44,36 @@ export class BusinessesApiError extends Error {
 }
 export class OpportunitiesSelectionApiError extends ApiClientError {}
 export class SearchRunsApiError extends ApiClientError {}
+
+export async function createSearchRun(
+  payload: SearchCreate,
+  init?: RequestInit
+): Promise<SearchRead> {
+  const response = await fetch("/api/search", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload),
+    ...init
+  });
+
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    const error = toApiClientError(
+      response,
+      body,
+      `Request failed with status ${response.status}`
+    );
+    throw new SearchRunsApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
+  }
+
+  return body as SearchRead;
+}
 
 /**
  * GET /api/businesses — same-origin fetch from the browser or RSC.
@@ -258,6 +290,39 @@ export async function fetchLatestCompletedSearchRunWithNextPage(
 
   const parsed = body as PaginatedResponse<SearchRead>;
   return parsed.items.find((item) => item.provider_next_page_available) ?? null;
+}
+
+export async function fetchSearchRunsByStatus(
+  status: SearchRunStatus,
+  init?: RequestInit
+): Promise<SearchRead[]> {
+  const search = buildQueryString({
+    page: 1,
+    page_size: 100,
+    status,
+    source: "google_places"
+  });
+
+  const response = await fetch(`/api/searches${search}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    ...init
+  });
+
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    const error = toApiClientError(
+      response,
+      body,
+      `Request failed with status ${response.status}`
+    );
+    throw new SearchRunsApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
+  }
+
+  return (body as PaginatedResponse<SearchRead>).items;
 }
 
 export async function triggerNextSearchRunPage(

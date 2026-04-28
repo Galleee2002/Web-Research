@@ -16,22 +16,24 @@ import {
   ChevronDown,
   Eye,
   LaptopMinimalCheck,
+  RefreshCcw,
   Save,
   Search,
   X
 } from "lucide-react";
 
 import type { BusinessDetailRead, BusinessRead, LeadStatus } from "@shared/index";
+import type { SearchRead } from "@shared/index";
 
 import {
   BusinessesApiError,
+  createSearchRun,
   fetchBusinessById,
   fetchBusinessesPage,
-  fetchLatestCompletedSearchRunWithNextPage,
+  fetchSearchRunsByStatus,
   patchBusinessById,
   patchBusinessOpportunitySelection,
   SearchRunsApiError,
-  triggerNextSearchRunPage
 } from "@/lib/api/businesses-client";
 import { leadStatusLabel } from "@/app/shared/model/status-label";
 import { SelectMenu } from "@/app/shared/ui/select-menu";
@@ -109,7 +111,10 @@ function buildMapEmbedUrl(detail: BusinessDetailRead): string | null {
   return null;
 }
 
-const BUSINESSES_PAGE_SIZE = 20;
+const DEFAULT_BUSINESSES_PAGE_SIZE = 20;
+const ADD_NEW_LOCATION_VALUE = "__add_new_location__";
+const DEFAULT_LOCATION = "Buenos Aires, Argentina";
+const FETCH_LOCATIONS_STORAGE_KEY = "businesses.fetch.locations";
 
 export function BusinessesPage() {
   const [query, setQuery] = useState("");
@@ -125,8 +130,19 @@ export function BusinessesPage() {
   const [loading, setLoading] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [fetchSuccess, setFetchSuccess] = useState<string | null>(null);
+  const [isFetchSetupOpen, setIsFetchSetupOpen] = useState(false);
   const [isFetchConfirmOpen, setIsFetchConfirmOpen] = useState(false);
+  const [isAddLocationOpen, setIsAddLocationOpen] = useState(false);
   const [apiRequestPending, setApiRequestPending] = useState(false);
+  const [fetchQueryDraft, setFetchQueryDraft] = useState("");
+  const [fetchLocations, setFetchLocations] = useState<string[]>([DEFAULT_LOCATION]);
+  const [selectedFetchLocation, setSelectedFetchLocation] = useState(DEFAULT_LOCATION);
+  const [newLocationDraft, setNewLocationDraft] = useState("");
+  const [pendingFetchRequest, setPendingFetchRequest] = useState<{
+    query: string;
+    location: string;
+  } | null>(null);
   const [activeBusinessId, setActiveBusinessId] = useState<string | null>(null);
   const [activeBusiness, setActiveBusiness] = useState<BusinessDetailRead | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -139,8 +155,45 @@ export function BusinessesPage() {
   const [notesSaveError, setNotesSaveError] = useState<string | null>(null);
   const [selectionSaving, setSelectionSaving] = useState(false);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [inFlightSearchRuns, setInFlightSearchRuns] = useState(0);
+  const [inFlightSearchDetails, setInFlightSearchDetails] = useState<SearchRead[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_BUSINESSES_PAGE_SIZE);
   const normalizedQuery = query.trim();
-  const loadBusinessesDeps = [normalizedQuery, statusFilter, websiteFilter] as const;
+  const loadBusinessesDeps = [
+    normalizedQuery,
+    statusFilter,
+    websiteFilter,
+    currentPage,
+    pageSize
+  ] as const;
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(FETCH_LOCATIONS_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      const normalized = parsed
+        .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
+        .filter((entry) => entry.length > 0);
+      const unique = Array.from(new Set([DEFAULT_LOCATION, ...normalized]));
+      setFetchLocations(unique);
+      if (unique.length > 0) {
+        setSelectedFetchLocation(unique[0]);
+      }
+    } catch {
+      void 0;
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FETCH_LOCATIONS_STORAGE_KEY, JSON.stringify(fetchLocations));
+    } catch {
+      void 0;
+    }
+  }, [fetchLocations]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -152,8 +205,8 @@ export function BusinessesPage() {
       try {
         const data = await fetchBusinessesPage(
           {
-            page: 1,
-            page_size: BUSINESSES_PAGE_SIZE,
+            page: currentPage,
+            page_size: pageSize,
             ...(normalizedQuery !== "" ? { query: normalizedQuery } : {}),
             ...(statusFilter !== "all" ? { status: statusFilter } : {}),
             ...(websiteFilter === "yes"
@@ -196,6 +249,45 @@ export function BusinessesPage() {
       controller.abort();
     };
   }, loadBusinessesDeps);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [normalizedQuery, statusFilter, websiteFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadInFlightRuns = async () => {
+      try {
+        const [pendingRuns, processingRuns] = await Promise.all([
+          fetchSearchRunsByStatus("pending", { cache: "no-store" }),
+          fetchSearchRunsByStatus("processing", { cache: "no-store" })
+        ]);
+        if (!cancelled) {
+          const combined = [...processingRuns, ...pendingRuns].sort((a, b) =>
+            b.created_at.localeCompare(a.created_at)
+          );
+          setInFlightSearchRuns(combined.length);
+          setInFlightSearchDetails(combined);
+        }
+      } catch {
+        if (!cancelled) {
+          setInFlightSearchRuns(0);
+          setInFlightSearchDetails([]);
+        }
+      }
+    };
+
+    void loadInFlightRuns();
+    const interval = window.setInterval(() => {
+      void loadInFlightRuns();
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, []);
 
   const onSort = useCallback((key: SortKey) => {
     setSort((prev) =>
@@ -285,15 +377,25 @@ export function BusinessesPage() {
   }, [activeBusiness]);
 
   useEffect(() => {
-    if (!activeBusinessId && !isFetchConfirmOpen) return;
+    if (!activeBusinessId && !isFetchConfirmOpen && !isFetchSetupOpen && !isAddLocationOpen) {
+      return;
+    }
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (activeBusinessId) {
-          setActiveBusinessId(null);
+        if (isAddLocationOpen) {
+          setIsAddLocationOpen(false);
+          return;
+        }
+        if (isFetchSetupOpen) {
+          setIsFetchSetupOpen(false);
           return;
         }
         if (isFetchConfirmOpen) {
           setIsFetchConfirmOpen(false);
+          return;
+        }
+        if (activeBusinessId) {
+          setActiveBusinessId(null);
         }
       }
     };
@@ -303,29 +405,23 @@ export function BusinessesPage() {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = "";
     };
-  }, [activeBusinessId, isFetchConfirmOpen]);
+  }, [activeBusinessId, isAddLocationOpen, isFetchConfirmOpen, isFetchSetupOpen]);
 
   const triggerBusinessesFetch = useCallback(async () => {
-    if (loading || apiRequestPending) return;
+    if (loading || apiRequestPending || !pendingFetchRequest) return;
     setFetchError(null);
+    setFetchSuccess(null);
     setApiRequestPending(true);
     try {
-      const latest = await fetchLatestCompletedSearchRunWithNextPage({
-        cache: "no-store"
+      await createSearchRun({
+        query: pendingFetchRequest.query,
+        location: pendingFetchRequest.location
       });
-      if (!latest) {
-        throw new SearchRunsApiError(
-          "No completed search run has a next page available yet.",
-          409,
-        );
-      }
-
-      await triggerNextSearchRunPage(latest.id, { cache: "no-store" });
 
       const refreshed = await fetchBusinessesPage(
         {
           page: 1,
-          page_size: BUSINESSES_PAGE_SIZE,
+          page_size: pageSize,
           ...(normalizedQuery !== "" ? { query: normalizedQuery } : {}),
           ...(statusFilter !== "all" ? { status: statusFilter } : {}),
           ...(websiteFilter === "yes"
@@ -339,7 +435,12 @@ export function BusinessesPage() {
       );
       setItems(refreshed.items);
       setTotal(refreshed.total);
+      setFetchSuccess(
+        `Search started for "${pendingFetchRequest.query}" in "${pendingFetchRequest.location}".`
+      );
       setIsFetchConfirmOpen(false);
+      setPendingFetchRequest(null);
+      setFetchQueryDraft("");
     } catch (error) {
       const message =
         error instanceof SearchRunsApiError
@@ -357,9 +458,15 @@ export function BusinessesPage() {
     apiRequestPending,
     loading,
     normalizedQuery,
+    pendingFetchRequest,
+    pageSize,
     statusFilter,
     websiteFilter
   ]);
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const showingStart = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const showingEnd = total === 0 ? 0 : Math.min(currentPage * pageSize, total);
 
   const handleSaveNotes = useCallback(async () => {
     if (!activeBusiness || notesSaving || (!notesDirty && !statusDirty)) return;
@@ -458,6 +565,48 @@ export function BusinessesPage() {
     window.open(website, "_blank", "noopener,noreferrer");
   }, [copyIfPresent]);
 
+  const openFetchSetupModal = useCallback(() => {
+    setFetchError(null);
+    setFetchSuccess(null);
+    setIsFetchSetupOpen(true);
+  }, []);
+
+  const handleFetchLocationChange = useCallback((value: string) => {
+    if (value === ADD_NEW_LOCATION_VALUE) {
+      setNewLocationDraft("");
+      setIsAddLocationOpen(true);
+      return;
+    }
+    setSelectedFetchLocation(value);
+  }, []);
+
+  const handleSaveNewLocation = useCallback(() => {
+    const normalized = newLocationDraft.trim();
+    if (!normalized) return;
+    setFetchLocations((prev) =>
+      prev.includes(normalized) ? prev : [...prev, normalized]
+    );
+    setSelectedFetchLocation(normalized);
+    setIsAddLocationOpen(false);
+    setNewLocationDraft("");
+  }, [newLocationDraft]);
+
+  const handleConfirmQuery = useCallback(() => {
+    const normalizedFetchQuery = fetchQueryDraft.trim();
+    const normalizedLocation = selectedFetchLocation.trim();
+    if (!normalizedFetchQuery || !normalizedLocation) {
+      setFetchError("Please provide both query and location before continuing.");
+      return;
+    }
+    setFetchError(null);
+    setPendingFetchRequest({
+      query: normalizedFetchQuery,
+      location: normalizedLocation
+    });
+    setIsFetchSetupOpen(false);
+    setIsFetchConfirmOpen(true);
+  }, [fetchQueryDraft, selectedFetchLocation]);
+
   return (
     <section
       className="dashboard-content businesses-page"
@@ -468,12 +617,13 @@ export function BusinessesPage() {
         <button
           type="button"
           className="businesses-load-cta"
-          onClick={() => setIsFetchConfirmOpen(true)}
+          onClick={openFetchSetupModal}
           disabled={loading || apiRequestPending}
           aria-haspopup="dialog"
-          aria-controls="businesses-fetch-confirmation"
+          aria-controls="businesses-fetch-setup"
         >
-          {apiRequestPending ? "Requesting..." : "Request Next 20 (Google)"}
+          <RefreshCcw className="businesses-load-cta__icon" aria-hidden />
+          Fetch Businesses
         </button>
       </header>
 
@@ -549,6 +699,19 @@ export function BusinessesPage() {
             {fetchError}
           </p>
         ) : null}
+        {fetchSuccess ? (
+          <p className="businesses-fetch-idle" aria-live="polite">
+            {fetchSuccess}
+          </p>
+        ) : null}
+        {inFlightSearchRuns > 0 ? (
+          <p className="businesses-fetch-pending-pill" aria-live="polite">
+            {inFlightSearchRuns}{" "}
+            {inFlightSearchRuns === 1 ? "search is" : "searches are"} currently in
+            progress. Latest: "{inFlightSearchDetails[0]?.query ?? "—"}" in{" "}
+            "{inFlightSearchDetails[0]?.location ?? "—"}".
+          </p>
+        ) : null}
 
         {!hasLoadedOnce ? (
           <p className="businesses-fetch-idle" aria-live="polite">
@@ -558,10 +721,8 @@ export function BusinessesPage() {
 
         {!fetchError && !loading && hasLoadedOnce && total > 0 ? (
           <p className="businesses-meta" aria-live="polite">
-            {total} {total === 1 ? "business" : "businesses"} from API
-            {items.length < total
-              ? ` · ${items.length} loaded (page size ${BUSINESSES_PAGE_SIZE})`
-              : ` · ${items.length} loaded`}
+            Showing {showingStart}-{showingEnd} of {total}{" "}
+            {total === 1 ? "business" : "businesses"}
           </p>
         ) : null}
 
@@ -742,7 +903,155 @@ export function BusinessesPage() {
             </tbody>
           </table>
         </div>
+        {!fetchError && hasLoadedOnce && total > 0 ? (
+          <footer className="businesses-pagination" aria-label="Businesses pagination">
+            <p className="businesses-pagination__summary">
+              Showing {showingStart}-{showingEnd} of {total}
+            </p>
+            <div className="businesses-pagination__controls">
+              <span className="businesses-pagination__page">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                type="button"
+                className="businesses-pagination__button"
+                onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                disabled={loading || currentPage <= 1}
+              >
+                Previous
+              </button>
+              <button
+                type="button"
+                className="businesses-pagination__button businesses-pagination__button--primary"
+                onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={loading || currentPage >= totalPages}
+              >
+                Next
+              </button>
+            </div>
+          </footer>
+        ) : null}
       </div>
+      {isFetchSetupOpen ? (
+        <div
+          className="business-modal-backdrop"
+          role="presentation"
+          onClick={() => setIsFetchSetupOpen(false)}
+        >
+          <section
+            id="businesses-fetch-setup"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="businesses-fetch-setup-title"
+            className="business-confirmation-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3
+              id="businesses-fetch-setup-title"
+              className="business-confirmation-modal__title"
+            >
+              Configure businesses fetch
+            </h3>
+            <label className="business-confirmation-modal__field" htmlFor="business-fetch-query">
+              Query
+            </label>
+            <input
+              id="business-fetch-query"
+              className="business-confirmation-modal__input"
+              type="text"
+              placeholder="Dentists, restaurants, others..."
+              value={fetchQueryDraft}
+              onChange={(event) => setFetchQueryDraft(event.target.value)}
+              autoComplete="off"
+            />
+            <label className="business-confirmation-modal__field">
+              Location
+            </label>
+            <SelectMenu<string>
+              ariaLabel="Choose fetch location"
+              value={selectedFetchLocation}
+              onChange={handleFetchLocationChange}
+              rootClassName="business-confirmation-modal__select-root"
+              triggerClassName="businesses-select__trigger business-confirmation-modal__select-trigger"
+              options={[
+                { value: ADD_NEW_LOCATION_VALUE, label: "Add new location" },
+                ...fetchLocations.map((location) => ({
+                  value: location,
+                  label: location
+                }))
+              ]}
+              triggerContent={
+                <span className="businesses-select__trigger-label">
+                  {selectedFetchLocation}
+                </span>
+              }
+            />
+            <div className="business-confirmation-modal__actions">
+              <button
+                type="button"
+                className="business-confirmation-modal__button business-confirmation-modal__button--secondary"
+                onClick={() => setIsFetchSetupOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="business-confirmation-modal__button business-confirmation-modal__button--primary"
+                onClick={handleConfirmQuery}
+              >
+                Confirm query
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+      {isAddLocationOpen ? (
+        <div
+          className="business-modal-backdrop"
+          role="presentation"
+          onClick={() => setIsAddLocationOpen(false)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="businesses-add-location-title"
+            className="business-confirmation-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3
+              id="businesses-add-location-title"
+              className="business-confirmation-modal__title"
+            >
+              Add new location
+            </h3>
+            <input
+              id="business-fetch-new-location"
+              className="business-confirmation-modal__input"
+              type="text"
+              placeholder="Enter location"
+              value={newLocationDraft}
+              onChange={(event) => setNewLocationDraft(event.target.value)}
+              autoComplete="off"
+            />
+            <div className="business-confirmation-modal__actions">
+              <button
+                type="button"
+                className="business-confirmation-modal__button business-confirmation-modal__button--secondary"
+                onClick={() => setIsAddLocationOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="business-confirmation-modal__button business-confirmation-modal__button--primary"
+                onClick={handleSaveNewLocation}
+              >
+                Save location
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {isFetchConfirmOpen ? (
         <div
           className="business-modal-backdrop"
@@ -768,9 +1077,18 @@ export function BusinessesPage() {
               id="businesses-fetch-confirmation-description"
               className="business-confirmation-modal__text"
             >
-              This action requests the next Google Places page and consumes{" "}
-              <strong>1 Google Places API request</strong>. It will create a new scan
-              run and then refresh this list from your database.
+              Query:{" "}
+              <strong>{pendingFetchRequest?.query ?? "—"}</strong>
+              <br />
+              Location:{" "}
+              <strong>{pendingFetchRequest?.location ?? "—"}</strong>
+              <br />
+              <br />
+              This action requests Google Places and consumes{" "}
+              <strong>1 Google Places API request</strong>.
+              <br />
+              It will create a new scan run and then refresh this list from your
+              database.
             </p>
             <div className="business-confirmation-modal__actions">
               <button
@@ -783,7 +1101,7 @@ export function BusinessesPage() {
               <button
                 type="button"
                 className="business-confirmation-modal__button business-confirmation-modal__button--primary"
-                disabled={apiRequestPending}
+                disabled={apiRequestPending || !pendingFetchRequest}
                 onClick={() => {
                   void triggerBusinessesFetch();
                 }}

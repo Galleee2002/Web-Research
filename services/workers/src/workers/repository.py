@@ -56,6 +56,10 @@ class WorkerRepository:
                       select id
                       from search_runs
                       where status = 'pending'
+                         or (
+                           status = 'processing'
+                           and updated_at < now() - interval '10 minutes'
+                         )
                       order by created_at asc
                       for update skip locked
                       limit 1

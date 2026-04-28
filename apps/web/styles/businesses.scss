@@ -24,13 +24,14 @@
 .businesses-load-cta {
   display: inline-flex;
   align-items: center;
+  gap: 0.5rem;
   justify-content: center;
   min-height: 44px;
   padding: 0.5rem 1rem;
-  border: 1px solid transparent;
+  border: 1px solid #0071e3;
   border-radius: 0.7rem;
-  background: #0071e3;
-  color: #fff;
+  background: #fff;
+  color: #0071e3;
   font: inherit;
   font-size: 1rem;
   font-weight: 500;
@@ -38,12 +39,24 @@
   cursor: pointer;
   transition:
     background-color 180ms ease,
+    color 180ms ease,
     transform 180ms ease,
     opacity 180ms ease;
 }
 
 .businesses-load-cta:hover:not(:disabled) {
-  background: #0077ed;
+  background: #0071e3;
+  color: #fff;
+}
+
+.businesses-load-cta__icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  transition: transform 240ms ease;
+}
+
+.businesses-load-cta:hover:not(:disabled) .businesses-load-cta__icon {
+  transform: rotate(-180deg);
 }
 
 .businesses-load-cta:focus-visible {
@@ -80,12 +93,84 @@
   background: color-mix(in srgb, #ff453a 12%, transparent);
 }
 
+.businesses-fetch-pending-pill {
+  margin: 0 0 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, #ff9f0a 38%, var(--border-soft));
+  background: color-mix(in srgb, #ffd60a 16%, transparent);
+  color: #b05b00;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+
 .businesses-meta {
   margin: 0 0 0.5rem;
   font-size: 0.8125rem;
   font-weight: 600;
   color: var(--text-tertiary);
   letter-spacing: -0.12px;
+}
+
+.businesses-pagination {
+  margin-top: 0.85rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-soft);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.businesses-pagination__summary {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.businesses-pagination__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.businesses-pagination__page {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  min-width: 5.75rem;
+  text-align: center;
+}
+
+.businesses-pagination__button {
+  min-height: 36px;
+  padding: 0.35rem 0.7rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-01);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.businesses-pagination__button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.businesses-pagination__button--primary {
+  border-color: transparent;
+  background: #0071e3;
+  color: #fff;
 }
 
 .businesses-fetch-loading {
@@ -712,6 +797,45 @@
   padding: 0.08rem 0.3rem;
 }
 
+.business-confirmation-modal__field {
+  margin: 0.2rem 0 -0.25rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.business-confirmation-modal__input {
+  width: 100%;
+  min-height: 40px;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-01);
+  color: var(--text-primary);
+  padding: 0.5rem 0.65rem;
+  font: inherit;
+  font-size: 0.92rem;
+}
+
+.business-confirmation-modal__input:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border-soft));
+}
+
+.business-confirmation-modal__select-root {
+  width: 100%;
+}
+
+.business-confirmation-modal__select-trigger {
+  width: 100%;
+}
+
+.business-confirmation-modal__select-root .businesses-select__menu {
+  left: 0;
+  right: auto;
+  width: 100%;
+}
+
 .business-confirmation-modal__actions {
   display: flex;
   justify-content: flex-end;
@@ -1220,7 +1344,7 @@
 
   .businesses-toolbar__filters {
     display: grid;
-    grid-template-columns: minmax(0, 13fr) minmax(0, 7fr);
+    grid-template-columns: minmax(0, 11fr) minmax(0, 9fr);
     gap: 0.5rem;
     width: 100%;
     max-width: 100%;
@@ -1283,6 +1407,16 @@
   .businesses-table thead th.businesses-col-web,
   .businesses-table tbody td.businesses-col-web {
     display: none;
+  }
+
+  .businesses-pagination {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .businesses-pagination__controls {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .business-modal-backdrop {

@@ -8,6 +8,7 @@ import {
   withApiRoute
 } from "@/lib/api/http";
 import { createSearchRun } from "@/lib/services/search-service";
+import { triggerWorkerRunInBackground } from "@/lib/services/worker-trigger";
 
 export const runtime = "nodejs";
 
@@ -25,9 +26,12 @@ export async function POST(request: Request) {
     }
 
     const searchRun = await createSearchRun(parsed.value, context.operationContext);
+    const workerTrigger = triggerWorkerRunInBackground();
     logApiEvent("search_run_created", context.operationContext, {
       search_run_id: searchRun.id,
-      provider: searchRun.source
+      provider: searchRun.source,
+      worker_triggered: workerTrigger.started,
+      worker_trigger_reason: workerTrigger.reason ?? null
     });
 
     return NextResponse.json(searchRun, { status: 201 });

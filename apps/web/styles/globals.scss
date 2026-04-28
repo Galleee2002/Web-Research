@@ -441,6 +441,11 @@
   min-width: 0;
 }
 
+.opportunity-table__row:has(.opportunity-table__discard-sheet--open)
+  .opportunity-table__overflow-slot {
+  pointer-events: none;
+}
+
 .opportunity-table__overflow {
   display: inline-flex;
   flex-shrink: 0;
