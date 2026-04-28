@@ -19,7 +19,16 @@ interface SearchRunRow {
   source: BusinessSource;
   status: SearchRead["status"];
   total_found: number;
+  parent_search_run_id: string | null;
+  page_number: number;
+  provider_page_token: string | null;
+  provider_next_page_token: string | null;
   created_at: Date | string;
+}
+
+export interface SearchRunRecord extends SearchRead {
+  provider_page_token: string | null;
+  provider_next_page_token: string | null;
 }
 
 export interface SqlQuery {
@@ -27,7 +36,21 @@ export interface SqlQuery {
   values: unknown[];
 }
 
-export function mapSearchRun(row: SearchRunRow): SearchRead {
+const SEARCH_RUN_SELECT = `
+  id,
+  query,
+  location,
+  source,
+  status,
+  total_found,
+  parent_search_run_id,
+  page_number,
+  provider_page_token,
+  provider_next_page_token,
+  created_at
+`;
+
+function mapSearchRunBase(row: SearchRunRow): SearchRunRecord {
   return {
     id: row.id,
     query: row.query,
@@ -35,7 +58,30 @@ export function mapSearchRun(row: SearchRunRow): SearchRead {
     source: row.source,
     status: row.status,
     total_found: row.total_found,
+    parent_search_run_id: row.parent_search_run_id,
+    page_number: row.page_number,
+    provider_next_page_available:
+      typeof row.provider_next_page_token === "string" &&
+      row.provider_next_page_token.trim().length > 0,
+    provider_page_token: row.provider_page_token,
+    provider_next_page_token: row.provider_next_page_token,
     created_at: toIsoString(row.created_at)
+  };
+}
+
+export function mapSearchRun(row: SearchRunRow): SearchRead {
+  const mapped = mapSearchRunBase(row);
+  return {
+    id: mapped.id,
+    query: mapped.query,
+    location: mapped.location,
+    source: mapped.source,
+    status: mapped.status,
+    total_found: mapped.total_found,
+    parent_search_run_id: mapped.parent_search_run_id,
+    page_number: mapped.page_number,
+    provider_next_page_available: mapped.provider_next_page_available,
+    created_at: mapped.created_at
   };
 }
 
@@ -67,7 +113,7 @@ export function buildSearchListQuery(filters: SearchFilters): SqlQuery {
 
   return {
     text: `
-      select id, query, location, source, status, total_found, created_at
+      select ${SEARCH_RUN_SELECT}
       from search_runs
       ${whereSql(clauses)}
       order by created_at desc
@@ -102,11 +148,12 @@ export async function insertSearchRun(
         source,
         status,
         total_found,
+        page_number,
         correlation_id,
         observability
       )
-      values ($1, $2, $3, 'pending', 0, $4, $5::jsonb)
-      returning id, query, location, source, status, total_found, created_at
+      values ($1, $2, $3, 'pending', 0, 1, $4, $5::jsonb)
+      returning ${SEARCH_RUN_SELECT}
     `,
     [
       payload.query,
@@ -116,7 +163,9 @@ export async function insertSearchRun(
       JSON.stringify({
         request_method: context.method,
         request_path: context.route,
-        provider: DEFAULT_BUSINESS_SOURCE
+        provider: DEFAULT_BUSINESS_SOURCE,
+        page_number: 1,
+        pagination_mode: "initial"
       })
     ],
     {
@@ -151,4 +200,122 @@ export async function findSearchRuns(
     page: filters.page,
     page_size: filters.page_size
   };
+}
+
+export async function findSearchRunRecordById(
+  id: string,
+  context: OperationContext
+): Promise<SearchRunRecord | null> {
+  const result = await query<SearchRunRow>(
+    `
+      select ${SEARCH_RUN_SELECT}
+      from search_runs
+      where id = $1::uuid
+      limit 1
+    `,
+    [id],
+    {
+      operationName: "find_search_run_by_id",
+      context
+    }
+  );
+
+  const row = result.rows[0];
+  return row ? mapSearchRunBase(row) : null;
+}
+
+export async function findSearchRunByParentId(
+  parentSearchRunId: string,
+  context: OperationContext
+): Promise<SearchRead | null> {
+  const result = await query<SearchRunRow>(
+    `
+      select ${SEARCH_RUN_SELECT}
+      from search_runs
+      where parent_search_run_id = $1::uuid
+      order by created_at desc
+      limit 1
+    `,
+    [parentSearchRunId],
+    {
+      operationName: "find_search_run_by_parent_id",
+      context
+    }
+  );
+
+  const row = result.rows[0];
+  return row ? mapSearchRun(row) : null;
+}
+
+export async function insertNextSearchRunFromParent(
+  parent: SearchRunRecord,
+  context: OperationContext
+): Promise<{ searchRun: SearchRead; created: boolean }> {
+  const observability = JSON.stringify({
+    request_method: context.method,
+    request_path: context.route,
+    provider: parent.source,
+    page_number: parent.page_number + 1,
+    parent_search_run_id: parent.id,
+    pagination_mode: "next_page"
+  });
+
+  const inserted = await query<SearchRunRow>(
+    `
+      insert into search_runs (
+        query,
+        location,
+        source,
+        status,
+        total_found,
+        parent_search_run_id,
+        page_number,
+        provider_page_token,
+        correlation_id,
+        observability
+      )
+      values (
+        $1,
+        $2,
+        $3,
+        'pending',
+        0,
+        $4::uuid,
+        $5,
+        $6,
+        $7,
+        $8::jsonb
+      )
+      on conflict (parent_search_run_id)
+      where parent_search_run_id is not null
+      do nothing
+      returning ${SEARCH_RUN_SELECT}
+    `,
+    [
+      parent.query,
+      parent.location,
+      parent.source,
+      parent.id,
+      parent.page_number + 1,
+      parent.provider_next_page_token,
+      context.correlationId,
+      observability
+    ],
+    {
+      operationName: "insert_next_search_run_from_parent",
+      context
+    }
+  );
+
+  const createdRow = inserted.rows[0];
+  if (createdRow) {
+    return { searchRun: mapSearchRun(createdRow), created: true };
+  }
+
+  const existing = await findSearchRunByParentId(parent.id, context);
+  if (!existing) {
+    throw new Error("Failed to resolve child search run after idempotent insert");
+  }
+
+  return { searchRun: existing, created: false };
 }

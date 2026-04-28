@@ -6,12 +6,10 @@
  * @see docs/architecture/frontend-backend-connection.md
  */
 
-import type { ReactNode } from "react";
 import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState
 } from "react";
 import {
@@ -24,14 +22,19 @@ import {
 } from "lucide-react";
 
 import type { BusinessDetailRead, BusinessRead, LeadStatus } from "@shared/index";
-import { MAX_PAGE_SIZE } from "@shared/index";
 
 import {
   BusinessesApiError,
   fetchBusinessById,
   fetchBusinessesPage,
-  patchBusinessById
+  fetchLatestCompletedSearchRunWithNextPage,
+  patchBusinessById,
+  patchBusinessOpportunitySelection,
+  SearchRunsApiError,
+  triggerNextSearchRunPage
 } from "@/lib/api/businesses-client";
+import { leadStatusLabel } from "@/app/shared/model/status-label";
+import { SelectMenu } from "@/app/shared/ui/select-menu";
 
 type StatusFilter = LeadStatus | "all";
 type WebsiteFilter = "all" | "yes" | "no";
@@ -39,21 +42,6 @@ type SortKey = "name" | "id" | "city" | "category";
 type SortDir = "asc" | "desc";
 
 type SortState = { key: SortKey; dir: SortDir };
-
-function statusLabel(s: LeadStatus): string {
-  switch (s) {
-    case "new":
-      return "New";
-    case "reviewed":
-      return "Reviewed";
-    case "contacted":
-      return "Contacted";
-    case "discarded":
-      return "Discarded";
-    default:
-      return s;
-  }
-}
 
 function effectiveLeadStatus(
   business: BusinessDetailRead,
@@ -121,95 +109,10 @@ function buildMapEmbedUrl(detail: BusinessDetailRead): string | null {
   return null;
 }
 
-async function readOpportunitySelectionError(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as {
-      error?: { message?: string };
-    };
-    return body.error?.message ?? "Could not update opportunities selection.";
-  } catch {
-    return "Could not update opportunities selection.";
-  }
-}
-
-function SelectMenu<T extends string>({
-  value,
-  options,
-  onChange,
-  triggerClassName,
-  triggerContent,
-  ariaLabel,
-  rootClassName
-}: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
-  triggerClassName: string;
-  triggerContent: ReactNode;
-  ariaLabel: string;
-  /** Optional class on the root wrapper (e.g. fixed width for toolbar layout). */
-  rootClassName?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  return (
-    <div
-      className={["businesses-select", rootClassName].filter(Boolean).join(" ")}
-      ref={rootRef}
-    >
-      <button
-        type="button"
-        className={triggerClassName}
-        aria-label={ariaLabel}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        onClick={() => setOpen((o) => !o)}
-      >
-        {triggerContent}
-        <ChevronDown
-          className={`businesses-select__chevron${open ? " businesses-select__chevron--open" : ""}`}
-          aria-hidden
-        />
-      </button>
-      {open ? (
-        <div className="businesses-select__menu" role="listbox">
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              role="option"
-              aria-selected={opt.value === value}
-              data-active={opt.value === value ? "true" : undefined}
-              className="businesses-select__option"
-              onClick={() => {
-                onChange(opt.value);
-                setOpen(false);
-              }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-const SEARCH_DEBOUNCE_MS = 350;
+const BUSINESSES_PAGE_SIZE = 20;
 
 export function BusinessesPage() {
   const [query, setQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [websiteFilter, setWebsiteFilter] = useState<WebsiteFilter>("all");
   const [sort, setSort] = useState<SortState>({
@@ -219,8 +122,11 @@ export function BusinessesPage() {
 
   const [items, setItems] = useState<BusinessRead[]>([]);
   const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isFetchConfirmOpen, setIsFetchConfirmOpen] = useState(false);
+  const [apiRequestPending, setApiRequestPending] = useState(false);
   const [activeBusinessId, setActiveBusinessId] = useState<string | null>(null);
   const [activeBusiness, setActiveBusiness] = useState<BusinessDetailRead | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -233,13 +139,8 @@ export function BusinessesPage() {
   const [notesSaveError, setNotesSaveError] = useState<string | null>(null);
   const [selectionSaving, setSelectionSaving] = useState(false);
   const [selectionError, setSelectionError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const t = window.setTimeout(() => {
-      setDebouncedQuery(query.trim());
-    }, SEARCH_DEBOUNCE_MS);
-    return () => window.clearTimeout(t);
-  }, [query]);
+  const normalizedQuery = query.trim();
+  const loadBusinessesDeps = [normalizedQuery, statusFilter, websiteFilter] as const;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -252,8 +153,8 @@ export function BusinessesPage() {
         const data = await fetchBusinessesPage(
           {
             page: 1,
-            page_size: MAX_PAGE_SIZE,
-            ...(debouncedQuery !== "" ? { query: debouncedQuery } : {}),
+            page_size: BUSINESSES_PAGE_SIZE,
+            ...(normalizedQuery !== "" ? { query: normalizedQuery } : {}),
             ...(statusFilter !== "all" ? { status: statusFilter } : {}),
             ...(websiteFilter === "yes"
               ? { has_website: true }
@@ -279,13 +180,12 @@ export function BusinessesPage() {
               ? e.message
               : "Could not load businesses.";
         if (!cancelled) {
-          setItems([]);
-          setTotal(0);
           setFetchError(message);
         }
       } finally {
         if (!cancelled) {
           setLoading(false);
+          setHasLoadedOnce(true);
         }
       }
     }
@@ -295,7 +195,7 @@ export function BusinessesPage() {
       cancelled = true;
       controller.abort();
     };
-  }, [debouncedQuery, statusFilter, websiteFilter]);
+  }, loadBusinessesDeps);
 
   const onSort = useCallback((key: SortKey) => {
     setSort((prev) =>
@@ -385,10 +285,16 @@ export function BusinessesPage() {
   }, [activeBusiness]);
 
   useEffect(() => {
-    if (!activeBusinessId) return;
+    if (!activeBusinessId && !isFetchConfirmOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setActiveBusinessId(null);
+        if (activeBusinessId) {
+          setActiveBusinessId(null);
+          return;
+        }
+        if (isFetchConfirmOpen) {
+          setIsFetchConfirmOpen(false);
+        }
       }
     };
     document.addEventListener("keydown", onKeyDown);
@@ -397,7 +303,63 @@ export function BusinessesPage() {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = "";
     };
-  }, [activeBusinessId]);
+  }, [activeBusinessId, isFetchConfirmOpen]);
+
+  const triggerBusinessesFetch = useCallback(async () => {
+    if (loading || apiRequestPending) return;
+    setFetchError(null);
+    setApiRequestPending(true);
+    try {
+      const latest = await fetchLatestCompletedSearchRunWithNextPage({
+        cache: "no-store"
+      });
+      if (!latest) {
+        throw new SearchRunsApiError(
+          "No completed search run has a next page available yet.",
+          409,
+        );
+      }
+
+      await triggerNextSearchRunPage(latest.id, { cache: "no-store" });
+
+      const refreshed = await fetchBusinessesPage(
+        {
+          page: 1,
+          page_size: BUSINESSES_PAGE_SIZE,
+          ...(normalizedQuery !== "" ? { query: normalizedQuery } : {}),
+          ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+          ...(websiteFilter === "yes"
+            ? { has_website: true }
+            : websiteFilter === "no"
+              ? { has_website: false }
+              : {}),
+          order_by: "created_at"
+        },
+        { cache: "no-store" }
+      );
+      setItems(refreshed.items);
+      setTotal(refreshed.total);
+      setIsFetchConfirmOpen(false);
+    } catch (error) {
+      const message =
+        error instanceof SearchRunsApiError
+          ? error.message
+          : error instanceof BusinessesApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Could not request the next Google Places page.";
+      setFetchError(message);
+    } finally {
+      setApiRequestPending(false);
+    }
+  }, [
+    apiRequestPending,
+    loading,
+    normalizedQuery,
+    statusFilter,
+    websiteFilter
+  ]);
 
   const handleSaveNotes = useCallback(async () => {
     if (!activeBusiness || notesSaving || (!notesDirty && !statusDirty)) return;
@@ -457,22 +419,10 @@ export function BusinessesPage() {
     const nextValue = !activeBusiness.opportunity_selected;
 
     try {
-      const response = await fetch(
-        `/api/opportunities/businesses/${activeBusiness.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({ is_selected: nextValue })
-        }
+      const body = await patchBusinessOpportunitySelection(
+        activeBusiness.id,
+        nextValue
       );
-
-      if (!response.ok) {
-        throw new Error(await readOpportunitySelectionError(response));
-      }
-
-      const body = (await response.json()) as { is_selected: boolean };
       setActiveBusiness((current) =>
         current ? { ...current, opportunity_selected: body.is_selected } : current
       );
@@ -513,8 +463,18 @@ export function BusinessesPage() {
       className="dashboard-content businesses-page"
       aria-labelledby="businesses-title"
     >
-      <header className="dashboard-content__header">
+      <header className="dashboard-content__header businesses-page__header">
         <h2 id="businesses-title">Businesses</h2>
+        <button
+          type="button"
+          className="businesses-load-cta"
+          onClick={() => setIsFetchConfirmOpen(true)}
+          disabled={loading || apiRequestPending}
+          aria-haspopup="dialog"
+          aria-controls="businesses-fetch-confirmation"
+        >
+          {apiRequestPending ? "Requesting..." : "Request Next 20 (Google)"}
+        </button>
       </header>
 
       <div className="businesses-page__body">
@@ -551,7 +511,7 @@ export function BusinessesPage() {
                   Status:{" "}
                   {statusFilter === "all"
                     ? "All"
-                    : statusLabel(statusFilter as LeadStatus)}
+                    : leadStatusLabel(statusFilter as LeadStatus)}
                 </span>
               }
             />
@@ -590,10 +550,18 @@ export function BusinessesPage() {
           </p>
         ) : null}
 
-        {!fetchError && !loading && total > 0 ? (
+        {!hasLoadedOnce ? (
+          <p className="businesses-fetch-idle" aria-live="polite">
+            Loading businesses from your database...
+          </p>
+        ) : null}
+
+        {!fetchError && !loading && hasLoadedOnce && total > 0 ? (
           <p className="businesses-meta" aria-live="polite">
             {total} {total === 1 ? "business" : "businesses"} from API
-            {items.length < total ? ` · ${items.length} loaded (page size cap)` : null}
+            {items.length < total
+              ? ` · ${items.length} loaded (page size ${BUSINESSES_PAGE_SIZE})`
+              : ` · ${items.length} loaded`}
           </p>
         ) : null}
 
@@ -705,6 +673,14 @@ export function BusinessesPage() {
                     <p className="businesses-empty">Could not load data.</p>
                   </td>
                 </tr>
+              ) : !hasLoadedOnce ? (
+                <tr>
+                  <td colSpan={7}>
+                    <p className="businesses-empty">
+                      Loading businesses...
+                    </p>
+                  </td>
+                </tr>
               ) : displayRows.length === 0 ? (
                 <tr>
                   <td colSpan={7}>
@@ -743,7 +719,7 @@ export function BusinessesPage() {
                       <span
                         className={`businesses-status-pill businesses-status-pill--${row.status}`}
                       >
-                        {statusLabel(row.status)}
+                        {leadStatusLabel(row.status)}
                       </span>
                     </td>
                     <td className="businesses-col-actions">
@@ -767,6 +743,57 @@ export function BusinessesPage() {
           </table>
         </div>
       </div>
+      {isFetchConfirmOpen ? (
+        <div
+          className="business-modal-backdrop"
+          role="presentation"
+          onClick={() => setIsFetchConfirmOpen(false)}
+        >
+          <section
+            id="businesses-fetch-confirmation"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="businesses-fetch-confirmation-title"
+            aria-describedby="businesses-fetch-confirmation-description"
+            className="business-confirmation-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+                <h3
+              id="businesses-fetch-confirmation-title"
+              className="business-confirmation-modal__title"
+            >
+              Confirm API request
+            </h3>
+            <p
+              id="businesses-fetch-confirmation-description"
+              className="business-confirmation-modal__text"
+            >
+              This action requests the next Google Places page and consumes{" "}
+              <strong>1 Google Places API request</strong>. It will create a new scan
+              run and then refresh this list from your database.
+            </p>
+            <div className="business-confirmation-modal__actions">
+              <button
+                type="button"
+                className="business-confirmation-modal__button business-confirmation-modal__button--secondary"
+                onClick={() => setIsFetchConfirmOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="business-confirmation-modal__button business-confirmation-modal__button--primary"
+                disabled={apiRequestPending}
+                onClick={() => {
+                  void triggerBusinessesFetch();
+                }}
+              >
+                {apiRequestPending ? "Requesting..." : "Confirm request"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {activeBusinessId ? (
         <div
           className="business-modal-backdrop"
@@ -788,7 +815,7 @@ export function BusinessesPage() {
                 <span
                   className={`businesses-status-pill businesses-status-pill--${activeBusiness?.status ?? "new"}`}
                 >
-                  {statusLabel(activeBusiness?.status ?? "new")}
+                  {leadStatusLabel(activeBusiness?.status ?? "new")}
                 </span>
               </div>
               <button
@@ -1046,7 +1073,7 @@ export function BusinessesPage() {
                           })()}
                           triggerContent={
                             <span className="businesses-select__trigger-label">
-                              {statusLabel(statusDraft)}
+                              {leadStatusLabel(statusDraft)}
                             </span>
                           }
                         />

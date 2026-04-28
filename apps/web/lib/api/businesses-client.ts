@@ -3,8 +3,15 @@ import type {
   BusinessRead,
   BusinessStatusUpdate,
   LeadStatus,
-  PaginatedResponse
+  PaginatedResponse,
+  SearchRead
 } from "@shared/index";
+import {
+  ApiClientError,
+  buildQueryString,
+  readJsonBody,
+  toApiClientError
+} from "@/lib/api/request";
 
 export type ListBusinessesQuery = {
   page?: number;
@@ -33,17 +40,8 @@ export class BusinessesApiError extends Error {
     this.correlationId = options?.correlationId;
   }
 }
-
-function buildQueryString(params: Record<string, string | number | boolean | undefined>): string {
-  const q = new URLSearchParams();
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== "") {
-      q.set(key, String(value));
-    }
-  }
-  const s = q.toString();
-  return s ? `?${s}` : "";
-}
+export class OpportunitiesSelectionApiError extends ApiClientError {}
+export class SearchRunsApiError extends ApiClientError {}
 
 /**
  * GET /api/businesses — same-origin fetch from the browser or RSC.
@@ -73,25 +71,18 @@ export async function fetchBusinessesPage(
     ...init
   });
 
-  let body: unknown;
-  try {
-    body = await res.json();
-  } catch {
-    body = {};
-  }
+  const body = await readJsonBody(res);
 
   if (!res.ok) {
-    const err = body as {
-      error?: { message?: string; code?: string; correlation_id?: string };
-    };
-    throw new BusinessesApiError(
-      err?.error?.message ?? `Request failed with status ${res.status}`,
-      res.status,
-      {
-        code: err?.error?.code,
-        correlationId: err?.error?.correlation_id
-      }
+    const error = toApiClientError(
+      res,
+      body,
+      `Request failed with status ${res.status}`
     );
+    throw new BusinessesApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
   }
 
   return body as PaginatedResponse<BusinessRead>;
@@ -123,25 +114,18 @@ export async function fetchOpportunitiesPage(
     ...init
   });
 
-  let body: unknown;
-  try {
-    body = await res.json();
-  } catch {
-    body = {};
-  }
+  const body = await readJsonBody(res);
 
   if (!res.ok) {
-    const err = body as {
-      error?: { message?: string; code?: string; correlation_id?: string };
-    };
-    throw new BusinessesApiError(
-      err?.error?.message ?? `Request failed with status ${res.status}`,
-      res.status,
-      {
-        code: err?.error?.code,
-        correlationId: err?.error?.correlation_id
-      }
+    const error = toApiClientError(
+      res,
+      body,
+      `Request failed with status ${res.status}`
     );
+    throw new BusinessesApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
   }
 
   return body as PaginatedResponse<BusinessRead>;
@@ -160,25 +144,18 @@ export async function fetchBusinessById(
     ...init
   });
 
-  let body: unknown;
-  try {
-    body = await res.json();
-  } catch {
-    body = {};
-  }
+  const body = await readJsonBody(res);
 
   if (!res.ok) {
-    const err = body as {
-      error?: { message?: string; code?: string; correlation_id?: string };
-    };
-    throw new BusinessesApiError(
-      err?.error?.message ?? `Request failed with status ${res.status}`,
-      res.status,
-      {
-        code: err?.error?.code,
-        correlationId: err?.error?.correlation_id
-      }
+    const error = toApiClientError(
+      res,
+      body,
+      `Request failed with status ${res.status}`
     );
+    throw new BusinessesApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
   }
 
   return body as BusinessDetailRead;
@@ -202,26 +179,112 @@ export async function patchBusinessById(
     ...init
   });
 
-  let body: unknown;
-  try {
-    body = await res.json();
-  } catch {
-    body = {};
-  }
+  const body = await readJsonBody(res);
 
   if (!res.ok) {
-    const err = body as {
-      error?: { message?: string; code?: string; correlation_id?: string };
-    };
-    throw new BusinessesApiError(
-      err?.error?.message ?? `Request failed with status ${res.status}`,
-      res.status,
-      {
-        code: err?.error?.code,
-        correlationId: err?.error?.correlation_id
-      }
+    const error = toApiClientError(
+      res,
+      body,
+      `Request failed with status ${res.status}`
     );
+    throw new BusinessesApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
   }
 
   return body as BusinessDetailRead;
+}
+
+export async function patchBusinessOpportunitySelection(
+  id: string,
+  isSelected: boolean,
+  init?: RequestInit
+): Promise<{ is_selected: boolean }> {
+  const response = await fetch(`/api/opportunities/businesses/${id}`, {
+    method: "PATCH",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ is_selected: isSelected }),
+    ...init
+  });
+
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    const error = toApiClientError(
+      response,
+      body,
+      "Could not update opportunities selection."
+    );
+    throw new OpportunitiesSelectionApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
+  }
+
+  return body as { is_selected: boolean };
+}
+
+export async function fetchLatestCompletedSearchRunWithNextPage(
+  init?: RequestInit,
+): Promise<SearchRead | null> {
+  const search = buildQueryString({
+    page: 1,
+    page_size: 100,
+    status: "completed",
+    source: "google_places"
+  });
+
+  const response = await fetch(`/api/searches${search}`, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    ...init
+  });
+
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    const error = toApiClientError(
+      response,
+      body,
+      `Request failed with status ${response.status}`
+    );
+    throw new SearchRunsApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
+  }
+
+  const parsed = body as PaginatedResponse<SearchRead>;
+  return parsed.items.find((item) => item.provider_next_page_available) ?? null;
+}
+
+export async function triggerNextSearchRunPage(
+  parentSearchRunId: string,
+  init?: RequestInit,
+): Promise<{ searchRun: SearchRead; created: boolean }> {
+  const response = await fetch(`/api/search/${parentSearchRunId}/next`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    ...init
+  });
+
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    const error = toApiClientError(
+      response,
+      body,
+      `Request failed with status ${response.status}`
+    );
+    throw new SearchRunsApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
+  }
+
+  return {
+    searchRun: body as SearchRead,
+    created: response.status === 201
+  };
 }

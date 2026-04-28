@@ -4,18 +4,13 @@ import { ChevronDown, Ellipsis, FolderOpen, Save, Trash2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import type { OpportunityRead, PaginatedResponse } from "@shared/index";
+import type { OpportunityRead } from "@shared/index";
+import {
+  fetchOpportunities,
+  patchOpportunityStatus,
+} from "@/lib/api/opportunities-client";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
-
-async function readResponseError(response: Response): Promise<string> {
-  try {
-    const body = await response.json();
-    return body.error?.message ?? "Request failed";
-  } catch {
-    return "Request failed";
-  }
-}
 
 export default function OpportunitiesPage() {
   const [items, setItems] = useState<OpportunityRead[]>([]);
@@ -34,16 +29,7 @@ export default function OpportunitiesPage() {
     setErrorMessage(null);
 
     try {
-      const response = await fetch("/api/opportunities", {
-        cache: "no-store",
-      });
-
-      if (!response.ok) {
-        throw new Error(await readResponseError(response));
-      }
-
-      const body =
-        (await response.json()) as PaginatedResponse<OpportunityRead>;
+      const body = await fetchOpportunities({ cache: "no-store" });
       setItems(body.items);
       setLoadState("ready");
     } catch (error) {
@@ -87,19 +73,7 @@ export default function OpportunitiesPage() {
     setErrorMessage(null);
 
     try {
-      const response = await fetch(`/api/opportunities/${opportunityId}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await readResponseError(response));
-      }
-
-      const updated = (await response.json()) as OpportunityRead;
+      await patchOpportunityStatus(opportunityId, status);
 
       await loadOpportunities();
       setDiscardPanelOpportunityId(null);

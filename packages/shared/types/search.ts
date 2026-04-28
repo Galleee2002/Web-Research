@@ -12,6 +12,9 @@ export interface SearchRead {
   source: BusinessSource;
   status: SearchRunStatus;
   total_found: number;
+  parent_search_run_id: string | null;
+  page_number: number;
+  provider_next_page_available: boolean;
   created_at: string;
 }
 

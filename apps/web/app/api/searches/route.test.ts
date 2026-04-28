@@ -23,6 +23,9 @@ describe("GET /api/searches", () => {
           source: "google_places",
           status: "completed",
           total_found: 3,
+          parent_search_run_id: null,
+          page_number: 1,
+          provider_next_page_available: true,
           created_at: "2026-04-23T00:00:00.000Z"
         }
       ],
@@ -54,6 +57,9 @@ describe("GET /api/searches", () => {
           source: "google_places",
           status: "completed",
           total_found: 3,
+          parent_search_run_id: null,
+          page_number: 1,
+          provider_next_page_available: true,
           created_at: "2026-04-23T00:00:00.000Z"
         }
       ],

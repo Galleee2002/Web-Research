@@ -55,11 +55,37 @@ def test_places_search_uses_text_search_new_endpoint_and_field_mask():
     assert captured["headers"]["X-Goog-Api-Key"] == "test-key"
     assert "places.id" in captured["headers"]["X-Goog-FieldMask"]
     assert "places.websiteUri" in captured["headers"]["X-Goog-FieldMask"]
-    assert captured["body"] == {"textQuery": "dentistas in Buenos Aires"}
+    assert captured["body"] == {
+        "textQuery": "dentistas in Buenos Aires",
+        "pageSize": 20,
+    }
     assert extract_places(response) == [
         {"id": "place-1", "displayName": {"text": "Clinica Demo"}}
     ]
     assert quota.providers == ["places"]
+
+
+def test_places_search_sends_page_token_when_requested():
+    quota = RecordingQuota()
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"places": []})
+
+    client = GooglePlacesClient(
+        api_key="test-key",
+        quota=quota,
+        http_client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
+
+    client.search_text("dentistas", "Buenos Aires", page_token="next-page-token")
+
+    assert captured["body"] == {
+        "textQuery": "dentistas in Buenos Aires",
+        "pageSize": 20,
+        "pageToken": "next-page-token",
+    }
 
 
 def test_places_search_requires_api_key():

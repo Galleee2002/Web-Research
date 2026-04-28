@@ -45,7 +45,11 @@ class WorkerRepository:
                         'started_at',
                         now() at time zone 'utc',
                         'provider',
-                        source
+                        source,
+                        'page_number',
+                        page_number,
+                        'parent_search_run_id',
+                        parent_search_run_id
                       ),
                       updated_at = now()
                     where id = (
@@ -64,6 +68,10 @@ class WorkerRepository:
                       correlation_id,
                       status,
                       total_found,
+                      parent_search_run_id,
+                      page_number,
+                      provider_page_token,
+                      provider_next_page_token,
                       error_message,
                       error_code,
                       error_stage,
@@ -91,6 +99,7 @@ class WorkerRepository:
         businesses: list[NormalizedBusiness],
         total_found: int,
         observability: dict[str, Any],
+        provider_next_page_token: str | None = None,
     ) -> list[UpsertResult]:
         results: list[UpsertResult] = []
         with self.connect(self.database_url, row_factory=dict_row) as connection:
@@ -248,6 +257,7 @@ class WorkerRepository:
                     "deduped_count": sum(
                         1 for result in results if result.dedupe_strategy is not None
                     ),
+                    "provider_next_page_available": bool(provider_next_page_token),
                 }
                 connection.execute(
                     """
@@ -255,6 +265,7 @@ class WorkerRepository:
                     set
                       status = 'completed',
                       total_found = %s,
+                      provider_next_page_token = %s,
                       finished_at = now(),
                       error_message = null,
                       error_code = null,
@@ -265,6 +276,7 @@ class WorkerRepository:
                     """,
                     (
                         total_found,
+                        provider_next_page_token,
                         psycopg.types.json.Jsonb(completed_observability),
                         search_run.id,
                     ),
@@ -431,6 +443,10 @@ class WorkerRepository:
             correlation_id=row.get("correlation_id"),
             status=row["status"],
             total_found=row["total_found"],
+            parent_search_run_id=row.get("parent_search_run_id"),
+            page_number=row.get("page_number") or 1,
+            provider_page_token=row.get("provider_page_token"),
+            provider_next_page_token=row.get("provider_next_page_token"),
             error_message=row.get("error_message"),
             error_code=row.get("error_code"),
             error_stage=row.get("error_stage"),

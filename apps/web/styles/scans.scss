@@ -479,9 +479,39 @@
 }
 
 .scan-card__details-cta {
+  justify-self: end;
+  align-self: center;
+}
+
+.scan-card__actions {
   grid-area: eye;
   justify-self: end;
   align-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.scan-card__delete-cta {
+  color: #d92d20;
+}
+
+.scan-card__delete-cta-label {
+  color: inherit;
+}
+
+.scan-card__delete-cta:hover {
+  color: #b42318;
+  background: color-mix(in srgb, #d92d20 10%, transparent);
+}
+
+[data-theme="dark"] .scan-card__delete-cta {
+  color: #ff7b72;
+}
+
+[data-theme="dark"] .scan-card__delete-cta:hover {
+  color: #ff9a93;
+  background: color-mix(in srgb, #ff7b72 16%, transparent);
 }
 
 .scan-card__details-cta-label {
@@ -581,11 +611,9 @@
     width: 100%;
   }
 
-  .scan-card__details-cta.businesses-icon-button {
-    justify-self: center;
+  .scan-card__actions > .businesses-icon-button {
     width: 100%;
-    max-width: 18rem;
-    margin: 0.35rem auto 0;
+    margin: 0;
     height: auto;
     min-height: 44px;
     padding: 0.5rem 1rem;
@@ -595,8 +623,42 @@
     gap: 0.45rem;
   }
 
+  .scan-card__actions {
+    justify-self: center;
+    width: 100%;
+    max-width: 18rem;
+    margin: 0.35rem auto 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.7rem;
+  }
+
   .scan-card__details-cta.businesses-icon-button:hover {
     background: color-mix(in srgb, var(--accent) 10%, var(--surface-01));
+  }
+
+  .scan-card__delete-cta.businesses-icon-button:hover {
+    border-color: color-mix(in srgb, #d92d20 45%, var(--border-soft));
+    background: color-mix(in srgb, #d92d20 16%, var(--surface-01));
+    color: #b42318;
+  }
+
+  [data-theme="dark"] .scan-card__delete-cta.businesses-icon-button:hover {
+    border-color: color-mix(in srgb, #ff7b72 48%, var(--border-soft));
+    background: color-mix(in srgb, #ff7b72 22%, var(--surface-01));
+    color: #ffb3ad;
+  }
+
+  .scan-card__delete-cta.businesses-icon-button {
+    border-color: color-mix(in srgb, #d92d20 30%, var(--border-soft));
+    background: color-mix(in srgb, #d92d20 6%, var(--surface-01));
+    color: #d92d20;
+  }
+
+  [data-theme="dark"] .scan-card__delete-cta.businesses-icon-button {
+    border-color: color-mix(in srgb, #ff7b72 32%, var(--border-soft));
+    background: color-mix(in srgb, #ff7b72 10%, var(--surface-01));
+    color: #ff8f88;
   }
 
   .scan-card__details-cta-label {
@@ -605,6 +667,10 @@
     font-weight: 600;
     letter-spacing: -0.12px;
     color: var(--text-primary);
+  }
+
+  .scan-card__delete-cta-label {
+    color: inherit;
   }
 
   .scan-card--skeleton .scan-card__skeleton-cta {

@@ -54,6 +54,9 @@ describe("POST /api/search", () => {
       source: "google_places",
       status: "pending",
       total_found: 0,
+      parent_search_run_id: null,
+      page_number: 1,
+      provider_next_page_available: false,
       created_at: "2026-04-23T00:00:00Z"
     });
 

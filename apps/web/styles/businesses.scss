@@ -6,12 +6,62 @@
   min-height: calc(100dvh - 3rem);
 }
 
+.businesses-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
 .businesses-page__body {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
   padding: 0 1.25rem 1rem;
+}
+
+.businesses-load-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.5rem 1rem;
+  border: 1px solid transparent;
+  border-radius: 0.7rem;
+  background: #0071e3;
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.2px;
+  cursor: pointer;
+  transition:
+    background-color 180ms ease,
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+.businesses-load-cta:hover:not(:disabled) {
+  background: #0077ed;
+}
+
+.businesses-load-cta:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 2px #0071e3;
+}
+
+.businesses-load-cta:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.businesses-fetch-idle {
+  margin: 0 0 0.65rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: -0.12px;
 }
 
 .businesses-fetch-error {
@@ -625,6 +675,90 @@
   box-shadow: var(--card-shadow);
 }
 
+.business-confirmation-modal {
+  width: min(30rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  border-radius: 1rem;
+  border: 1px solid var(--border-soft);
+  background: color-mix(in srgb, var(--surface-01) 92%, transparent);
+  box-shadow: var(--card-shadow);
+  padding: 1.15rem;
+}
+
+.business-confirmation-modal__title {
+  margin: 0;
+  font-size: clamp(1.02rem, 0.98rem + 0.3vw, 1.25rem);
+  font-weight: 600;
+  line-height: 1.14;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+}
+
+.business-confirmation-modal__text {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.42;
+  letter-spacing: -0.14px;
+  color: var(--text-secondary);
+}
+
+.business-confirmation-modal__text code {
+  font-size: 0.85em;
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-03) 76%, transparent);
+  border-radius: 0.38rem;
+  padding: 0.08rem 0.3rem;
+}
+
+.business-confirmation-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+}
+
+.business-confirmation-modal__button {
+  min-height: 40px;
+  padding: 0.42rem 0.82rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--border-soft);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: -0.12px;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.business-confirmation-modal__button:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+.business-confirmation-modal__button--secondary {
+  background: var(--surface-01);
+  color: var(--text-secondary);
+}
+
+.business-confirmation-modal__button--secondary:hover {
+  border-color: color-mix(in srgb, var(--accent) 25%, var(--border-soft));
+  color: var(--text-primary);
+}
+
+.business-confirmation-modal__button--primary {
+  border-color: transparent;
+  background: #0071e3;
+  color: #fff;
+}
+
+.business-confirmation-modal__button--primary:hover {
+  background: #0077ed;
+}
+
 .business-modal__header {
   display: flex;
   align-items: flex-start;
@@ -1064,6 +1198,15 @@
     min-height: calc(100dvh - 5rem);
   }
 
+  .businesses-page__header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .businesses-load-cta {
+    width: 100%;
+  }
+
   .businesses-toolbar {
     padding-top: 0.5rem;
     flex-direction: column;
@@ -1150,6 +1293,11 @@
   .business-modal {
     width: 100%;
     max-height: min(92dvh, 58rem);
+    border-radius: 1rem 1rem 0.75rem 0.75rem;
+  }
+
+  .business-confirmation-modal {
+    width: 100%;
     border-radius: 1rem 1rem 0.75rem 0.75rem;
   }
 

@@ -13,6 +13,7 @@ class FakeSearchRepository:
         self.persisted_businesses: list[NormalizedBusiness] = []
         self.persisted_total_found: int | None = None
         self.persisted_observability: dict | None = None
+        self.persisted_provider_next_page_token: str | None = None
         self.failed_search_run_id: str | None = None
         self.failed_error_message: str | None = None
         self.failed_error_code: str | None = None
@@ -29,11 +30,13 @@ class FakeSearchRepository:
         businesses: list[NormalizedBusiness],
         total_found: int,
         observability: dict,
+        provider_next_page_token: str | None = None,
     ) -> list[UpsertResult]:
         self.persisted_search_run_id = search_run.id
         self.persisted_businesses = businesses
         self.persisted_total_found = total_found
         self.persisted_observability = observability
+        self.persisted_provider_next_page_token = provider_next_page_token
         return [
             UpsertResult(action="inserted", business_id=f"business-{index + 1}")
             for index, _business in enumerate(businesses)
@@ -58,9 +61,10 @@ class FakeSearchRepository:
 class FakePlacesClient:
     response: dict
 
-    def search_text(self, query: str, location: str) -> dict:
+    def search_text(self, query: str, location: str, page_token: str | None = None) -> dict:
         self.last_query = query
         self.last_location = location
+        self.last_page_token = page_token
         return self.response
 
 
@@ -68,7 +72,7 @@ class FakePlacesClient:
 class FakePlacesClientFailure:
     error: Exception
 
-    def search_text(self, query: str, location: str) -> dict:
+    def search_text(self, query: str, location: str, page_token: str | None = None) -> dict:
         raise self.error
 
 
@@ -91,6 +95,8 @@ def build_search_run() -> SearchRun:
         correlation_id="corr-1",
         status="processing",
         total_found=0,
+        page_number=2,
+        provider_page_token="token-page-2",
     )
 
 
@@ -136,7 +142,8 @@ def test_pipeline_processes_pending_search_run_and_persists_normalized_businesse
                     "websiteUri": "https://clinicademo.com",
                     "googleMapsUri": "https://maps.google.com/?cid=123",
                 }
-            ]
+            ],
+            "nextPageToken": "next-token-page-3",
         }
     )
     geocoding_client = FakeGeocodingClient(response=build_geocoding_response())
@@ -159,8 +166,12 @@ def test_pipeline_processes_pending_search_run_and_persists_normalized_businesse
     assert result.geocoding_calls == 1
     assert repository.persisted_search_run_id == "search-1"
     assert repository.persisted_total_found == 1
+    assert repository.persisted_provider_next_page_token == "next-token-page-3"
     assert repository.persisted_observability is not None
     assert repository.persisted_observability["provider"] == "google_places"
+    assert repository.persisted_observability["page_number"] == 2
+    assert repository.persisted_observability["provider_page_token_present"] is True
+    assert repository.persisted_observability["provider_next_page_available"] is True
     assert len(repository.persisted_businesses) == 1
     business = repository.persisted_businesses[0]
     assert business.external_id == "place-1"
@@ -173,6 +184,7 @@ def test_pipeline_processes_pending_search_run_and_persists_normalized_businesse
     assert business.lng == -58.3816
     assert business.website == "https://clinicademo.com"
     assert business.has_website is True
+    assert places_client.last_page_token == "token-page-2"
     assert geocoding_client.calls == ["Av. Corrientes 1234, Buenos Aires, Argentina"]
 
 

@@ -41,9 +41,15 @@ class WorkerPipeline:
         )
         try:
             places_started_at = datetime.now(UTC)
-            raw_places = extract_places(
-                self.places_client.search_text(search_run.query, search_run.location)
+            places_response = self.places_client.search_text(
+                search_run.query,
+                search_run.location,
+                page_token=search_run.provider_page_token,
             )
+            raw_places = extract_places(places_response)
+            next_page_token = places_response.get("nextPageToken")
+            if not isinstance(next_page_token, str) or not next_page_token.strip():
+                next_page_token = None
             places_duration_ms = int(
                 (datetime.now(UTC) - places_started_at).total_seconds() * 1000
             )
@@ -73,6 +79,10 @@ class WorkerPipeline:
             finished_at_iso = utc_now_iso()
             observability = {
                 "provider": search_run.source,
+                "page_number": search_run.page_number,
+                "parent_search_run_id": search_run.parent_search_run_id,
+                "provider_page_token_present": bool(search_run.provider_page_token),
+                "provider_next_page_available": bool(next_page_token),
                 "results_found": len(raw_places),
                 "inserted_count": 0,
                 "updated_count": 0,
@@ -88,6 +98,7 @@ class WorkerPipeline:
                 normalized_businesses,
                 len(raw_places),
                 observability,
+                provider_next_page_token=next_page_token,
             )
             inserted_count = sum(1 for result in upsert_results if result.action == "inserted")
             updated_count = sum(1 for result in upsert_results if result.action == "updated")
@@ -99,9 +110,7 @@ class WorkerPipeline:
                     "deduped_count": deduped_count,
                 }
             )
-            observability = {
-                **observability
-            }
+            observability = {**observability}
             log_event(
                 logger,
                 logging.INFO,
@@ -133,6 +142,10 @@ class WorkerPipeline:
             duration_ms = int((datetime.now(UTC) - started_at).total_seconds() * 1000)
             observability = {
                 "provider": search_run.source,
+                "page_number": search_run.page_number,
+                "parent_search_run_id": search_run.parent_search_run_id,
+                "provider_page_token_present": bool(search_run.provider_page_token),
+                "provider_next_page_available": False,
                 "results_found": 0,
                 "inserted_count": 0,
                 "updated_count": 0,

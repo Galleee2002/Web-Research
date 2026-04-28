@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { ApiError } from "@/lib/api/http";
-
 import { searchGooglePlaces } from "./google-places-service";
 
 const operationContext = {
@@ -80,7 +78,7 @@ describe("google-places-service", () => {
         { query: "dentists", location: "Buenos Aires" },
         operationContext,
       ),
-    ).rejects.toMatchObject<ApiError>({
+    ).rejects.toMatchObject({
       code: "timeout_error",
       status: 504,
     });

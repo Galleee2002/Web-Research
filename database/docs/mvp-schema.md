@@ -14,6 +14,9 @@ archivos SQL planos. Todavia no requiere un framework de migraciones.
 - `database/migrations/003_create_opportunities.sql`: crea la tabla
   `opportunities`, agrega el rating manual de 1 a 5 estrellas y hace backfill
   para negocios existentes sin website.
+- `database/migrations/006_add_search_runs_pagination.sql`: agrega metadata de
+  paginacion (`parent_search_run_id`, `page_number`, `provider_page_token`,
+  `provider_next_page_token`) para soportar "next page" del proveedor.
 - `database/seeds/001_mvp_demo_data.sql`: archivo intencionalmente vacio para
   evitar reinsertar datos demo/mock en la base.
 
@@ -25,6 +28,7 @@ Configurar `DATABASE_URL` apuntando a una base PostgreSQL modificable y correr:
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/001_create_mvp_schema.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/002_add_search_run_observability.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/003_create_opportunities.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/migrations/006_add_search_runs_pagination.sql
 psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f database/seeds/001_mvp_demo_data.sql
 ```
 

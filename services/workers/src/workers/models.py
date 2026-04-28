@@ -13,6 +13,10 @@ class SearchRun:
     correlation_id: str | None
     status: str
     total_found: int
+    parent_search_run_id: str | None = None
+    page_number: int = 1
+    provider_page_token: str | None = None
+    provider_next_page_token: str | None = None
     error_message: str | None = None
     error_code: str | None = None
     error_stage: str | None = None

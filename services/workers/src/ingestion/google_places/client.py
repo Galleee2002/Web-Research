@@ -11,6 +11,7 @@ from .errors import (
 )
 
 PLACES_TEXT_SEARCH_URL = "https://places.googleapis.com/v1/places:searchText"
+DEFAULT_TEXT_SEARCH_PAGE_SIZE = 20
 
 DEFAULT_PLACES_FIELD_MASK = ",".join(
     [
@@ -45,11 +46,23 @@ class GooglePlacesClient:
         self.http_client = http_client or httpx.Client(timeout=timeout_seconds)
         self.field_mask = field_mask
 
-    def search_text(self, query: str, location: str) -> dict[str, Any]:
+    def search_text(
+        self,
+        query: str,
+        location: str,
+        page_token: str | None = None,
+    ) -> dict[str, Any]:
         if not self.api_key:
             raise GoogleCredentialsError("GOOGLE_PLACES_API_KEY is required")
 
         self.quota.reserve("places")
+        payload: dict[str, Any] = {
+            "textQuery": f"{query} in {location}",
+            "pageSize": DEFAULT_TEXT_SEARCH_PAGE_SIZE,
+        }
+        if isinstance(page_token, str) and page_token.strip():
+            payload["pageToken"] = page_token
+
         try:
             response = self.http_client.post(
                 PLACES_TEXT_SEARCH_URL,
@@ -57,7 +70,7 @@ class GooglePlacesClient:
                     "X-Goog-Api-Key": self.api_key,
                     "X-Goog-FieldMask": self.field_mask,
                 },
-                json={"textQuery": f"{query} in {location}"},
+                json=payload,
                 timeout=self.timeout_seconds,
             )
         except httpx.TimeoutException as exc:

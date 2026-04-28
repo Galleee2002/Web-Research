@@ -7,9 +7,9 @@ import {
   ChevronDown,
   Eye,
   Search,
+  Trash2,
   X
 } from "lucide-react";
-import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
@@ -20,89 +20,15 @@ import type {
 } from "@shared/index";
 import { MAX_PAGE_SIZE } from "@shared/index";
 
+import { SelectMenu } from "@/app/shared/ui/select-menu";
 import { fetchBusinessesPage } from "@/lib/api/businesses-client";
+import { fetchScansPage } from "@/lib/api/scans-client";
 
 type ScansLoadState = "idle" | "loading" | "ready" | "error";
 
 type ModalLoadState = "idle" | "loading" | "ready" | "error";
 
 type OutcomeFilter = "all" | "ok" | "error";
-
-function SelectMenu<T extends string>({
-  value,
-  options,
-  onChange,
-  triggerClassName,
-  triggerContent,
-  ariaLabel,
-  rootClassName
-}: {
-  value: T;
-  options: { value: T; label: string }[];
-  onChange: (v: T) => void;
-  triggerClassName: string;
-  triggerContent: ReactNode;
-  ariaLabel: string;
-  rootClassName?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
-
-  return (
-    <div
-      className={["businesses-select", rootClassName].filter(Boolean).join(" ")}
-      ref={rootRef}
-    >
-      <button
-        type="button"
-        className={triggerClassName}
-        aria-label={ariaLabel}
-        aria-expanded={open}
-        aria-haspopup="listbox"
-        onClick={() => setOpen((o) => !o)}
-      >
-        {triggerContent}
-        <ChevronDown
-          className={`businesses-select__chevron${open ? " businesses-select__chevron--open" : ""}`}
-          aria-hidden
-        />
-      </button>
-      {open ? (
-        <div
-          className="businesses-select__menu"
-          role="listbox"
-          aria-label={`${ariaLabel} options`}
-        >
-          {options.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                role="option"
-                aria-selected={opt.value === value}
-                data-active={opt.value === value ? "true" : undefined}
-                className="businesses-select__option"
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-              >
-                {opt.label}
-              </button>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 function outcomeLabel(f: OutcomeFilter): string {
   switch (f) {
@@ -186,15 +112,6 @@ function matchesIdQuery(scan: ScanListItem, q: string): boolean {
   return id.includes(needle) || corr.includes(needle);
 }
 
-async function readJsonError(response: Response): Promise<string> {
-  try {
-    const body = (await response.json()) as { error?: { message?: string } };
-    return body.error?.message ?? "Request failed";
-  } catch {
-    return "Request failed";
-  }
-}
-
 export function ScansPage() {
   const [scans, setScans] = useState<ScanListItem[]>([]);
   const [scansState, setScansState] = useState<ScansLoadState>("idle");
@@ -205,6 +122,7 @@ export function ScansPage() {
   const [dateTo, setDateTo] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>("all");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [dismissedScanIds, setDismissedScanIds] = useState<Set<string>>(new Set());
 
   const [modalRunId, setModalRunId] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState<string>("");
@@ -217,20 +135,22 @@ export function ScansPage() {
     setScansState("loading");
     setScansError(null);
     try {
-      const q = new URLSearchParams();
-      q.set("page", "1");
-      q.set("page_size", String(MAX_PAGE_SIZE));
-      q.set("started_at_order", sortNewestFirst ? "desc" : "asc");
-      if (dateFrom.trim()) q.set("from", dayBoundaryIso(dateFrom.trim(), false));
-      if (dateTo.trim()) q.set("to", dayBoundaryIso(dateTo.trim(), true));
-      if (outcomeFilter === "ok") q.set("status", "completed");
-      if (outcomeFilter === "error") q.set("status", "failed");
-
-      const res = await fetch(`/api/scans?${q.toString()}`, { cache: "no-store" });
-      if (!res.ok) {
-        throw new Error(await readJsonError(res));
-      }
-      const body = (await res.json()) as PaginatedScansResponse;
+      const body = await fetchScansPage(
+        {
+          page: 1,
+          page_size: MAX_PAGE_SIZE,
+          started_at_order: sortNewestFirst ? "desc" : "asc",
+          from: dateFrom.trim() ? dayBoundaryIso(dateFrom.trim(), false) : undefined,
+          to: dateTo.trim() ? dayBoundaryIso(dateTo.trim(), true) : undefined,
+          status:
+            outcomeFilter === "ok"
+              ? "completed"
+              : outcomeFilter === "error"
+                ? "failed"
+                : undefined
+        },
+        { cache: "no-store" }
+      );
       setScans(body.items);
       setScansState("ready");
     } catch (e) {
@@ -244,9 +164,21 @@ export function ScansPage() {
   }, [loadScans]);
 
   const visibleScans = useMemo(
-    () => scans.filter((s) => matchesIdQuery(s, idQuery)),
-    [scans, idQuery]
+    () =>
+      scans.filter((s) => {
+        if (dismissedScanIds.has(s.id)) return false;
+        return matchesIdQuery(s, idQuery);
+      }),
+    [scans, idQuery, dismissedScanIds]
   );
+
+  const dismissScanCard = useCallback((scanId: string) => {
+    setDismissedScanIds((prev) => {
+      const next = new Set(prev);
+      next.add(scanId);
+      return next;
+    });
+  }, []);
 
   const openBusinessesModal = useCallback((scan: ScanListItem) => {
     const runId = scanRunId(scan);
@@ -522,29 +454,43 @@ export function ScansPage() {
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      className="businesses-icon-button scan-card__details-cta"
-                      aria-label={
-                        !runId
-                          ? "Run id unavailable"
-                          : isErrorStatus
-                            ? "View details unavailable — scan failed"
-                            : "View details"
-                      }
-                      disabled={detailsDisabled}
-                      title={
-                        !runId
-                          ? "No run id for this scan"
-                          : isErrorStatus
-                            ? "Details unavailable for failed scans"
-                            : undefined
-                      }
-                      onClick={() => openBusinessesModal(scan)}
-                    >
-                      <Eye className="businesses-icon-button__icon" aria-hidden />
-                      <span className="scan-card__details-cta-label">View Details</span>
-                    </button>
+                    <div className="scan-card__actions">
+                      <button
+                        type="button"
+                        className="businesses-icon-button scan-card__delete-cta"
+                        aria-label="Remove scan card"
+                        title="Remove this card"
+                        onClick={() => dismissScanCard(scan.id)}
+                      >
+                        <Trash2 className="businesses-icon-button__icon" aria-hidden />
+                        <span className="scan-card__details-cta-label scan-card__delete-cta-label">
+                          Remove
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="businesses-icon-button scan-card__details-cta"
+                        aria-label={
+                          !runId
+                            ? "Run id unavailable"
+                            : isErrorStatus
+                              ? "View details unavailable — scan failed"
+                              : "View details"
+                        }
+                        disabled={detailsDisabled}
+                        title={
+                          !runId
+                            ? "No run id for this scan"
+                            : isErrorStatus
+                              ? "Details unavailable for failed scans"
+                              : undefined
+                        }
+                        onClick={() => openBusinessesModal(scan)}
+                      >
+                        <Eye className="businesses-icon-button__icon" aria-hidden />
+                        <span className="scan-card__details-cta-label">View Details</span>
+                      </button>
+                    </div>
                   </div>
                 </article>
               );
