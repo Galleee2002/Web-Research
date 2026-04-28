@@ -7,7 +7,6 @@ import {
   ChevronDown,
   Eye,
   Search,
-  Trash2,
   X
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -122,7 +121,6 @@ export function ScansPage() {
   const [dateTo, setDateTo] = useState("");
   const [outcomeFilter, setOutcomeFilter] = useState<OutcomeFilter>("all");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
-  const [dismissedScanIds, setDismissedScanIds] = useState<Set<string>>(new Set());
 
   const [modalRunId, setModalRunId] = useState<string | null>(null);
   const [modalTitle, setModalTitle] = useState<string>("");
@@ -164,21 +162,9 @@ export function ScansPage() {
   }, [loadScans]);
 
   const visibleScans = useMemo(
-    () =>
-      scans.filter((s) => {
-        if (dismissedScanIds.has(s.id)) return false;
-        return matchesIdQuery(s, idQuery);
-      }),
-    [scans, idQuery, dismissedScanIds]
+    () => scans.filter((s) => matchesIdQuery(s, idQuery)),
+    [scans, idQuery]
   );
-
-  const dismissScanCard = useCallback((scanId: string) => {
-    setDismissedScanIds((prev) => {
-      const next = new Set(prev);
-      next.add(scanId);
-      return next;
-    });
-  }, []);
 
   const openBusinessesModal = useCallback((scan: ScanListItem) => {
     const runId = scanRunId(scan);
@@ -455,18 +441,6 @@ export function ScansPage() {
                     </div>
 
                     <div className="scan-card__actions">
-                      <button
-                        type="button"
-                        className="businesses-icon-button scan-card__delete-cta"
-                        aria-label="Remove scan card"
-                        title="Remove this card"
-                        onClick={() => dismissScanCard(scan.id)}
-                      >
-                        <Trash2 className="businesses-icon-button__icon" aria-hidden />
-                        <span className="scan-card__details-cta-label scan-card__delete-cta-label">
-                          Remove
-                        </span>
-                      </button>
                       <button
                         type="button"
                         className="businesses-icon-button scan-card__details-cta"
