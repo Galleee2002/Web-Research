@@ -9,6 +9,7 @@ import type {
 import type { OperationContext } from "@/lib/api/http";
 
 import { query } from "./pool";
+import { toIsoString, whereSql } from "./shared-query";
 import type { SqlQuery } from "./searches";
 
 interface BusinessRow {
@@ -63,10 +64,6 @@ const ORDER_BY: Record<NonNullable<BusinessFilters["order_by"]>, string> = {
   name: "name asc",
   city: "city asc"
 };
-
-function toIsoString(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
 
 function toNumber(value: string | number | null): number | null {
   if (value === null) {
@@ -149,10 +146,6 @@ function buildBusinessWhere(filters: BusinessFilters): {
   }
 
   return { clauses, values };
-}
-
-function whereSql(clauses: string[]): string {
-  return clauses.length > 0 ? `where ${clauses.join(" and ")}` : "";
 }
 
 export function buildBusinessListQuery(filters: BusinessFilters): SqlQuery {

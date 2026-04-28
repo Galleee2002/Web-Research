@@ -12,6 +12,7 @@ import type {
 import type { OperationContext } from "@/lib/api/http";
 
 import { query } from "./pool";
+import { toIsoString, whereSql } from "./shared-query";
 import type { SqlQuery } from "./searches";
 
 interface OpportunityRow {
@@ -59,10 +60,6 @@ const ORDER_BY: Record<NonNullable<OpportunityFilters["order_by"]>, string> = {
   city: "businesses.city asc nulls last, opportunities.created_at desc, opportunities.id asc",
 };
 
-function toIsoString(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
-
 function mapOpportunity(row: OpportunityRow): OpportunityRead {
   return {
     id: row.id,
@@ -96,6 +93,7 @@ function buildOpportunityWhere(filters: OpportunityFilters): {
 } {
   const clauses = [
     "opportunities.is_selected = true",
+    "businesses.has_website = false",
     "businesses.status <> 'discarded'",
   ];
   const values: unknown[] = [];
@@ -121,10 +119,6 @@ function buildOpportunityWhere(filters: OpportunityFilters): {
   }
 
   return { clauses, values };
-}
-
-function whereSql(clauses: string[]): string {
-  return `where ${clauses.join(" and ")}`;
 }
 
 export function buildOpportunityListQuery(filters: OpportunityFilters): SqlQuery {

@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -82,6 +83,14 @@ def test_normalize_google_place_uses_geocoding_coordinates_only_as_fallback():
     assert business.country == "Argentina"
     assert business.lat == -34.5956
     assert business.lng == -58.3942
+
+
+def test_legacy_and_worker_normalization_match_for_valid_payload():
+    geocoding_result = load_fixture("google_geocoding_result.json")
+    legacy = normalize_legacy_google_place(place_at(0), geocoding_result)
+    worker = normalize_google_place(place_at(0), geocoding_result)
+
+    assert asdict(legacy) == asdict(worker)
 
 
 @pytest.mark.parametrize(

@@ -10,6 +10,7 @@ import type {
 import type { OperationContext } from "@/lib/api/http";
 
 import { query } from "./pool";
+import { toIsoString, whereSql } from "./shared-query";
 
 interface SearchRunRow {
   id: string;
@@ -24,10 +25,6 @@ interface SearchRunRow {
 export interface SqlQuery {
   text: string;
   values: unknown[];
-}
-
-function toIsoString(value: Date | string): string {
-  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
 export function mapSearchRun(row: SearchRunRow): SearchRead {
@@ -72,7 +69,7 @@ export function buildSearchListQuery(filters: SearchFilters): SqlQuery {
     text: `
       select id, query, location, source, status, total_found, created_at
       from search_runs
-      where ${clauses.join(" and ")}
+      ${whereSql(clauses)}
       order by created_at desc
       limit $${limitPosition} offset $${offsetPosition}
     `,
@@ -87,7 +84,7 @@ export function buildSearchCountQuery(filters: SearchFilters): SqlQuery {
     text: `
       select count(*)::int as total
       from search_runs
-      where ${clauses.join(" and ")}
+      ${whereSql(clauses)}
     `,
     values
   };

@@ -14,9 +14,7 @@ def canonicalize_dedup_text(value: str | None) -> str:
         if not unicodedata.combining(character)
     )
     lowercased = without_accents.lower().strip()
-    without_punctuation = re.sub(r"[^\w\s]", " ", lowercased, flags=re.UNICODE)
-    collapsed = re.sub(r"\s+", " ", without_punctuation)
-    return collapsed.strip()
+    return re.sub(r"[^a-z0-9]+", "", lowercased)
 
 
 def fallback_dedup_key(business: NormalizedBusiness) -> tuple[str, str] | None:

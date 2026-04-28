@@ -1,33 +1,22 @@
 from collections.abc import Callable
 import logging
-import re
-import unicodedata
 from typing import Any
 
 import psycopg
 from psycopg.rows import dict_row
 
 from contracts import NormalizedBusiness
+from persistence.dedup import canonicalize_dedup_text
 
 from .models import SearchRun, UpsertResult
 from .observability import log_event
 
 
-_NON_ALNUM_PATTERN = re.compile(r"[^a-z0-9]+")
 logger = logging.getLogger(__name__)
 
 
 def normalize_dedupe_text(value: str | None) -> str:
-    if value is None:
-        return ""
-
-    without_diacritics = "".join(
-        char
-        for char in unicodedata.normalize("NFKD", value.strip().lower())
-        if not unicodedata.combining(char)
-    )
-    normalized = _NON_ALNUM_PATTERN.sub("", without_diacritics)
-    return normalized
+    return canonicalize_dedup_text(value)
 
 
 class WorkerRepository:
