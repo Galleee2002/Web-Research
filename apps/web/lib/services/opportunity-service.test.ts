@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getOpportunityById,
   listOpportunities,
+  listOpportunityCategories,
   setOpportunity,
   setOpportunityRating,
   setOpportunitySelectionByBusinessId,
@@ -32,6 +33,7 @@ describe("opportunity service", () => {
       context,
       {
         findOpportunities,
+        findOpportunityCategoryValues: vi.fn(),
         findOpportunityById: vi.fn(),
         updateOpportunityRating: vi.fn(),
         updateOpportunity: vi.fn(),
@@ -55,6 +57,24 @@ describe("opportunity service", () => {
     });
   });
 
+  it("delegates listOpportunityCategories to the repository", async () => {
+    const findOpportunityCategoryValues = vi
+      .fn()
+      .mockResolvedValue(["Cafe", "Real estate agency"]);
+
+    const result = await listOpportunityCategories(context, {
+      findOpportunities: vi.fn(),
+      findOpportunityCategoryValues,
+      findOpportunityById: vi.fn(),
+      updateOpportunityRating: vi.fn(),
+      updateOpportunity: vi.fn(),
+      setOpportunitySelectionByBusinessId: vi.fn(),
+    });
+
+    expect(findOpportunityCategoryValues).toHaveBeenCalledWith(context);
+    expect(result).toEqual({ categories: ["Cafe", "Real estate agency"] });
+  });
+
   it("delegates getOpportunityById to the repository", async () => {
     const findOpportunityById = vi.fn().mockResolvedValue(null);
 
@@ -63,6 +83,7 @@ describe("opportunity service", () => {
       context,
       {
         findOpportunities: vi.fn(),
+        findOpportunityCategoryValues: vi.fn(),
         findOpportunityById,
         updateOpportunityRating: vi.fn(),
         updateOpportunity: vi.fn(),
@@ -86,6 +107,7 @@ describe("opportunity service", () => {
       context,
       {
         findOpportunities: vi.fn(),
+        findOpportunityCategoryValues: vi.fn(),
         findOpportunityById: vi.fn(),
         updateOpportunityRating,
         updateOpportunity: vi.fn(),
@@ -117,6 +139,7 @@ describe("opportunity service", () => {
       context,
       {
         findOpportunities: vi.fn(),
+        findOpportunityCategoryValues: vi.fn(),
         findOpportunityById: vi.fn(),
         updateOpportunityRating: vi.fn(),
         updateOpportunity,
@@ -150,6 +173,7 @@ describe("opportunity service", () => {
       context,
       {
         findOpportunities: vi.fn(),
+        findOpportunityCategoryValues: vi.fn(),
         findOpportunityById: vi.fn(),
         updateOpportunityRating: vi.fn(),
         updateOpportunity: vi.fn(),

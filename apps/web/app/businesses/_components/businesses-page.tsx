@@ -116,6 +116,10 @@ const ADD_NEW_LOCATION_VALUE = "__add_new_location__";
 const DEFAULT_LOCATION = "Buenos Aires, Argentina";
 const FETCH_LOCATIONS_STORAGE_KEY = "businesses.fetch.locations";
 
+/** While pending/processing search runs exist; idle uses a long backoff to avoid spamming `/api/searches`. */
+const IN_FLIGHT_SEARCH_POLL_ACTIVE_MS = 5000;
+const IN_FLIGHT_SEARCH_POLL_IDLE_MS = 60000;
+
 export function BusinessesPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -167,6 +171,25 @@ export function BusinessesPage() {
     currentPage,
     pageSize
   ] as const;
+
+  const reloadInFlightSearchRuns = useCallback(async (): Promise<number> => {
+    try {
+      const [pendingRuns, processingRuns] = await Promise.all([
+        fetchSearchRunsByStatus("pending", { cache: "no-store" }),
+        fetchSearchRunsByStatus("processing", { cache: "no-store" })
+      ]);
+      const combined = [...processingRuns, ...pendingRuns].sort((a, b) =>
+        b.created_at.localeCompare(a.created_at)
+      );
+      setInFlightSearchRuns(combined.length);
+      setInFlightSearchDetails(combined);
+      return combined.length;
+    } catch {
+      setInFlightSearchRuns(0);
+      setInFlightSearchDetails([]);
+      return 0;
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -256,38 +279,61 @@ export function BusinessesPage() {
 
   useEffect(() => {
     let cancelled = false;
+    /** DOM timers are numeric handles; avoids NodeJS.Timeout vs number under `@types/node`. */
+    let timeoutId: number | undefined;
 
-    const loadInFlightRuns = async () => {
-      try {
-        const [pendingRuns, processingRuns] = await Promise.all([
-          fetchSearchRunsByStatus("pending", { cache: "no-store" }),
-          fetchSearchRunsByStatus("processing", { cache: "no-store" })
-        ]);
-        if (!cancelled) {
-          const combined = [...processingRuns, ...pendingRuns].sort((a, b) =>
-            b.created_at.localeCompare(a.created_at)
-          );
-          setInFlightSearchRuns(combined.length);
-          setInFlightSearchDetails(combined);
+    const scheduleAfterCount = (activeCount: number) => {
+      if (cancelled) return;
+      if (document.visibilityState === "hidden") {
+        return;
+      }
+      const delay =
+        activeCount > 0 ? IN_FLIGHT_SEARCH_POLL_ACTIVE_MS : IN_FLIGHT_SEARCH_POLL_IDLE_MS;
+      timeoutId = window.setTimeout(() => {
+        void (async () => {
+          const next = await reloadInFlightSearchRuns();
+          if (!cancelled) {
+            scheduleAfterCount(next);
+          }
+        })();
+      }, delay);
+    };
+
+    void (async () => {
+      const initial = await reloadInFlightSearchRuns();
+      if (!cancelled) {
+        scheduleAfterCount(initial);
+      }
+    })();
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        if (timeoutId !== undefined) {
+          window.clearTimeout(timeoutId);
+          timeoutId = undefined;
         }
-      } catch {
-        if (!cancelled) {
-          setInFlightSearchRuns(0);
-          setInFlightSearchDetails([]);
-        }
+        void (async () => {
+          const count = await reloadInFlightSearchRuns();
+          if (!cancelled) {
+            scheduleAfterCount(count);
+          }
+        })();
+      } else if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+        timeoutId = undefined;
       }
     };
 
-    void loadInFlightRuns();
-    const interval = window.setInterval(() => {
-      void loadInFlightRuns();
-    }, 5000);
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       cancelled = true;
-      window.clearInterval(interval);
+      if (timeoutId !== undefined) {
+        window.clearTimeout(timeoutId);
+      }
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, []);
+  }, [reloadInFlightSearchRuns]);
 
   const onSort = useCallback((key: SortKey) => {
     setSort((prev) =>
@@ -418,6 +464,8 @@ export function BusinessesPage() {
         location: pendingFetchRequest.location
       });
 
+      await reloadInFlightSearchRuns();
+
       const refreshed = await fetchBusinessesPage(
         {
           page: 1,
@@ -460,6 +508,7 @@ export function BusinessesPage() {
     normalizedQuery,
     pendingFetchRequest,
     pageSize,
+    reloadInFlightSearchRuns,
     statusFilter,
     websiteFilter
   ]);

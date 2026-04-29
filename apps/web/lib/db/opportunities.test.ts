@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { buildOpportunityListQuery } from "./opportunities";
+import {
+  buildOpportunityDistinctCategoriesQuery,
+  buildOpportunityListQuery,
+} from "./opportunities";
 
 describe("opportunity query builder", () => {
   it("builds a parameterized filtered opportunity list query", () => {
@@ -51,5 +54,17 @@ describe("opportunity query builder", () => {
     );
     expect(query.text).toContain("limit $1 offset $2");
   });
-}
-);
+
+  it("builds distinct category query with the same visibility clauses as the list", () => {
+    const query = buildOpportunityDistinctCategoriesQuery();
+
+    expect(query.values).toEqual([]);
+    expect(query.text).toContain("select distinct businesses.category as category");
+    expect(query.text).toContain("inner join businesses on businesses.id = opportunities.business_id");
+    expect(query.text).toContain("opportunities.is_selected = true");
+    expect(query.text).toContain("businesses.has_website = false");
+    expect(query.text).toContain("businesses.status <> 'discarded'");
+    expect(query.text).toContain("businesses.category is not null");
+    expect(query.text).toContain("order by businesses.category asc");
+  });
+});

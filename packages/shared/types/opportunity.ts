@@ -51,3 +51,8 @@ export interface OpportunityFilters {
   query?: string;
   order_by?: "rating" | "created_at" | "name" | "city";
 }
+
+/** Response for GET /api/opportunities/categories */
+export interface OpportunityCategoriesResponse {
+  categories: string[];
+}

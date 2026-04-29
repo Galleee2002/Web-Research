@@ -1,4 +1,5 @@
 import type {
+  OpportunityCategoriesResponse,
   OpportunityRead,
   OpportunityUpdate,
   PaginatedResponse,
@@ -13,11 +14,45 @@ import {
 
 export { ApiClientError as OpportunitiesApiError };
 
-export async function fetchOpportunities(init?: RequestInit): Promise<
-  PaginatedResponse<OpportunityRead>
-> {
+export type OpportunitiesListQuery = {
+  page?: number;
+  page_size?: number;
+  category?: string;
+};
+
+export async function fetchOpportunityCategories(
+  init?: RequestInit
+): Promise<OpportunityCategoriesResponse> {
+  const response = await fetch("/api/opportunities/categories", {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    ...init,
+  });
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    throw toApiClientError(
+      response,
+      body,
+      `Request failed with status ${response.status}`
+    );
+  }
+  return body as OpportunityCategoriesResponse;
+}
+
+export async function fetchOpportunities(
+  query?: OpportunitiesListQuery,
+  init?: RequestInit
+): Promise<PaginatedResponse<OpportunityRead>> {
+  const page = query?.page ?? 1;
+  const page_size = query?.page_size ?? 200;
   const response = await fetch(
-    `/api/opportunities${buildQueryString({ page: 1, page_size: 200 })}`,
+    `/api/opportunities${buildQueryString({
+      page,
+      page_size,
+      ...(query?.category !== undefined && query.category !== ""
+        ? { category: query.category }
+        : {}),
+    })}`,
     {
       method: "GET",
       headers: { Accept: "application/json" },

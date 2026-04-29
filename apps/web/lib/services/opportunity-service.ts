@@ -1,4 +1,5 @@
 import type {
+  OpportunityCategoriesResponse,
   OpportunityDetailRead,
   OpportunityFilters,
   OpportunityRatingUpdate,
@@ -13,6 +14,7 @@ import type { OperationContext } from "@/lib/api/http";
 
 import {
   findOpportunityById as defaultFindOpportunityById,
+  findOpportunityCategoryValues as defaultFindOpportunityCategoryValues,
   findOpportunities as defaultFindOpportunities,
   setOpportunitySelectionByBusinessId as defaultSetOpportunitySelectionByBusinessId,
   updateOpportunity as defaultUpdateOpportunity,
@@ -21,6 +23,7 @@ import {
 
 interface OpportunityServiceDependencies {
   findOpportunities: typeof defaultFindOpportunities;
+  findOpportunityCategoryValues: typeof defaultFindOpportunityCategoryValues;
   findOpportunityById: typeof defaultFindOpportunityById;
   updateOpportunityRating: typeof defaultUpdateOpportunityRating;
   updateOpportunity: typeof defaultUpdateOpportunity;
@@ -29,6 +32,7 @@ interface OpportunityServiceDependencies {
 
 const defaultOpportunityServiceDependencies = {
   findOpportunities: defaultFindOpportunities,
+  findOpportunityCategoryValues: defaultFindOpportunityCategoryValues,
   findOpportunityById: defaultFindOpportunityById,
   updateOpportunityRating: defaultUpdateOpportunityRating,
   updateOpportunity: defaultUpdateOpportunity,
@@ -41,6 +45,14 @@ export async function listOpportunities(
   deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
 ): Promise<PaginatedResponse<OpportunityRead>> {
   return deps.findOpportunities(filters, context);
+}
+
+export async function listOpportunityCategories(
+  context: OperationContext,
+  deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
+): Promise<OpportunityCategoriesResponse> {
+  const categories = await deps.findOpportunityCategoryValues(context);
+  return { categories };
 }
 
 export async function getOpportunityById(

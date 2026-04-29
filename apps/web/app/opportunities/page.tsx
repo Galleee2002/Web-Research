@@ -7,15 +7,24 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import type { OpportunityRead } from "@shared/index";
 import {
   fetchOpportunities,
+  fetchOpportunityCategories,
   patchOpportunity,
   patchOpportunityStatus,
 } from "@/lib/api/opportunities-client";
+import { SelectMenu } from "@/app/shared/ui/select-menu";
 
 type LoadState = "idle" | "loading" | "ready" | "error";
+
+const CATEGORY_FILTER_ALL = "all" as const;
+type CategoryFilterValue = typeof CATEGORY_FILTER_ALL | string;
 
 export default function OpportunitiesPage() {
   const [items, setItems] = useState<OpportunityRead[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("idle");
+  const [categoryFilter, setCategoryFilter] =
+    useState<CategoryFilterValue>(CATEGORY_FILTER_ALL);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [statusDraftById, setStatusDraftById] = useState<
@@ -31,7 +40,16 @@ export default function OpportunitiesPage() {
     setErrorMessage(null);
 
     try {
-      const body = await fetchOpportunities({ cache: "no-store" });
+      const body = await fetchOpportunities(
+        {
+          page: 1,
+          page_size: 200,
+          ...(categoryFilter !== CATEGORY_FILTER_ALL
+            ? { category: categoryFilter }
+            : {}),
+        },
+        { cache: "no-store" }
+      );
       setItems(body.items);
       setLoadState("ready");
     } catch (error) {
@@ -40,7 +58,24 @@ export default function OpportunitiesPage() {
       );
       setLoadState("error");
     }
+  }, [categoryFilter]);
+
+  const loadCategories = useCallback(async () => {
+    setCategoriesError(null);
+    try {
+      const body = await fetchOpportunityCategories({ cache: "no-store" });
+      setCategories(body.categories);
+    } catch (error) {
+      setCategories([]);
+      setCategoriesError(
+        error instanceof Error ? error.message : "Could not load categories"
+      );
+    }
   }, []);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
 
   useEffect(() => {
     void loadOpportunities();
@@ -145,6 +180,35 @@ export default function OpportunitiesPage() {
       </header>
 
       <div className="opportunity-board__body">
+        <div className="opportunity-board__toolbar">
+          <SelectMenu<string>
+            ariaLabel="Filter opportunities by business category"
+            value={categoryFilter}
+            onChange={(next) => {
+              setCategoryFilter(next);
+            }}
+            rootClassName="opportunity-board__category-select"
+            triggerClassName="businesses-select__trigger opportunity-board__category-trigger"
+            options={[
+              { value: CATEGORY_FILTER_ALL, label: "All categories" },
+              ...categories.map((c) => ({ value: c, label: c })),
+            ]}
+            triggerContent={
+              <span className="businesses-select__trigger-label">
+                Category:{" "}
+                {categoryFilter === CATEGORY_FILTER_ALL
+                  ? "All"
+                  : categoryFilter}
+              </span>
+            }
+          />
+          {categoriesError ? (
+            <p className="opportunity-board__toolbar-hint" role="status">
+              {categoriesError}
+            </p>
+          ) : null}
+        </div>
+
         {errorMessage ? (
           <p className="opportunity-board__feedback" role="alert">
             {errorMessage}

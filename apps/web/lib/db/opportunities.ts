@@ -88,15 +88,20 @@ function mapOpportunityDetail(row: OpportunityRow): OpportunityDetailRead {
   };
 }
 
-function buildOpportunityWhere(filters: OpportunityFilters): {
-  clauses: string[];
-  values: unknown[];
-} {
-  const clauses = [
+/** Shared visibility rules for rows returned by GET /api/opportunities. */
+export function opportunityListBaseClauses(): string[] {
+  return [
     "opportunities.is_selected = true",
     "businesses.has_website = false",
     "businesses.status <> 'discarded'",
   ];
+}
+
+function buildOpportunityWhere(filters: OpportunityFilters): {
+  clauses: string[];
+  values: unknown[];
+} {
+  const clauses = [...opportunityListBaseClauses()];
   const values: unknown[] = [];
 
   if (filters.status !== undefined) {
@@ -120,6 +125,21 @@ function buildOpportunityWhere(filters: OpportunityFilters): {
   }
 
   return { clauses, values };
+}
+
+export function buildOpportunityDistinctCategoriesQuery(): SqlQuery {
+  const clauses = [...opportunityListBaseClauses(), "businesses.category is not null"];
+
+  return {
+    text: `
+      select distinct businesses.category as category
+      from opportunities
+      inner join businesses on businesses.id = opportunities.business_id
+      ${whereSql(clauses)}
+      order by businesses.category asc
+    `,
+    values: [],
+  };
 }
 
 export function buildOpportunityListQuery(filters: OpportunityFilters): SqlQuery {
@@ -155,6 +175,17 @@ export function buildOpportunityCountQuery(filters: OpportunityFilters): SqlQuer
     `,
     values,
   };
+}
+
+export async function findOpportunityCategoryValues(
+  context: OperationContext,
+): Promise<string[]> {
+  const sql = buildOpportunityDistinctCategoriesQuery();
+  const result = await query<{ category: string }>(sql.text, sql.values, {
+    operationName: "find_opportunity_category_values",
+    context,
+  });
+  return result.rows.map((row) => row.category);
 }
 
 export async function findOpportunities(
