@@ -507,10 +507,84 @@
   margin-top: 0.4rem;
 }
 
-.opportunity-table__notes-actions {
+.opportunity-table__notes-view-button {
+  min-height: 34px;
+  padding: 0.35rem 0.8rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.6rem;
+  background: var(--surface-01);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: -0.08px;
+  cursor: pointer;
+  transition:
+    border-color 150ms ease,
+    background-color 150ms ease;
+}
+
+.opportunity-table__notes-view-button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--accent) 26%, var(--border-soft));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-01));
+}
+
+.opportunity-table__notes-view-button:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+.opportunity-table__notes-view-button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.opportunity-table__notes-edit--mobile,
+.opportunity-table__notes-view-button--mobile {
+  display: none;
+}
+
+.opportunity-notes-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
   display: flex;
-  justify-content: flex-end;
-  margin-top: 0.45rem;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: color-mix(in srgb, var(--app-bg) 35%, rgba(0, 0, 0, 0.5));
+  -webkit-backdrop-filter: blur(10px) saturate(150%);
+  backdrop-filter: blur(10px) saturate(150%);
+}
+
+.opportunity-notes-modal {
+  width: min(24rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--surface-01) 92%, transparent);
+  box-shadow: var(--card-shadow);
+  text-align: center;
+}
+
+.opportunity-notes-modal__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-align: left;
+}
+
+.opportunity-notes-modal__note {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  word-break: break-word;
+  text-align: left;
 }
 
 .opportunity-status-select {
@@ -534,6 +608,16 @@
 
 .opportunity-table__field-label--status {
   display: none;
+}
+
+.opportunity-table__field-label--location {
+  display: none;
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
 }
 
 .opportunity-table__discard-sheet-label {
@@ -1152,41 +1236,72 @@
     display: none;
   }
 
+  .opportunity-table__row {
+    padding-bottom: 16px;
+  }
+
   .opportunity-table__row:has(.opportunity-table__discard-sheet-clip) {
-    padding-bottom: 2.75rem;
+    padding-bottom: 16px;
   }
 
   .opportunity-table__cell--status {
-    flex-direction: column;
-    align-items: stretch;
+    position: absolute;
+    top: 0.85rem;
+    right: 0.9rem;
+    display: inline-flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    z-index: 3;
     gap: 0.35rem;
   }
 
-  .opportunity-table__notes-actions {
-    justify-content: flex-start;
+  .opportunity-table__cell--business {
+    padding-right: 9.5rem;
+  }
+
+  .opportunity-table__field-label--location {
+    display: block;
+  }
+
+  .opportunity-notes-modal-backdrop {
+    align-items: flex-end;
+    padding: 0.55rem;
+  }
+
+  .opportunity-notes-modal {
+    width: 100%;
+    max-width: 21rem;
+    border-radius: 0.95rem 0.95rem 0.75rem 0.75rem;
   }
 
   .opportunity-table__field-label--status {
-    display: block;
-    margin: 0;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-tertiary);
+    display: none;
   }
 
   .opportunity-status-select .businesses-select__trigger {
-    min-height: 46px;
-    padding: 0.4rem 0.65rem 0.4rem 0;
+    min-height: 2rem;
+    padding: 0;
+    gap: 0;
     border-radius: 0.65rem;
     border: 1px solid transparent;
     border-color: transparent;
     background: transparent;
   }
 
+  .opportunity-status-select .businesses-select__chevron {
+    display: none;
+  }
+
   .opportunity-status-select .businesses-select__trigger[aria-expanded="true"] {
-    padding: 0.4rem 0.65rem;
+    gap: 0.35rem;
+    padding: 0.3rem 0 0.3rem 0.45rem;
+  }
+
+  .opportunity-status-select
+    .businesses-select__trigger[aria-expanded="true"]
+    .businesses-select__chevron {
+    display: block;
   }
 
   .opportunity-status-select
@@ -1196,8 +1311,21 @@
   }
 
   .opportunity-status-select .businesses-status-pill {
-    font-size: 0.88rem;
-    padding: 0.28rem 0.7rem;
+    font-size: 0.78rem;
+    padding: 0.2rem 0.55rem;
+  }
+
+  .opportunity-table__notes-view-button--desktop {
+    display: none;
+  }
+
+  .opportunity-table__notes-edit--mobile {
+    display: block;
+    margin-top: 0.5rem;
+  }
+
+  .opportunity-table__notes-view-button--mobile {
+    display: inline-flex;
   }
 
   .opportunity-table__discard-sheet-clip {

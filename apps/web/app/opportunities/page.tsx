@@ -30,7 +30,8 @@ export default function OpportunitiesPage() {
   const [statusDraftById, setStatusDraftById] = useState<
     Record<string, OpportunityRead["status"]>
   >({});
-  const [notesDraftById, setNotesDraftById] = useState<Record<string, string>>({});
+  const [openNotesOpportunity, setOpenNotesOpportunity] =
+    useState<OpportunityRead | null>(null);
   const [discardPanelOpportunityId, setDiscardPanelOpportunityId] = useState<
     string | null
   >(null);
@@ -102,6 +103,17 @@ export default function OpportunitiesPage() {
     };
   }, [discardPanelOpportunityId]);
 
+  useEffect(() => {
+    if (!openNotesOpportunity) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpenNotesOpportunity(null);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [openNotesOpportunity]);
+
   async function handleStatusChange(
     opportunityId: string,
     status: OpportunityRead["status"]
@@ -150,11 +162,6 @@ export default function OpportunitiesPage() {
       await loadOpportunities();
       setDiscardPanelOpportunityId(null);
       setStatusDraftById((current) => {
-        const next = { ...current };
-        delete next[opportunityId];
-        return next;
-      });
-      setNotesDraftById((current) => {
         const next = { ...current };
         delete next[opportunityId];
         return next;
@@ -338,11 +345,6 @@ export default function OpportunitiesPage() {
                 const hasUnsavedStatus =
                   draftStatus !== undefined &&
                   draftStatus !== opportunity.status;
-                const draftNotes = notesDraftById[opportunity.id];
-                const displayNotes = draftNotes ?? (opportunity.notes ?? "");
-                const hasUnsavedNotes =
-                  draftNotes !== undefined &&
-                  draftNotes !== (opportunity.notes ?? "");
                 const discardPanelOpen =
                   discardPanelOpportunityId === opportunity.id;
 
@@ -379,49 +381,37 @@ export default function OpportunitiesPage() {
                           ) : null}
                         </div>
                         <div className="opportunity-table__notes-edit">
-                          <textarea
-                            className="business-modal__notes-input"
-                            rows={4}
-                            placeholder="Add internal notes for this business…"
-                            value={displayNotes}
+                          <button
+                            type="button"
+                            className="opportunity-table__notes-view-button opportunity-table__notes-view-button--desktop"
+                            onClick={() => setOpenNotesOpportunity(opportunity)}
                             disabled={isPending}
-                            onChange={(event) => {
-                              const nextValue = event.target.value;
-                              setNotesDraftById((current) => ({
-                                ...current,
-                                [opportunity.id]: nextValue,
-                              }));
-                            }}
-                          />
-                          {hasUnsavedNotes ? (
-                            <div className="opportunity-table__notes-actions">
-                              <button
-                                type="button"
-                                className="business-modal__save-notes"
-                                onClick={() => {
-                                  void handleOpportunitySave(
-                                    opportunity.id,
-                                    displayStatus,
-                                    displayNotes
-                                  );
-                                }}
-                                disabled={isPending}
-                                aria-label={`Save notes for ${opportunity.name}`}
-                                title={`Save notes for ${opportunity.name}`}
-                              >
-                                <Save
-                                  className="business-modal__save-notes-icon"
-                                  aria-hidden
-                                />
-                              </button>
-                            </div>
-                          ) : null}
+                            aria-label={`View notes for ${opportunity.name}`}
+                          >
+                            View Notes
+                          </button>
                         </div>
                       </div>
 
                       <div className="opportunity-table__cell" role="cell">
-                        <p>{opportunity.city ?? "Unknown city"}</p>
+                        <span
+                          className="opportunity-table__field-label opportunity-table__field-label--location"
+                          aria-hidden
+                        >
+                          Location
+                        </span>
                         <span>{opportunity.address ?? "No address"}</span>
+                        <div className="opportunity-table__notes-edit opportunity-table__notes-edit--mobile">
+                          <button
+                            type="button"
+                            className="opportunity-table__notes-view-button opportunity-table__notes-view-button--mobile"
+                            onClick={() => setOpenNotesOpportunity(opportunity)}
+                            disabled={isPending}
+                            aria-label={`View notes for ${opportunity.name}`}
+                          >
+                            View Notes
+                          </button>
+                        </div>
                       </div>
 
                       <div
@@ -454,7 +444,7 @@ export default function OpportunitiesPage() {
                                 void handleOpportunitySave(
                                   opportunity.id,
                                   displayStatus,
-                                  displayNotes
+                                  opportunity.notes ?? ""
                                 );
                               }}
                               disabled={isPending}
@@ -548,6 +538,34 @@ export default function OpportunitiesPage() {
             </div>
           </div>
         ) : null}
+        {typeof document !== "undefined" && openNotesOpportunity
+          ? createPortal(
+              <div
+                className="opportunity-notes-modal-backdrop"
+                role="presentation"
+                onClick={() => setOpenNotesOpportunity(null)}
+              >
+                <div
+                  className="opportunity-notes-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={`Notes for ${openNotesOpportunity.name}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                  }}
+                >
+                  <h3 className="opportunity-notes-modal__title">
+                    {openNotesOpportunity.name}
+                  </h3>
+                  <p className="opportunity-notes-modal__note">
+                    {openNotesOpportunity.notes?.trim() ||
+                      "No notes available for this business."}
+                  </p>
+                </div>
+              </div>,
+              document.body
+            )
+          : null}
       </div>
     </section>
   );
