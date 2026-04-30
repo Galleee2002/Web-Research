@@ -16,12 +16,18 @@ import {
   ChartColumn,
   FolderOpen,
   LayoutDashboard,
+  LogOut,
   MoreHorizontal,
   Moon,
   ScanSearch,
+  Shield,
   Settings,
-  Sun
+  Sun,
+  User
 } from "lucide-react";
+import type { AuthUser } from "@shared/index";
+
+import { getCurrentUser, logout } from "@/lib/api/auth-client";
 
 type NavItem = {
   label: string;
@@ -37,6 +43,9 @@ const navItems: NavItem[] = [
   { label: "Analytics", href: "/analytics", icon: ChartColumn },
   { label: "Settings", href: "/settings", icon: Settings }
 ];
+
+const profileNavItem: NavItem = { label: "Profile", href: "/profile", icon: User };
+const adminNavItem: NavItem = { label: "Admin", href: "/admin/users", icon: Shield };
 
 const mobileBarItems: NavItem[] = [
   { label: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -63,6 +72,7 @@ const isRouteActive = (pathname: string, href: string): boolean => {
 export function SidebarNav() {
   const pathname = usePathname();
   const [theme, setTheme] = useState<"dark" | "light">("light");
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [moreMounted, setMoreMounted] = useState(false);
   const [moreEntered, setMoreEntered] = useState(false);
   const [dragY, setDragY] = useState(0);
@@ -77,6 +87,14 @@ export function SidebarNav() {
   }, []);
 
   const moreGroupActive = moreRoutePrefixes.some((href) => isRouteActive(pathname, href));
+  const visibleNavItems =
+    currentUser?.role === "admin"
+      ? [...navItems, profileNavItem, adminNavItem]
+      : [...navItems, profileNavItem];
+  const visibleMoreSheetItems =
+    currentUser?.role === "admin"
+      ? [...moreSheetItems, profileNavItem, adminNavItem]
+      : [...moreSheetItems, profileNavItem];
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("theme");
@@ -85,6 +103,28 @@ export function SidebarNav() {
 
     document.documentElement.setAttribute("data-theme", initialTheme);
     setTheme(initialTheme);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getCurrentUser()
+      .then((user) => {
+        if (!cancelled) {
+          setCurrentUser(user);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCurrentUser(null);
+          if (window.location.pathname !== "/login") {
+            window.location.assign("/login?reason=session_expired");
+          }
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -136,6 +176,11 @@ export function SidebarNav() {
     document.documentElement.setAttribute("data-theme", nextTheme);
     window.localStorage.setItem("theme", nextTheme);
     setTheme(nextTheme);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.assign("/login");
   };
 
   const closeMore = useCallback(() => {
@@ -351,7 +396,7 @@ export function SidebarNav() {
                 onPointerCancel={onHandlePointerCancel}
               />
               <ul className="mobile-nav-more__list">
-                {moreSheetItems.map((item) => {
+                {visibleMoreSheetItems.map((item) => {
                   const active = isRouteActive(pathname, item.href);
                   const Icon = item.icon;
                   return (
@@ -388,7 +433,7 @@ export function SidebarNav() {
 
         <nav className="dashboard-nav dashboard-nav--desktop" aria-label="Dashboard sections">
           <ul className="dashboard-nav__list">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const active = isRouteActive(pathname, item.href);
               const Icon = item.icon;
 
@@ -415,6 +460,14 @@ export function SidebarNav() {
             title={themeLabel}
           >
             <ThemeIcon className="dashboard-theme-toggle__icon" aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="dashboard-logout-button"
+            onClick={handleLogout}
+          >
+            <LogOut className="dashboard-nav__icon" aria-hidden />
+            <span>Logout</span>
           </button>
         </nav>
       </aside>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Manrope } from "next/font/google";
 
 import "../styles/globals.scss";
-import { SidebarNav } from "./_components/sidebar-nav";
+import { AppShell } from "./_components/app-shell";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -22,12 +22,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={manrope.className}>
-        <div className="dashboard-shell">
-          <SidebarNav />
-          <main id="main-content" className="dashboard-main">
-            {children}
-          </main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );

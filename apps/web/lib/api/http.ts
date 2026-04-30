@@ -9,11 +9,14 @@ import { logError, logInfo, type LogFields } from "./logger";
 export type ApiErrorCode =
   | "conflict_error"
   | "database_error"
+  | "forbidden"
   | "internal_error"
   | "invalid_json"
   | "not_found"
   | "provider_error"
   | "timeout_error"
+  | "too_many_requests"
+  | "unauthorized"
   | "validation_error";
 
 export interface ErrorBody {
@@ -41,6 +44,7 @@ export interface ApiRequestContext extends OperationContext {
 interface ApiRouteOptions {
   route: string;
 }
+const CSRF_EXEMPT_ROUTES = new Set(["/api/auth/login", "/api/auth/register"]);
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode;
@@ -134,11 +138,45 @@ export async function withApiRoute(
     if (requestValidationErrors.length > 0) {
       const response = validationError(context.correlationId, requestValidationErrors);
       applyCorsHeaders(response, request);
+      applySecurityHeaders(response);
+      return response;
+    }
+    const originErrorMessage = validateOrigin(request);
+    if (originErrorMessage) {
+      if (options.route.startsWith("/api/auth")) {
+        logApiEvent("auth_origin_rejected", context.operationContext, {
+          reason: originErrorMessage,
+          ip: getClientIp(request),
+        });
+      }
+      const response = errorResponse(
+        context.correlationId,
+        new ApiError("forbidden", originErrorMessage, 403),
+      );
+      applyCorsHeaders(response, request);
+      applySecurityHeaders(response);
+      return response;
+    }
+    const csrfErrorMessage = validateCsrf(request, options.route);
+    if (csrfErrorMessage) {
+      if (options.route.startsWith("/api/auth")) {
+        logApiEvent("auth_csrf_rejected", context.operationContext, {
+          reason: csrfErrorMessage,
+          ip: getClientIp(request),
+        });
+      }
+      const response = errorResponse(
+        context.correlationId,
+        new ApiError("forbidden", csrfErrorMessage, 403),
+      );
+      applyCorsHeaders(response, request);
+      applySecurityHeaders(response);
       return response;
     }
 
     const response = await handler(context);
     applyCorsHeaders(response, request);
+    applySecurityHeaders(response);
 
     logInfo("api_request_succeeded", {
       correlation_id: context.correlationId,
@@ -157,6 +195,7 @@ export async function withApiRoute(
   } catch (error) {
     const response = errorToResponse(context, error);
     applyCorsHeaders(response, request);
+    applySecurityHeaders(response);
 
     logError("api_request_failed", {
       correlation_id: context.correlationId,
@@ -262,13 +301,14 @@ function applyCorsHeaders(response: Response, request: Request): void {
   response.headers.set("Access-Control-Allow-Methods", "GET,POST,PATCH,OPTIONS");
   response.headers.set(
     "Access-Control-Allow-Headers",
-    "Content-Type,Accept,X-Correlation-Id"
+    "Content-Type,Accept,X-Correlation-Id,Authorization,X-CSRF-Token"
   );
 }
 
 export function corsPreflight(request: Request): Response {
   const response = new Response(null, { status: 204 });
   applyCorsHeaders(response, request);
+  applySecurityHeaders(response);
   return response;
 }
 
@@ -333,4 +373,77 @@ function getErrorMessage(error: unknown): string {
   }
 
   return "Unknown error";
+}
+
+function validateCsrf(request: Request, route: string): string | null {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
+    return null;
+  }
+  if (CSRF_EXEMPT_ROUTES.has(route)) {
+    return null;
+  }
+  const config = getRuntimeConfig();
+  const authCookieName = config.authCookieName || "blf_session";
+  const csrfCookieName = config.authCsrfCookieName || "blf_csrf";
+  const cookies = parseCookies(request.headers.get("cookie"));
+  const authCookie = cookies.get(authCookieName);
+  if (!authCookie) {
+    return null;
+  }
+  const csrfCookie = cookies.get(csrfCookieName);
+  const csrfHeader = request.headers.get("x-csrf-token")?.trim();
+  if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+    return "CSRF token is missing or invalid";
+  }
+  return null;
+}
+
+function validateOrigin(request: Request): string | null {
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(request.method)) {
+    return null;
+  }
+  const config = getRuntimeConfig();
+  if (config.appEnv !== "production") {
+    return null;
+  }
+  const cookies = parseCookies(request.headers.get("cookie"));
+  if (!cookies.get(config.authCookieName)) {
+    return null;
+  }
+  const origin = request.headers.get("origin");
+  if (!origin) {
+    return "Origin header is required";
+  }
+  return config.allowedOrigins.includes(origin) ? null : "Origin is not allowed";
+}
+
+function parseCookies(header: string | null): Map<string, string> {
+  const cookies = new Map<string, string>();
+  if (!header) {
+    return cookies;
+  }
+  for (const entry of header.split(";")) {
+    const [name, ...valueParts] = entry.trim().split("=");
+    if (name) {
+      cookies.set(name, decodeURIComponent(valueParts.join("=")));
+    }
+  }
+  return cookies;
+}
+
+function applySecurityHeaders(response: Response): void {
+  const { appEnv } = getRuntimeConfig();
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+  if (appEnv === "production") {
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
+  }
+}
+
+function getClientIp(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const realIp = request.headers.get("x-real-ip")?.trim();
+  return forwarded || realIp || "unknown";
 }

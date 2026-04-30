@@ -24,6 +24,10 @@ export const OPPORTUNITY_RATINGS = [1, 2, 3, 4, 5] as const;
 
 export type OpportunityRating = (typeof OPPORTUNITY_RATINGS)[number];
 
+export const USER_ROLES = ["admin", "user"] as const;
+
+export type UserRole = (typeof USER_ROLES)[number];
+
 export const DEFAULT_BUSINESS_SOURCE: BusinessSource = "google_places";
 
 export function isLeadStatus(value: unknown): value is LeadStatus {
@@ -50,4 +54,8 @@ export function isOpportunityRating(value: unknown): value is OpportunityRating 
     Number.isInteger(value) &&
     OPPORTUNITY_RATINGS.includes(value as OpportunityRating)
   );
+}
+
+export function isUserRole(value: unknown): value is UserRole {
+  return typeof value === "string" && USER_ROLES.includes(value as UserRole);
 }

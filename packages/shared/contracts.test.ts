@@ -11,8 +11,13 @@ import {
   parseOpportunitySelectionUpdate,
   parseOpportunityUpdate,
   parsePaginationParams,
+  parseAuthLogin,
+  parseAuthProfileUpdate,
+  parseAuthRegistration,
+  parseUserRoleUpdate,
   parseSearchCreate,
   parseSearchFilters,
+  USER_ROLES,
 } from "./index";
 
 describe("shared contracts", () => {
@@ -262,5 +267,92 @@ describe("shared contracts", () => {
       ok: false,
       errors: ["order_by must be rating, created_at, name, or city"],
     });
+  });
+
+  it("defines the supported auth roles", () => {
+    expect(USER_ROLES).toEqual(["admin", "user"]);
+  });
+
+  it("parses auth registration input with normalized identity fields", () => {
+    const result = parseAuthRegistration({
+      username: " DemoUser ",
+      firstName: " Gael ",
+      lastName: " Dev ",
+      phone: " +54 11 5555 1234 ",
+      email: " GAEL@example.COM ",
+      password: "super-secret-123",
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        username: "demouser",
+        firstName: "Gael",
+        lastName: "Dev",
+        phone: "+54 11 5555 1234",
+        email: "gael@example.com",
+        password: "super-secret-123",
+      },
+    });
+  });
+
+  it("rejects weak auth registration payloads", () => {
+    const result = parseAuthRegistration({
+      username: "a",
+      firstName: "",
+      lastName: "",
+      phone: "",
+      email: "not-email",
+      password: "short",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      errors: expect.arrayContaining([
+        "username must be between 3 and 32 characters",
+        "firstName is required",
+        "lastName is required",
+        "email must be a valid email address",
+        "password must be at least 12 characters",
+      ]),
+    });
+  });
+
+  it("parses login, profile update, and role update payloads", () => {
+    expect(
+      parseAuthLogin({
+        emailOrUsername: " Admin@Example.com ",
+        password: "super-secret-123",
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        emailOrUsername: "admin@example.com",
+        password: "super-secret-123",
+      },
+    });
+
+    expect(
+      parseAuthProfileUpdate({
+        firstName: " Ada ",
+        lastName: " Lovelace ",
+        phone: null,
+        email: " ADA@example.com ",
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        firstName: "Ada",
+        lastName: "Lovelace",
+        phone: null,
+        email: "ada@example.com",
+      },
+    });
+
+    expect(parseUserRoleUpdate({ role: "admin" })).toEqual({
+      ok: true,
+      value: { role: "admin" },
+    });
+    expect(parseUserRoleUpdate({ role: "owner" }).ok).toBe(false);
   });
 });

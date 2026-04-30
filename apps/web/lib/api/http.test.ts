@@ -2,10 +2,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { withApiRoute } from "./http";
 
+let mockAppEnv: "development" | "production" | "test" = "development";
+
 vi.mock("@/lib/config/runtime", () => ({
   getRuntimeConfig: () => ({
+    appEnv: mockAppEnv,
     allowedOrigins: ["https://app.example.com"],
-    apiJsonBodyLimitBytes: 16
+    apiJsonBodyLimitBytes: 16,
+    authCookieName: "blf_session",
+    authCsrfCookieName: "blf_csrf",
   })
 }));
 
@@ -71,5 +76,100 @@ describe("withApiRoute", () => {
       "https://app.example.com"
     );
     expect(denied.headers.get("Access-Control-Allow-Origin")).toBeNull();
+  });
+
+  it("rejects mutating authenticated requests without matching csrf header", async () => {
+    const response = await withApiRoute(
+      new Request("http://localhost/api/protected", {
+        method: "PATCH",
+        headers: {
+          Cookie: "blf_session=token; blf_csrf=csrf-value",
+        },
+      }),
+      { route: "/api/protected" },
+      async () => Response.json({ ok: true }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error.code).toBe("forbidden");
+    expect(body.error.message).toContain("CSRF");
+  });
+
+  it("rejects production mutating requests with auth cookie when origin is missing", async () => {
+    mockAppEnv = "production";
+    const response = await withApiRoute(
+      new Request("http://localhost/api/protected", {
+        method: "POST",
+        headers: {
+          Cookie: "blf_session=token; blf_csrf=csrf-value",
+          "X-CSRF-Token": "csrf-value",
+        },
+      }),
+      { route: "/api/protected" },
+      async () => Response.json({ ok: true }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error.message).toContain("Origin");
+    mockAppEnv = "development";
+  });
+
+  it("rejects production mutating requests with disallowed origin", async () => {
+    mockAppEnv = "production";
+    const response = await withApiRoute(
+      new Request("http://localhost/api/protected", {
+        method: "PATCH",
+        headers: {
+          Origin: "https://evil.example.com",
+          Cookie: "blf_session=token; blf_csrf=csrf-value",
+          "X-CSRF-Token": "csrf-value",
+        },
+      }),
+      { route: "/api/protected" },
+      async () => Response.json({ ok: true }),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body.error.message).toContain("not allowed");
+    mockAppEnv = "development";
+  });
+
+  it("accepts production mutating requests with allowed origin", async () => {
+    mockAppEnv = "production";
+    const response = await withApiRoute(
+      new Request("http://localhost/api/protected", {
+        method: "PATCH",
+        headers: {
+          Origin: "https://app.example.com",
+          Cookie: "blf_session=token; blf_csrf=csrf-value",
+          "X-CSRF-Token": "csrf-value",
+        },
+      }),
+      { route: "/api/protected" },
+      async () => Response.json({ ok: true }),
+    );
+
+    expect(response.status).toBe(200);
+    mockAppEnv = "development";
+  });
+
+  it("allows missing origin in development", async () => {
+    mockAppEnv = "development";
+    const response = await withApiRoute(
+      new Request("http://localhost/api/protected", {
+        method: "PATCH",
+        headers: {
+          Cookie: "blf_session=token; blf_csrf=csrf-value",
+          "X-CSRF-Token": "csrf-value",
+        },
+      }),
+      { route: "/api/protected" },
+      async () => Response.json({ ok: true }),
+    );
+
+    expect(response.status).toBe(200);
   });
 });
