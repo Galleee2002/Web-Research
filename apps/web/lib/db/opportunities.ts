@@ -20,6 +20,7 @@ interface OpportunityRow {
   business_id: string;
   is_selected: boolean;
   rating: number | null;
+  total_count?: number;
   name: string;
   category: string | null;
   address: string | null;
@@ -92,7 +93,6 @@ function mapOpportunityDetail(row: OpportunityRow): OpportunityDetailRead {
 export function opportunityListBaseClauses(): string[] {
   return [
     "opportunities.is_selected = true",
-    "businesses.has_website = false",
     "businesses.status <> 'discarded'",
   ];
 }
@@ -152,7 +152,9 @@ export function buildOpportunityListQuery(filters: OpportunityFilters): SqlQuery
 
   return {
     text: `
-      select ${OPPORTUNITY_SELECT}
+      select
+        ${OPPORTUNITY_SELECT},
+        count(*) over()::int as total_count
       from opportunities
       inner join businesses on businesses.id = opportunities.business_id
       ${whereSql(clauses)}
@@ -193,21 +195,14 @@ export async function findOpportunities(
   context: OperationContext,
 ): Promise<PaginatedResponse<OpportunityRead>> {
   const listQuery = buildOpportunityListQuery(filters);
-  const countQuery = buildOpportunityCountQuery(filters);
-  const [itemsResult, countResult] = await Promise.all([
-    query<OpportunityRow>(listQuery.text, listQuery.values, {
-      operationName: "find_opportunities",
-      context,
-    }),
-    query<{ total: number }>(countQuery.text, countQuery.values, {
-      operationName: "count_opportunities",
-      context,
-    }),
-  ]);
+  const itemsResult = await query<OpportunityRow>(listQuery.text, listQuery.values, {
+    operationName: "find_opportunities",
+    context,
+  });
 
   return {
     items: itemsResult.rows.map(mapOpportunity),
-    total: countResult.rows[0]?.total ?? 0,
+    total: itemsResult.rows[0]?.total_count ?? 0,
     page: filters.page,
     page_size: filters.page_size,
   };
