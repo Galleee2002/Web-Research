@@ -466,6 +466,15 @@ export function SidebarNav() {
             <p className="dashboard-sidebar__eyebrow">Business Lead Finder</p>
             <h1 className="dashboard-sidebar__title">GRG Solutions</h1>
           </div>
+          <button
+            type="button"
+            className="dashboard-theme-toggle dashboard-theme-toggle--mobile-header"
+            onClick={handleThemeToggle}
+            aria-label={themeLabel}
+            title={themeLabel}
+          >
+            <ThemeIcon className="dashboard-theme-toggle__icon" aria-hidden />
+          </button>
         </div>
 
         <nav className="dashboard-nav dashboard-nav--desktop" aria-label="Dashboard sections">
