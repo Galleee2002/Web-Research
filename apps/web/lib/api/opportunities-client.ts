@@ -20,6 +20,32 @@ export type OpportunitiesListQuery = {
   category?: string;
 };
 
+function getCsrfHeader(method: RequestInit["method"]): Record<string, string> {
+  const normalizedMethod = (method ?? "GET").toUpperCase();
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(normalizedMethod)) {
+    return {};
+  }
+  if (typeof document === "undefined") {
+    return {};
+  }
+  const token = readCookie("blf_csrf");
+  return token ? { "X-CSRF-Token": token } : {};
+}
+
+function readCookie(name: string): string | null {
+  const cookieString = typeof document === "undefined" ? "" : document.cookie;
+  if (!cookieString) {
+    return null;
+  }
+  for (const entry of cookieString.split(";")) {
+    const [cookieName, ...valueParts] = entry.trim().split("=");
+    if (cookieName === name) {
+      return decodeURIComponent(valueParts.join("="));
+    }
+  }
+  return null;
+}
+
 export async function fetchOpportunityCategories(
   init?: RequestInit
 ): Promise<OpportunityCategoriesResponse> {
@@ -83,11 +109,13 @@ export async function patchOpportunity(
   payload: OpportunityUpdate,
   init?: RequestInit
 ): Promise<OpportunityRead> {
+  const csrfHeader = getCsrfHeader("PATCH");
   const response = await fetch(`/api/opportunities/${id}`, {
     method: "PATCH",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      ...csrfHeader,
     },
     body: JSON.stringify(payload),
     ...init,

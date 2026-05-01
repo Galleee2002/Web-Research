@@ -45,15 +45,43 @@ export class BusinessesApiError extends Error {
 export class OpportunitiesSelectionApiError extends ApiClientError {}
 export class SearchRunsApiError extends ApiClientError {}
 
+function getCsrfHeader(method: RequestInit["method"]): Record<string, string> {
+  const normalizedMethod = (method ?? "GET").toUpperCase();
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(normalizedMethod)) {
+    return {};
+  }
+  if (typeof document === "undefined") {
+    return {};
+  }
+  const token = readCookie("blf_csrf");
+  return token ? { "X-CSRF-Token": token } : {};
+}
+
+function readCookie(name: string): string | null {
+  const cookieString = typeof document === "undefined" ? "" : document.cookie;
+  if (!cookieString) {
+    return null;
+  }
+  for (const entry of cookieString.split(";")) {
+    const [cookieName, ...valueParts] = entry.trim().split("=");
+    if (cookieName === name) {
+      return decodeURIComponent(valueParts.join("="));
+    }
+  }
+  return null;
+}
+
 export async function createSearchRun(
   payload: SearchCreate,
   init?: RequestInit
 ): Promise<SearchRead> {
+  const csrfHeader = getCsrfHeader("POST");
   const response = await fetch("/api/search", {
     method: "POST",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...csrfHeader
     },
     body: JSON.stringify(payload),
     ...init
@@ -201,11 +229,13 @@ export async function patchBusinessById(
   payload: BusinessStatusUpdate,
   init?: RequestInit
 ): Promise<BusinessDetailRead> {
+  const csrfHeader = getCsrfHeader("PATCH");
   const res = await fetch(`/api/businesses/${id}`, {
     method: "PATCH",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...csrfHeader
     },
     body: JSON.stringify(payload),
     ...init
@@ -233,11 +263,13 @@ export async function patchBusinessOpportunitySelection(
   isSelected: boolean,
   init?: RequestInit
 ): Promise<{ is_selected: boolean }> {
+  const csrfHeader = getCsrfHeader("PATCH");
   const response = await fetch(`/api/opportunities/businesses/${id}`, {
     method: "PATCH",
     headers: {
       Accept: "application/json",
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...csrfHeader
     },
     body: JSON.stringify({ is_selected: isSelected }),
     ...init
@@ -329,9 +361,10 @@ export async function triggerNextSearchRunPage(
   parentSearchRunId: string,
   init?: RequestInit,
 ): Promise<{ searchRun: SearchRead; created: boolean }> {
+  const csrfHeader = getCsrfHeader("POST");
   const response = await fetch(`/api/search/${parentSearchRunId}/next`, {
     method: "POST",
-    headers: { Accept: "application/json" },
+    headers: { Accept: "application/json", ...csrfHeader },
     ...init
   });
 

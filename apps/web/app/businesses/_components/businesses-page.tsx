@@ -101,6 +101,59 @@ function toLabelValue(value: string | null): string {
   return value && value.trim().length > 0 ? value : "—";
 }
 
+/** Safe URL for opening in a new tab; adds https when the stored value has no scheme. */
+function normalizedWebsiteHref(raw: string | null): string | null {
+  const s = raw?.trim() ?? "";
+  if (s.length === 0) return null;
+  if (/^https?:\/\//i.test(s)) return s;
+  return `https://${s}`;
+}
+
+function BusinessesTableWebCell({
+  row,
+  onOpenWebsite,
+}: {
+  row: BusinessRead;
+  onOpenWebsite: (website: string | null) => void;
+}) {
+  const webHref = row.has_website ? normalizedWebsiteHref(row.website) : null;
+  const icon = (
+    <LaptopMinimalCheck
+      className={`businesses-web-icon${
+        row.has_website ? " businesses-web-icon--yes" : " businesses-web-icon--no"
+      }`}
+      aria-hidden
+    />
+  );
+
+  if (webHref) {
+    return (
+      <button
+        type="button"
+        className="businesses-web-icon-button"
+        aria-label={`Open website for ${row.name} in a new tab`}
+        title={row.website?.trim() ?? "Open website"}
+        onClick={() => {
+          onOpenWebsite(row.website);
+        }}
+      >
+        {icon}
+      </button>
+    );
+  }
+
+  return (
+    <span
+      className="businesses-web-icon-static"
+      aria-label={
+        row.has_website ? "Has website (URL not available)" : "No website"
+      }
+    >
+      {icon}
+    </span>
+  );
+}
+
 function buildMapEmbedUrl(detail: BusinessDetailRead): string | null {
   if (detail.lat !== null && detail.lng !== null) {
     return `https://www.google.com/maps?q=${detail.lat},${detail.lng}&output=embed`;
@@ -611,8 +664,17 @@ export function BusinessesPage() {
       return;
     }
     await copyIfPresent(website);
-    window.open(website, "_blank", "noopener,noreferrer");
+    const href = normalizedWebsiteHref(rawWebsite);
+    if (href) {
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
   }, [copyIfPresent]);
+
+  const openBusinessWebsite = useCallback((rawWebsite: string | null) => {
+    const href = normalizedWebsiteHref(rawWebsite);
+    if (!href) return;
+    window.open(href, "_blank", "noopener,noreferrer");
+  }, []);
 
   const openFetchSetupModal = useCallback(() => {
     setFetchError(null);
@@ -914,15 +976,9 @@ export function BusinessesPage() {
                       {row.category ?? "—"}
                     </td>
                     <td className="businesses-col-web">
-                      <LaptopMinimalCheck
-                        className={`businesses-web-icon${
-                          row.has_website
-                            ? " businesses-web-icon--yes"
-                            : " businesses-web-icon--no"
-                        }`}
-                        aria-label={
-                          row.has_website ? "Has website" : "No website"
-                        }
+                      <BusinessesTableWebCell
+                        row={row}
+                        onOpenWebsite={openBusinessWebsite}
                       />
                     </td>
                     <td className="businesses-col-status">
