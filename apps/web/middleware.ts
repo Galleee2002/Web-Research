@@ -5,7 +5,7 @@ const AUTH_TOKEN_VERSION = 1;
 const PUBLIC_ROUTES = new Set(["/login", "/register"]);
 const PUBLIC_API_PREFIXES = ["/api/auth", "/api/health"];
 const PROTECTED_PAGE_PREFIXES = [
-  "/",
+  "/dashboard",
   "/businesses",
   "/opportunities",
   "/scans",
@@ -31,9 +31,16 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const session = await getSession(request);
 
+  if (pathname === "/") {
+    if (session) {
+      return withSecurityHeaders(NextResponse.redirect(new URL("/dashboard", request.url)));
+    }
+    return withSecurityHeaders(NextResponse.redirect(new URL("/login", request.url)));
+  }
+
   if (PUBLIC_ROUTES.has(pathname)) {
     if (session) {
-      return withSecurityHeaders(NextResponse.redirect(new URL("/", request.url)));
+      return withSecurityHeaders(NextResponse.redirect(new URL("/dashboard", request.url)));
     }
     return withSecurityHeaders(NextResponse.next());
   }
@@ -58,7 +65,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (pathname.startsWith("/admin") && session?.role !== "admin") {
-    return withSecurityHeaders(NextResponse.redirect(new URL("/", request.url)));
+    return withSecurityHeaders(NextResponse.redirect(new URL("/dashboard", request.url)));
   }
 
   return withSecurityHeaders(NextResponse.next());
@@ -71,12 +78,9 @@ export const config = {
 };
 
 function isProtectedPage(pathname: string): boolean {
-  return PROTECTED_PAGE_PREFIXES.some((prefix) => {
-    if (prefix === "/") {
-      return pathname === "/";
-    }
-    return pathname === prefix || pathname.startsWith(`${prefix}/`);
-  });
+  return PROTECTED_PAGE_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 }
 
 function apiError(code: "forbidden" | "unauthorized", message: string, status: number) {

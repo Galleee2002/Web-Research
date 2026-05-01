@@ -1,6 +1,7 @@
 import { isUserRole, type UserRole } from "@shared/index";
 
 import { ApiError, type OperationContext } from "@/lib/api/http";
+import { SESSION_INVALIDATED_MESSAGE } from "@/lib/auth/auth-messages";
 import { getRuntimeConfig } from "@/lib/config/runtime";
 import { getUserSessionVersion as defaultGetUserSessionVersion } from "@/lib/db/users";
 
@@ -120,7 +121,7 @@ export async function requireAuth(
     };
   const currentSessionVersion = await resolvedDeps.getUserSessionVersion(session.sub, operationContext);
   if (currentSessionVersion === null || currentSessionVersion !== session.sessionVersion) {
-    throw new ApiError("unauthorized", "Session is no longer valid", 401);
+    throw new ApiError("unauthorized", SESSION_INVALIDATED_MESSAGE, 401);
   }
   return session;
 }

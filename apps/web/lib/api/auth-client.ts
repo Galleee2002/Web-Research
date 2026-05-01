@@ -29,7 +29,7 @@ async function requestJson<T>(
   const body = await readJsonBody(response);
   if (!response.ok) {
     if (shouldRedirectToLogin(path, response.status)) {
-      window.location.assign("/login?reason=session_expired");
+      window.location.replace("/login?reason=session_expired");
     }
     throw toApiClientError(response, body, fallbackMessage);
   }
