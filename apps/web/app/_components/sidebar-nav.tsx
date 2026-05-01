@@ -23,7 +23,6 @@ import {
   Shield,
   Settings,
   Sun,
-  User
 } from "lucide-react";
 import type { AuthUser } from "@shared/index";
 
@@ -36,7 +35,7 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Businesses", href: "/businesses", icon: BriefcaseBusiness },
   { label: "Opportunities", href: "/opportunities", icon: FolderOpen },
   { label: "Scans", href: "/scans", icon: ScanSearch },
@@ -44,11 +43,10 @@ const navItems: NavItem[] = [
   { label: "Settings", href: "/settings", icon: Settings }
 ];
 
-const profileNavItem: NavItem = { label: "Profile", href: "/profile", icon: User };
 const adminNavItem: NavItem = { label: "Admin", href: "/admin/users", icon: Shield };
 
 const mobileBarItems: NavItem[] = [
-  { label: "Dashboard", href: "/", icon: LayoutDashboard },
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "Businesses", href: "/businesses", icon: BriefcaseBusiness },
   { label: "Opportunities", href: "/opportunities", icon: FolderOpen },
   { label: "Settings", href: "/settings", icon: Settings }
@@ -62,8 +60,8 @@ const moreSheetItems: NavItem[] = [
 const moreRoutePrefixes = moreSheetItems.map((x) => x.href);
 
 const isRouteActive = (pathname: string, href: string): boolean => {
-  if (href === "/") {
-    return pathname === "/";
+  if (href === "/dashboard") {
+    return pathname === "/dashboard";
   }
 
   return pathname.startsWith(href);
@@ -81,6 +79,8 @@ export function SidebarNav() {
   const bottomNavTouchStartRef = useRef<{ x: number; y: number } | null>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const [navPortalNode, setNavPortalNode] = useState<HTMLElement | null>(null);
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [logoutSubmitting, setLogoutSubmitting] = useState(false);
 
   useLayoutEffect(() => {
     setNavPortalNode(document.body);
@@ -88,13 +88,9 @@ export function SidebarNav() {
 
   const moreGroupActive = moreRoutePrefixes.some((href) => isRouteActive(pathname, href));
   const visibleNavItems =
-    currentUser?.role === "admin"
-      ? [...navItems, profileNavItem, adminNavItem]
-      : [...navItems, profileNavItem];
+    currentUser?.role === "admin" ? [...navItems, adminNavItem] : [...navItems];
   const visibleMoreSheetItems =
-    currentUser?.role === "admin"
-      ? [...moreSheetItems, profileNavItem, adminNavItem]
-      : [...moreSheetItems, profileNavItem];
+    currentUser?.role === "admin" ? [...moreSheetItems, adminNavItem] : [...moreSheetItems];
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("theme");
@@ -171,6 +167,26 @@ export function SidebarNav() {
     return () => document.removeEventListener("keydown", onKey);
   }, [moreMounted, moreEntered]);
 
+  useEffect(() => {
+    if (!logoutModalOpen) {
+      return;
+    }
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setLogoutModalOpen(false);
+      }
+    };
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [logoutModalOpen]);
+
   const handleThemeToggle = () => {
     const nextTheme = theme === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", nextTheme);
@@ -178,9 +194,14 @@ export function SidebarNav() {
     setTheme(nextTheme);
   };
 
-  const handleLogout = async () => {
-    await logout();
-    window.location.assign("/login");
+  const handleConfirmLogout = async () => {
+    setLogoutSubmitting(true);
+    try {
+      await logout();
+      window.location.assign("/login");
+    } catch {
+      setLogoutSubmitting(false);
+    }
   };
 
   const closeMore = useCallback(() => {
@@ -309,6 +330,7 @@ export function SidebarNav() {
 
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const themeLabel = theme === "dark" ? "Switch to light mode" : "Switch to dark mode";
+  const themeToggleShortLabel = theme === "dark" ? "Light" : "Dark";
 
   const mobileChrome =
     navPortalNode &&
@@ -414,6 +436,21 @@ export function SidebarNav() {
                   );
                 })}
               </ul>
+              <div className="mobile-nav-more__footer">
+                <button
+                  type="button"
+                  className="mobile-nav-more__logout"
+                  onClick={() => {
+                    setMoreEntered(false);
+                    setLogoutSubmitting(false);
+                    setLogoutModalOpen(true);
+                  }}
+                  aria-haspopup="dialog"
+                >
+                  <LogOut className="mobile-nav-more__logout-icon" aria-hidden />
+                  <span>Logout</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -452,25 +489,77 @@ export function SidebarNav() {
               );
             })}
           </ul>
-          <button
-            type="button"
-            className="dashboard-theme-toggle dashboard-theme-toggle--nav-corner"
-            onClick={handleThemeToggle}
-            aria-label={themeLabel}
-            title={themeLabel}
-          >
-            <ThemeIcon className="dashboard-theme-toggle__icon" aria-hidden />
-          </button>
-          <button
-            type="button"
-            className="dashboard-logout-button"
-            onClick={handleLogout}
-          >
-            <LogOut className="dashboard-nav__icon" aria-hidden />
-            <span>Logout</span>
-          </button>
+          <div className="dashboard-nav__footer">
+            <button
+              type="button"
+              className="dashboard-theme-toggle dashboard-theme-toggle--nav-row"
+              onClick={handleThemeToggle}
+              aria-label={themeLabel}
+              title={themeLabel}
+            >
+              <span className="dashboard-theme-toggle__label">{themeToggleShortLabel}</span>
+              <ThemeIcon className="dashboard-theme-toggle__icon" aria-hidden />
+            </button>
+            <button
+              type="button"
+              className="dashboard-logout-button"
+              onClick={() => {
+                setLogoutSubmitting(false);
+                setLogoutModalOpen(true);
+              }}
+              aria-haspopup="dialog"
+              aria-expanded={logoutModalOpen ? "true" : "false"}
+            >
+              <LogOut className="dashboard-nav__icon" aria-hidden />
+              <span>Logout</span>
+            </button>
+          </div>
         </nav>
       </aside>
+      {logoutModalOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="logout-confirm-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-confirm-title"
+          >
+            <button
+              type="button"
+              className="logout-confirm-modal__backdrop"
+              aria-label="Close"
+              onClick={() => setLogoutModalOpen(false)}
+            />
+            <div className="logout-confirm-modal__panel">
+              <h2 id="logout-confirm-title" className="logout-confirm-modal__title">
+                Logout
+              </h2>
+              <p className="logout-confirm-modal__message">
+                Are you sure you want to sign out?
+              </p>
+              <div className="logout-confirm-modal__actions">
+                <button
+                  type="button"
+                  className="logout-confirm-modal__btn logout-confirm-modal__btn--secondary"
+                  onClick={() => setLogoutModalOpen(false)}
+                  disabled={logoutSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="logout-confirm-modal__btn logout-confirm-modal__btn--primary"
+                  onClick={handleConfirmLogout}
+                  disabled={logoutSubmitting}
+                >
+                  {logoutSubmitting ? "Signing out..." : "Confirm"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
       {mobileChrome}
     </>
   );

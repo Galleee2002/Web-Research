@@ -8,6 +8,8 @@ import {
   Settings
 } from "lucide-react";
 
+import { DashboardWelcomeBanner } from "./dashboard-welcome-banner";
+
 export type SectionKey =
   | "dashboard"
   | "businesses"
@@ -65,8 +67,15 @@ export function SectionPlaceholder({ section }: SectionPlaceholderProps) {
 
   return (
     <section className="dashboard-content" aria-labelledby="section-title">
-      <header className="dashboard-content__header">
+      <header
+        className={
+          section === "dashboard"
+            ? "dashboard-content__header dashboard-content__header--split"
+            : "dashboard-content__header"
+        }
+      >
         <h2 id="section-title">{content.title}</h2>
+        {section === "dashboard" ? <DashboardWelcomeBanner variant="inline" /> : null}
       </header>
       <div className="dashboard-empty-state" role="status" aria-live="polite">
         <div className="dashboard-empty-state__content">

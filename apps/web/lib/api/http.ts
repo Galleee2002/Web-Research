@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 
 import { NextResponse } from "next/server";
 
+import { appendClearAuthCookies } from "@/lib/auth/append-clear-auth-cookies";
+import { SESSION_INVALIDATED_MESSAGE } from "@/lib/auth/auth-messages";
 import { getRuntimeConfig } from "@/lib/config/runtime";
 
 import { logError, logInfo, type LogFields } from "./logger";
@@ -317,7 +319,11 @@ function errorToResponse(
   error: unknown
 ): NextResponse<ErrorBody> {
   if (error instanceof ApiError) {
-    return errorResponse(context.correlationId, error);
+    const response = errorResponse(context.correlationId, error);
+    if (error.code === "unauthorized" && error.message === SESSION_INVALIDATED_MESSAGE) {
+      appendClearAuthCookies(response);
+    }
+    return response;
   }
 
   if (error instanceof DatabaseOperationError) {

@@ -69,6 +69,21 @@
   cursor: not-allowed;
 }
 
+[data-theme="dark"] .businesses-load-cta {
+  background: var(--surface-02);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+[data-theme="dark"] .businesses-load-cta:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+[data-theme="dark"] .businesses-load-cta:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
 .businesses-fetch-idle {
   margin: 0 0 0.65rem;
   font-size: 0.8125rem;

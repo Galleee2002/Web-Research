@@ -1,5 +1,5 @@
-import { SectionPlaceholder } from "./_components/section-placeholder";
+import { redirect } from "next/navigation";
 
-export default function DashboardPage() {
-  return <SectionPlaceholder section="dashboard" />;
+export default function HomePage() {
+  redirect("/login");
 }
