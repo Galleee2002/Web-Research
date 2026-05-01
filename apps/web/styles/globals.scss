@@ -46,10 +46,6 @@
   min-width: 0;
 }
 
-.dashboard-theme-toggle--mobile-header {
-  display: none;
-}
-
 .dashboard-sidebar__eyebrow {
   margin: 0;
   color: var(--text-tertiary);
@@ -836,6 +832,10 @@
     border-color 180ms ease,
     color 180ms ease,
     transform 180ms ease;
+}
+
+.dashboard-theme-toggle.dashboard-theme-toggle--mobile-header {
+  display: none;
 }
 
 .opportunity-board__header {
@@ -1673,20 +1673,26 @@
 
   .dashboard-sidebar__header {
     flex-direction: row;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
     padding-top: 0.4rem;
     padding-right: 0.75rem;
   }
 
   .dashboard-sidebar__header-text {
     flex: 1;
+    min-width: 0;
     padding-top: 0;
   }
 
-  .dashboard-theme-toggle--mobile-header {
+  .dashboard-theme-toggle.dashboard-theme-toggle--mobile-header {
     display: inline-flex;
+    flex-shrink: 0;
+    margin-top: 0;
   }
 
   .dashboard-nav--desktop {

@@ -41,7 +41,7 @@ export function DashboardWelcomeBanner({ variant = "card" }: DashboardWelcomeBan
   return (
     <div className={rootClass} role="region" aria-label="Welcome back">
       <p className="dashboard-welcome-banner__text">
-        Welcome back, <span className="dashboard-welcome-banner__name">{firstName}</span>!
+        Welcome back, <span className="dashboard-welcome-banner__name">{firstName}.</span>
       </p>
     </div>
   );
