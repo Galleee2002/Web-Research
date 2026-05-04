@@ -5,12 +5,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { useAuthAppTransition } from "@/app/_components/auth-app-transition-context";
 import { login } from "@/lib/api/auth-client";
 
 /** Twelve bullets so the empty password field hints at length like masked input. */
 const PASSWORD_PLACEHOLDER = "\u2022".repeat(12);
 
 export default function LoginPage() {
+  const { beginEnteringProtectedApp } = useAuthAppTransition();
   const router = useRouter();
   const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -39,11 +41,11 @@ export default function LoginPage() {
     setError(null);
     try {
       await login({ emailOrUsername, password });
+      beginEnteringProtectedApp();
       router.replace("/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to log in");
-    } finally {
       setSubmitting(false);
     }
   };

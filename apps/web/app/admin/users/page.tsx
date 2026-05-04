@@ -5,6 +5,8 @@ import type { AuthUser, UserRole } from "@shared/index";
 
 import { listAdminUsers, updateAdminUserRole } from "@/lib/api/auth-client";
 
+import { AdminUserRoleSelect } from "./admin-user-role-select";
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AuthUser[]>([]);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -41,16 +43,7 @@ export default function AdminUsersPage() {
                 <p>{user.email}</p>
                 <p>@{user.username}</p>
               </div>
-              <label>
-                Role
-                <select
-                  value={user.role}
-                  onChange={(event) => changeRole(user.id, event.target.value as UserRole)}
-                >
-                  <option value="admin">Admin</option>
-                  <option value="user">User</option>
-                </select>
-              </label>
+              <AdminUserRoleSelect role={user.role} onRoleChange={(r) => changeRole(user.id, r)} />
             </article>
           ))}
           {users.length === 0 && !feedback && (
