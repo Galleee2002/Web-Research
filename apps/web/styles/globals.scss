@@ -1127,6 +1127,137 @@
   letter-spacing: -0.25px;
 }
 
+/*
+ * Analytics pie fills:
+ * - Web: theme-specific (matches businesses web icons).
+ * - Status: **same hex in light and dark** so slices don’t shift hue; reviewed/discarded
+ *   use saturated chart colors (pill text browns/yellows read poorly as large fills).
+ */
+.analytics-dashboard {
+  --analytics-web-yes-fill: #34c759;
+  --analytics-web-no-fill: #ff3b30;
+  --analytics-status-new-fill: var(--accent);
+  --analytics-status-reviewed-fill: #f59e0b;
+  --analytics-status-contacted-fill: #34c759;
+  --analytics-status-discarded-fill: #ff3b30;
+}
+
+[data-theme="dark"] .analytics-dashboard {
+  --analytics-web-yes-fill: #30d158;
+  --analytics-web-no-fill: #ff453a;
+  --analytics-status-new-fill: var(--accent);
+  --analytics-status-reviewed-fill: #f59e0b;
+  --analytics-status-contacted-fill: #34c759;
+  --analytics-status-discarded-fill: #ff3b30;
+}
+
+.analytics-dashboard__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 1.25rem 1.5rem 1.75rem;
+  flex: 1;
+}
+
+.analytics-dashboard__group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.analytics-dashboard__group-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.2px;
+  color: var(--text-primary);
+}
+
+.analytics-dashboard__group-meta {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: color-mix(in srgb, var(--text-primary) 72%, transparent);
+}
+
+.analytics-dashboard__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+@media (max-width: 900px) {
+  .analytics-dashboard__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.analytics-dashboard__chart-card {
+  border: 1px solid var(--border-soft);
+  border-radius: 0.85rem;
+  background: color-mix(in srgb, var(--surface-01) 90%, transparent);
+  padding: 1rem 1rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.analytics-dashboard__chart-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.98rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.analytics-dashboard__chart-empty {
+  margin: 0;
+  padding: 2rem 0.5rem;
+  text-align: center;
+  font-size: 0.95rem;
+  color: color-mix(in srgb, var(--text-primary) 68%, transparent);
+}
+
+.analytics-dashboard__chart-surface {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  min-height: 280px;
+  height: min(42vw, 340px);
+  max-height: 360px;
+  min-width: 0;
+}
+
+.analytics-dashboard__chart-surface-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 420px;
+  height: 100%;
+  min-height: 0;
+}
+
+.analytics-dashboard__chart-surface-inner .recharts-legend-wrapper {
+  width: 100% !important;
+  max-width: 100%;
+}
+
+.analytics-dashboard__chart-surface-inner .recharts-default-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem 0.75rem;
+}
+
+.analytics-dashboard__legend-label {
+  color: var(--text-primary);
+}
+
 .dashboard-theme-toggle {
   margin-top: auto;
   width: 48px;
@@ -1731,7 +1862,15 @@
 }
 
 .opportunity-status-select .businesses-status-pill--reviewed {
-  color: var(--text-secondary);
+  color: #b45309;
+  background: color-mix(in srgb, #f59e0b 18%, transparent);
+  border: 1px solid color-mix(in srgb, #f59e0b 28%, transparent);
+}
+
+[data-theme="dark"] .opportunity-status-select .businesses-status-pill--reviewed {
+  color: #fbbf24;
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  border-color: color-mix(in srgb, #fbbf24 22%, transparent);
 }
 
 .opportunity-status-select .businesses-status-pill--contacted {

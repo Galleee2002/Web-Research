@@ -1,5 +1,5 @@
-import { SectionPlaceholder } from "../_components/section-placeholder";
+import AnalyticsDynamic from "./analytics-dynamic";
 
 export default function AnalyticsPage() {
-  return <SectionPlaceholder section="analytics" />;
+  return <AnalyticsDynamic />;
 }
