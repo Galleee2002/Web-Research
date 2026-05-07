@@ -15,7 +15,6 @@ interface SearchRunRow {
 
 export async function getProviderCalls(
   filters: ScanFilters,
-  ownerUserId: string,
   context: OperationContext
 ): Promise<{ rows: ScanListItem[]; total: number }> {
   const { page, page_size, provider, status, from, to, started_at_order } = filters;
@@ -27,8 +26,6 @@ export async function getProviderCalls(
 
   // Filtrar solo registros con source (provider)
   whereClauses.push(`source IS NOT NULL`);
-  whereClauses.push(`owner_user_id = $${params.length + 1}::uuid`);
-  params.push(ownerUserId);
 
   if (provider) {
     whereClauses.push(`source = $${params.length + 1}`);
@@ -100,22 +97,20 @@ export async function getProviderCalls(
 }
 
 export async function countGlobalRequestsDaily(
-  ownerUserId: string,
   date?: string,
   context?: OperationContext
 ): Promise<number> {
-  const params: unknown[] = [ownerUserId];
+  const params: unknown[] = [];
   let dateCondition = `started_at::date = CURRENT_DATE`;
 
   if (date) {
-    dateCondition = `started_at::date = $2::date`;
+    dateCondition = `started_at::date = $1::date`;
     params.push(date);
   }
 
   const result = await query(
     `SELECT COUNT(*) as count FROM search_runs 
      WHERE source IS NOT NULL 
-     AND owner_user_id = $1::uuid
      AND ${dateCondition}`,
     params
   );

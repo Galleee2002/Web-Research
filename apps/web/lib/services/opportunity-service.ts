@@ -41,57 +41,51 @@ const defaultOpportunityServiceDependencies = {
 
 export async function listOpportunities(
   filters: OpportunityFilters,
-  ownerUserId: string,
   context: OperationContext,
   deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
 ): Promise<PaginatedResponse<OpportunityRead>> {
-  return deps.findOpportunities(filters, ownerUserId, context);
+  return deps.findOpportunities(filters, context);
 }
 
 export async function listOpportunityCategories(
-  ownerUserId: string,
   context: OperationContext,
   deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
 ): Promise<OpportunityCategoriesResponse> {
-  const categories = await deps.findOpportunityCategoryValues(ownerUserId, context);
+  const categories = await deps.findOpportunityCategoryValues(context);
   return { categories };
 }
 
 export async function getOpportunityById(
   id: string,
-  ownerUserId: string,
   context: OperationContext,
   deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
 ): Promise<OpportunityDetailRead | null> {
-  return deps.findOpportunityById(id, ownerUserId, context);
+  return deps.findOpportunityById(id, context);
 }
 
 export async function setOpportunityRating(
   id: string,
-  ownerUserId: string,
   payload: OpportunityRatingUpdate,
   context: OperationContext,
   deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
 ): Promise<OpportunityDetailRead | null> {
-  return deps.updateOpportunityRating(id, ownerUserId, payload, context);
+  return deps.updateOpportunityRating(id, payload, context);
 }
 
 export async function setOpportunity(
   id: string,
-  ownerUserId: string,
   payload: OpportunityUpdate,
   context: OperationContext,
   deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
 ): Promise<OpportunityDetailRead | null> {
-  return deps.updateOpportunity(id, ownerUserId, payload, context);
+  return deps.updateOpportunity(id, payload, context);
 }
 
 export async function setOpportunitySelectionByBusinessId(
   businessId: string,
-  ownerUserId: string,
   payload: OpportunitySelectionUpdate,
   context: OperationContext,
   deps: OpportunityServiceDependencies = defaultOpportunityServiceDependencies,
 ): Promise<OpportunitySelectionResult | null> {
-  return deps.setOpportunitySelectionByBusinessId(businessId, ownerUserId, payload, context);
+  return deps.setOpportunitySelectionByBusinessId(businessId, payload, context);
 }

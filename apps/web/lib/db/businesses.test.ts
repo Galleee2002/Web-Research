@@ -13,7 +13,7 @@ describe("business query builder", () => {
       category: "Dentist",
       query: "dental",
       order_by: "name"
-    }, "owner-1");
+    });
 
     expect(query.values).toEqual([
       false,
@@ -21,7 +21,6 @@ describe("business query builder", () => {
       "Buenos Aires",
       "Dentist",
       "%dental%",
-      "owner-1",
       10,
       10
     ]);
@@ -32,20 +31,19 @@ describe("business query builder", () => {
     expect(query.text).toContain(
       "(name ilike $5 OR id::text ilike $5)"
     );
-    expect(query.text).toContain("owner_user_id = $6::uuid");
     expect(query.text).toContain("order by name asc");
-    expect(query.text).toContain("limit $7 offset $8");
+    expect(query.text).toContain("limit $6 offset $7");
   });
 
   it("defaults to created_at ordering and first page offset", () => {
     const query = buildBusinessListQuery({
       page: 1,
       page_size: 20
-    }, "owner-1");
+    });
 
-    expect(query.values).toEqual(["owner-1", 20, 0]);
+    expect(query.values).toEqual([20, 0]);
     expect(query.text).toContain("order by created_at desc");
-    expect(query.text).toContain("limit $2 offset $3");
+    expect(query.text).toContain("limit $1 offset $2");
   });
 
   it("uses the same filters for export without paginating results", () => {
@@ -58,15 +56,14 @@ describe("business query builder", () => {
       category: "Dentist",
       query: "dental",
       order_by: "city"
-    }, "owner-1");
+    });
 
     expect(query.values).toEqual([
       false,
       "new",
       "Buenos Aires",
       "Dentist",
-      "%dental%",
-      "owner-1"
+      "%dental%"
     ]);
     expect(query.text).toContain("has_website = $1");
     expect(query.text).toContain("status = $2");
@@ -75,7 +72,6 @@ describe("business query builder", () => {
     expect(query.text).toContain(
       "(name ilike $5 OR id::text ilike $5)"
     );
-    expect(query.text).toContain("owner_user_id = $6::uuid");
     expect(query.text).toContain("order by city asc");
     expect(query.text).not.toContain("limit");
     expect(query.text).not.toContain("offset");

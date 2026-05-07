@@ -28,25 +28,23 @@ const defaultSearchServiceDependencies = {
 
 export async function createSearchRun(
   payload: SearchCreate,
-  ownerUserId: string,
   context: OperationContext,
   deps: SearchServiceDependencies = defaultSearchServiceDependencies
 ): Promise<SearchRead> {
-  return deps.insertSearchRun(payload, ownerUserId, context);
+  return deps.insertSearchRun(payload, context);
 }
 
 export async function createNextSearchRun(
   parentSearchRunId: string,
-  ownerUserId: string,
   context: OperationContext,
   deps: SearchServiceDependencies = defaultSearchServiceDependencies
 ): Promise<{ searchRun: SearchRead; created: boolean }> {
-  const parent = await deps.findSearchRunRecordById(parentSearchRunId, ownerUserId, context);
+  const parent = await deps.findSearchRunRecordById(parentSearchRunId, context);
   if (!parent) {
     throw new ApiError("not_found", "Search run not found", 404);
   }
 
-  const existingChild = await deps.findSearchRunByParentId(parent.id, ownerUserId, context);
+  const existingChild = await deps.findSearchRunByParentId(parent.id, context);
   if (existingChild) {
     return { searchRun: existingChild, created: false };
   }
@@ -67,14 +65,13 @@ export async function createNextSearchRun(
     );
   }
 
-  return deps.insertNextSearchRunFromParent(parent, ownerUserId, context);
+  return deps.insertNextSearchRunFromParent(parent, context);
 }
 
 export async function listSearchRuns(
   filters: SearchFilters,
-  ownerUserId: string,
   context: OperationContext,
   deps: SearchServiceDependencies = defaultSearchServiceDependencies
 ): Promise<PaginatedResponse<SearchRead>> {
-  return deps.findSearchRuns(filters, ownerUserId, context);
+  return deps.findSearchRuns(filters, context);
 }

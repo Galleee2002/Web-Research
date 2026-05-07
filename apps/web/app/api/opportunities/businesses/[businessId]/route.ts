@@ -7,7 +7,6 @@ import {
   validationError,
   withApiRoute,
 } from "@/lib/api/http";
-import { requireAuth } from "@/lib/auth/session";
 import { setOpportunitySelectionByBusinessId } from "@/lib/services/opportunity-service";
 
 export const runtime = "nodejs";
@@ -36,10 +35,8 @@ export async function PATCH(request: Request, context: RouteContext) {
         return validationError(requestContext.correlationId, parsed.errors);
       }
 
-      const session = await requireAuth(request, requestContext.operationContext);
       const selection = await setOpportunitySelectionByBusinessId(
         businessId,
-        session.sub,
         parsed.value,
         requestContext.operationContext,
       );

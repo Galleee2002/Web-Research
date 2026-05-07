@@ -2,14 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getBusinessByIdMock = vi.fn();
 const updateBusinessStatusMock = vi.fn();
-const requireAuthMock = vi.fn();
 
 vi.mock("@/lib/services/business-service", () => ({
   getBusinessById: getBusinessByIdMock,
   updateBusinessStatus: updateBusinessStatusMock
-}));
-vi.mock("@/lib/auth/session", () => ({
-  requireAuth: requireAuthMock
 }));
 
 const VALID_ID = "33333333-3333-4333-8333-333333333333";
@@ -24,8 +20,6 @@ describe("GET /api/businesses/[id]", () => {
   beforeEach(() => {
     getBusinessByIdMock.mockReset();
     updateBusinessStatusMock.mockReset();
-    requireAuthMock.mockReset();
-    requireAuthMock.mockResolvedValue({ sub: "owner-1" });
   });
 
   it("returns validation_error for an invalid UUID", async () => {
@@ -97,7 +91,7 @@ describe("GET /api/businesses/[id]", () => {
       created_at: "2026-04-23T00:00:00.000Z",
       updated_at: "2026-04-23T01:00:00.000Z"
     });
-    expect(getBusinessByIdMock).toHaveBeenCalledWith(VALID_ID, "owner-1", {
+    expect(getBusinessByIdMock).toHaveBeenCalledWith(VALID_ID, {
       correlationId: "corr-detail",
       method: "GET",
       route: "/api/businesses/[id]"
@@ -155,7 +149,6 @@ describe("PATCH /api/businesses/[id]", () => {
     expect(body.notes).toBeNull();
     expect(updateBusinessStatusMock).toHaveBeenCalledWith(
       VALID_ID,
-      "owner-1",
       { status: "discarded", notes: null },
       {
         correlationId: "corr-patch",

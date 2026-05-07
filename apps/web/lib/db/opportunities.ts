@@ -127,10 +127,8 @@ function buildOpportunityWhere(filters: OpportunityFilters): {
   return { clauses, values };
 }
 
-export function buildOpportunityDistinctCategoriesQuery(ownerUserId: string): SqlQuery {
+export function buildOpportunityDistinctCategoriesQuery(): SqlQuery {
   const clauses = [...opportunityListBaseClauses(), "businesses.category is not null"];
-  const values: string[] = [ownerUserId];
-  clauses.push(`opportunities.owner_user_id = $1::uuid`);
 
   return {
     text: `
@@ -140,17 +138,12 @@ export function buildOpportunityDistinctCategoriesQuery(ownerUserId: string): Sq
       ${whereSql(clauses)}
       order by businesses.category asc
     `,
-    values,
+    values: [],
   };
 }
 
-export function buildOpportunityListQuery(
-  filters: OpportunityFilters,
-  ownerUserId: string
-): SqlQuery {
+export function buildOpportunityListQuery(filters: OpportunityFilters): SqlQuery {
   const { clauses, values } = buildOpportunityWhere(filters);
-  values.push(ownerUserId);
-  clauses.push(`opportunities.owner_user_id = $${values.length}::uuid`);
   const limitPosition = values.length + 1;
   const offsetPosition = values.length + 2;
   const orderBy = ORDER_BY[filters.order_by ?? "rating"];
@@ -172,13 +165,8 @@ export function buildOpportunityListQuery(
   };
 }
 
-export function buildOpportunityCountQuery(
-  filters: OpportunityFilters,
-  ownerUserId: string
-): SqlQuery {
+export function buildOpportunityCountQuery(filters: OpportunityFilters): SqlQuery {
   const { clauses, values } = buildOpportunityWhere(filters);
-  values.push(ownerUserId);
-  clauses.push(`opportunities.owner_user_id = $${values.length}::uuid`);
 
   return {
     text: `
@@ -192,10 +180,9 @@ export function buildOpportunityCountQuery(
 }
 
 export async function findOpportunityCategoryValues(
-  ownerUserId: string,
   context: OperationContext,
 ): Promise<string[]> {
-  const sql = buildOpportunityDistinctCategoriesQuery(ownerUserId);
+  const sql = buildOpportunityDistinctCategoriesQuery();
   const result = await query<{ category: string }>(sql.text, sql.values, {
     operationName: "find_opportunity_category_values",
     context,
@@ -205,10 +192,9 @@ export async function findOpportunityCategoryValues(
 
 export async function findOpportunities(
   filters: OpportunityFilters,
-  ownerUserId: string,
   context: OperationContext,
 ): Promise<PaginatedResponse<OpportunityRead>> {
-  const listQuery = buildOpportunityListQuery(filters, ownerUserId);
+  const listQuery = buildOpportunityListQuery(filters);
   const itemsResult = await query<OpportunityRow>(listQuery.text, listQuery.values, {
     operationName: "find_opportunities",
     context,
@@ -224,7 +210,6 @@ export async function findOpportunities(
 
 export async function findOpportunityById(
   id: string,
-  ownerUserId: string,
   context: OperationContext,
 ): Promise<OpportunityDetailRead | null> {
   const result = await query<OpportunityRow>(
@@ -233,10 +218,9 @@ export async function findOpportunityById(
       from opportunities
       inner join businesses on businesses.id = opportunities.business_id
       where opportunities.id = $1
-        and opportunities.owner_user_id = $2::uuid
       limit 1
     `,
-    [id, ownerUserId],
+    [id],
     {
       operationName: "find_opportunity_by_id",
       context,
@@ -248,7 +232,6 @@ export async function findOpportunityById(
 
 export async function updateOpportunityRating(
   id: string,
-  ownerUserId: string,
   payload: OpportunityRatingUpdate,
   context: OperationContext,
 ): Promise<OpportunityDetailRead | null> {
@@ -256,15 +239,14 @@ export async function updateOpportunityRating(
     `
       update opportunities
       set
-        rating = $3,
+        rating = $2,
         updated_at = now()
       from businesses
       where opportunities.id = $1
-        and opportunities.owner_user_id = $2::uuid
         and businesses.id = opportunities.business_id
       returning ${OPPORTUNITY_SELECT}
     `,
-    [id, ownerUserId, payload.rating],
+    [id, payload.rating],
     {
       operationName: "update_opportunity_rating",
       context,
@@ -276,7 +258,6 @@ export async function updateOpportunityRating(
 
 export async function updateOpportunity(
   id: string,
-  ownerUserId: string,
   payload: OpportunityUpdate,
   context: OperationContext,
 ): Promise<OpportunityDetailRead | null> {
@@ -291,21 +272,20 @@ export async function updateOpportunity(
         from opportunities
         inner join businesses on businesses.id = opportunities.business_id
         where opportunities.id = $1
-          and opportunities.owner_user_id = $2::uuid
       ),
       update_opportunity as (
         update opportunities
         set
-          rating = case when $3::boolean then $4 else opportunities.rating end,
+          rating = case when $2::boolean then $3 else opportunities.rating end,
           is_selected = case
-            when $5::boolean and $6::text = 'discarded' then false
+            when $4::boolean and $5::text = 'discarded' then false
             else opportunities.is_selected
           end,
           updated_at = case
-            when $5::boolean
-              and $6::text = 'discarded'
+            when $4::boolean
+              and $5::text = 'discarded'
               and opportunities.is_selected is distinct from false then now()
-            when $3::boolean and opportunities.rating is distinct from $4 then now()
+            when $2::boolean and opportunities.rating is distinct from $3 then now()
             else opportunities.updated_at
           end
         from target
@@ -314,11 +294,11 @@ export async function updateOpportunity(
       update_business as (
         update businesses
         set
-          status = case when $5::boolean then $6 else businesses.status end,
-          notes = case when $7::boolean then $8 else businesses.notes end,
+          status = case when $4::boolean then $5 else businesses.status end,
+          notes = case when $6::boolean then $7 else businesses.notes end,
           updated_at = case
-            when $5::boolean and businesses.status is distinct from $6 then now()
-            when $7::boolean and businesses.notes is distinct from $8 then now()
+            when $4::boolean and businesses.status is distinct from $5 then now()
+            when $6::boolean and businesses.notes is distinct from $7 then now()
             else businesses.updated_at
           end
         from target
@@ -328,12 +308,10 @@ export async function updateOpportunity(
       from opportunities
       inner join businesses on businesses.id = opportunities.business_id
       where opportunities.id = $1
-        and opportunities.owner_user_id = $2::uuid
       limit 1
     `,
     [
       id,
-      ownerUserId,
       hasRating,
       payload.rating ?? null,
       hasStatus,
@@ -359,7 +337,6 @@ interface OpportunitySelectionRow {
 
 export async function setOpportunitySelectionByBusinessId(
   businessId: string,
-  ownerUserId: string,
   payload: OpportunitySelectionUpdate,
   context: OperationContext,
 ): Promise<OpportunitySelectionResult | null> {
@@ -369,17 +346,15 @@ export async function setOpportunitySelectionByBusinessId(
         select id
         from businesses
         where id = $1
-          and owner_user_id = $2::uuid
         limit 1
       ),
       upserted as (
-        insert into opportunities (business_id, owner_user_id, rating, is_selected)
-        select id, $2::uuid, null, $3
+        insert into opportunities (business_id, rating, is_selected)
+        select id, null, $2
         from existing_business
         on conflict (business_id) do update
           set is_selected = excluded.is_selected,
               updated_at = now()
-          where opportunities.owner_user_id = excluded.owner_user_id
         returning id, business_id, is_selected, updated_at
       )
       select
@@ -390,7 +365,7 @@ export async function setOpportunitySelectionByBusinessId(
       from upserted
       limit 1
     `,
-    [businessId, ownerUserId, payload.is_selected],
+    [businessId, payload.is_selected],
     {
       operationName: "set_opportunity_selection_by_business_id",
       context,

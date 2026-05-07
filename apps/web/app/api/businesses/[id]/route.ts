@@ -8,7 +8,6 @@ import {
   validationError,
   withApiRoute
 } from "@/lib/api/http";
-import { requireAuth } from "@/lib/auth/session";
 import { getBusinessById, updateBusinessStatus } from "@/lib/services/business-service";
 
 export const runtime = "nodejs";
@@ -31,8 +30,7 @@ export async function GET(_request: Request, context: RouteContext) {
       return validationError(requestContext.correlationId, ["id must be a valid UUID"]);
     }
 
-    const session = await requireAuth(_request, requestContext.operationContext);
-    const business = await getBusinessById(id, session.sub, requestContext.operationContext);
+    const business = await getBusinessById(id, requestContext.operationContext);
 
     if (!business) {
       return notFound(requestContext.correlationId, "Business not found");
@@ -57,10 +55,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       return validationError(requestContext.correlationId, parsed.errors);
     }
 
-    const session = await requireAuth(request, requestContext.operationContext);
     const business = await updateBusinessStatus(
       id,
-      session.sub,
       parsed.value,
       requestContext.operationContext
     );

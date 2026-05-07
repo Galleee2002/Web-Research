@@ -66,7 +66,6 @@ class WorkerRepository:
                     )
                     returning
                       id,
-                      owner_user_id,
                       query,
                       location,
                       source,
@@ -115,7 +114,6 @@ class WorkerRepository:
                         inserted = connection.execute(
                             """
                             insert into businesses (
-                              owner_user_id,
                               search_run_id,
                               external_id,
                               source,
@@ -133,7 +131,6 @@ class WorkerRepository:
                               maps_url
                             )
                             values (
-                              %(owner_user_id)s,
                               %(search_run_id)s,
                               %(external_id)s,
                               %(source)s,
@@ -154,7 +151,6 @@ class WorkerRepository:
                             """,
                             {
                                 "search_run_id": search_run.id,
-                                "owner_user_id": search_run.owner_user_id,
                                 "external_id": business.external_id,
                                 "source": business.source,
                                 "name": business.name,
@@ -178,12 +174,7 @@ class WorkerRepository:
                                 external_id=business.external_id,
                             )
                         )
-                        self._ensure_opportunity(
-                            connection,
-                            inserted["id"],
-                            search_run.owner_user_id,
-                            business.has_website,
-                        )
+                        self._ensure_opportunity(connection, inserted["id"], business.has_website)
                         log_event(
                             logger,
                             logging.INFO,
@@ -198,21 +189,6 @@ class WorkerRepository:
                         continue
 
                     payload = self._build_merge_payload(existing, business)
-                    if self._is_cross_owner_conflict(search_run.owner_user_id, existing):
-                        log_event(
-                            logger,
-                            logging.WARNING,
-                            "business_dedup_cross_owner_conflict",
-                            correlation_id=search_run.correlation_id,
-                            search_run_id=search_run.id,
-                            provider=business.source,
-                            error_stage="persist",
-                            business_external_id=business.external_id,
-                            existing_business_id=existing["id"],
-                            existing_owner_user_id=existing.get("owner_user_id"),
-                            incoming_owner_user_id=search_run.owner_user_id,
-                        )
-                        continue
                     connection.execute(
                         """
                         update businesses
@@ -237,7 +213,6 @@ class WorkerRepository:
                     self._ensure_opportunity(
                         connection,
                         existing["id"],
-                        existing["owner_user_id"],
                         payload["has_website"],
                     )
                     results.append(
@@ -449,7 +424,6 @@ class WorkerRepository:
         self,
         connection: psycopg.Connection[Any],
         business_id: str,
-        owner_user_id: str,
         has_website: bool,
     ) -> None:
         if has_website:
@@ -457,30 +431,16 @@ class WorkerRepository:
 
         connection.execute(
             """
-            insert into opportunities (business_id, owner_user_id, rating, is_selected)
-            values (%s, %s, null, false)
-            on conflict (business_id) do update
-              set owner_user_id = excluded.owner_user_id
-              where opportunities.owner_user_id = excluded.owner_user_id
+            insert into opportunities (business_id, rating, is_selected)
+            values (%s, null, false)
+            on conflict (business_id) do nothing
             """,
-            (business_id, owner_user_id),
-        )
-
-    def _is_cross_owner_conflict(
-        self,
-        search_run_owner_user_id: str,
-        existing_business: dict[str, Any],
-    ) -> bool:
-        existing_owner_user_id = existing_business.get("owner_user_id")
-        return (
-            isinstance(existing_owner_user_id, str)
-            and existing_owner_user_id != search_run_owner_user_id
+            (business_id,),
         )
 
     def _map_search_run(self, row: dict[str, Any]) -> SearchRun:
         return SearchRun(
             id=row["id"],
-            owner_user_id=row["owner_user_id"],
             query=row["query"],
             location=row["location"],
             source=row["source"],

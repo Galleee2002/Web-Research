@@ -30,7 +30,6 @@ describe("opportunity service", () => {
         page_size: 20,
         order_by: "rating",
       },
-      "owner-1",
       context,
       {
         findOpportunities,
@@ -48,7 +47,6 @@ describe("opportunity service", () => {
         page_size: 20,
         order_by: "rating",
       },
-      "owner-1",
       context,
     );
     expect(result).toEqual({
@@ -64,7 +62,7 @@ describe("opportunity service", () => {
       .fn()
       .mockResolvedValue(["Cafe", "Real estate agency"]);
 
-    const result = await listOpportunityCategories("owner-1", context, {
+    const result = await listOpportunityCategories(context, {
       findOpportunities: vi.fn(),
       findOpportunityCategoryValues,
       findOpportunityById: vi.fn(),
@@ -73,7 +71,7 @@ describe("opportunity service", () => {
       setOpportunitySelectionByBusinessId: vi.fn(),
     });
 
-    expect(findOpportunityCategoryValues).toHaveBeenCalledWith("owner-1", context);
+    expect(findOpportunityCategoryValues).toHaveBeenCalledWith(context);
     expect(result).toEqual({ categories: ["Cafe", "Real estate agency"] });
   });
 
@@ -82,7 +80,6 @@ describe("opportunity service", () => {
 
     const result = await getOpportunityById(
       "opportunity-1",
-      "owner-1",
       context,
       {
         findOpportunities: vi.fn(),
@@ -94,7 +91,7 @@ describe("opportunity service", () => {
       },
     );
 
-    expect(findOpportunityById).toHaveBeenCalledWith("opportunity-1", "owner-1", context);
+    expect(findOpportunityById).toHaveBeenCalledWith("opportunity-1", context);
     expect(result).toBeNull();
   });
 
@@ -106,7 +103,6 @@ describe("opportunity service", () => {
 
     const result = await setOpportunityRating(
       "opportunity-1",
-      "owner-1",
       { rating: 4 },
       context,
       {
@@ -121,7 +117,6 @@ describe("opportunity service", () => {
 
     expect(updateOpportunityRating).toHaveBeenCalledWith(
       "opportunity-1",
-      "owner-1",
       { rating: 4 },
       context,
     );
@@ -140,7 +135,6 @@ describe("opportunity service", () => {
 
     const result = await setOpportunity(
       "opportunity-1",
-      "owner-1",
       { status: "reviewed" },
       context,
       {
@@ -155,7 +149,6 @@ describe("opportunity service", () => {
 
     expect(updateOpportunity).toHaveBeenCalledWith(
       "opportunity-1",
-      "owner-1",
       { status: "reviewed" },
       context,
     );
@@ -176,7 +169,6 @@ describe("opportunity service", () => {
 
     const result = await setOpportunitySelectionByBusinessId(
       "business-1",
-      "owner-1",
       { is_selected: true },
       context,
       {
@@ -191,7 +183,6 @@ describe("opportunity service", () => {
 
     expect(updateSelection).toHaveBeenCalledWith(
       "business-1",
-      "owner-1",
       { is_selected: true },
       context,
     );

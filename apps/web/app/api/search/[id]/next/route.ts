@@ -7,7 +7,6 @@ import {
   validationError,
   withApiRoute
 } from "@/lib/api/http";
-import { requireAuth } from "@/lib/auth/session";
 import { createNextSearchRun } from "@/lib/services/search-service";
 
 export const runtime = "nodejs";
@@ -30,8 +29,7 @@ export async function POST(request: Request, context: RouteContext) {
       return validationError(requestContext.correlationId, ["id must be a valid UUID"]);
     }
 
-    const session = await requireAuth(request, requestContext.operationContext);
-    const result = await createNextSearchRun(id, session.sub, requestContext.operationContext);
+    const result = await createNextSearchRun(id, requestContext.operationContext);
 
     logApiEvent("search_run_next_page_requested", requestContext.operationContext, {
       search_run_id: result.searchRun.id,

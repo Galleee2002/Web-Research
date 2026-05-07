@@ -28,7 +28,6 @@ describe("business service", () => {
         page_size: 20,
         order_by: "created_at"
       },
-      "owner-1",
       context,
       {
         findBusinesses,
@@ -42,7 +41,7 @@ describe("business service", () => {
       page: 1,
       page_size: 20,
       order_by: "created_at"
-    }, "owner-1", context);
+    }, context);
     expect(result).toEqual({
       items: [],
       total: 0,
@@ -63,7 +62,6 @@ describe("business service", () => {
         page: 1,
         page_size: 20
       },
-      "owner-1",
       context,
       {
         findBusinesses: vi.fn(),
@@ -76,7 +74,7 @@ describe("business service", () => {
     expect(findBusinessesForExport).toHaveBeenCalledWith({
       page: 1,
       page_size: 20
-    }, "owner-1", context);
+    }, context);
     expect(result).toEqual([{ id: "business-1" }]);
   });
 
@@ -85,7 +83,6 @@ describe("business service", () => {
 
     const result = await getBusinessById(
       "business-1",
-      "owner-1",
       context,
       {
         findBusinesses: vi.fn(),
@@ -95,7 +92,7 @@ describe("business service", () => {
       }
     );
 
-    expect(findBusinessById).toHaveBeenCalledWith("business-1", "owner-1", context);
+    expect(findBusinessById).toHaveBeenCalledWith("business-1", context);
     expect(result).toBeNull();
   });
 
@@ -106,7 +103,6 @@ describe("business service", () => {
 
     const result = await updateBusinessStatus(
       "business-1",
-      "owner-1",
       { status: "reviewed" },
       context,
       {
@@ -117,7 +113,7 @@ describe("business service", () => {
       }
     );
 
-    expect(updateBusinessLeadStatus).toHaveBeenCalledWith("business-1", "owner-1", {
+    expect(updateBusinessLeadStatus).toHaveBeenCalledWith("business-1", {
       status: "reviewed"
     }, context);
     expect(result).toEqual({ id: "business-1" });
@@ -130,7 +126,6 @@ describe("business service", () => {
 
     const result = await updateBusinessStatus(
       "business-1",
-      "owner-1",
       { status: "discarded", notes: null },
       context,
       {
@@ -141,7 +136,7 @@ describe("business service", () => {
       }
     );
 
-    expect(updateBusinessLeadStatus).toHaveBeenCalledWith("business-1", "owner-1", {
+    expect(updateBusinessLeadStatus).toHaveBeenCalledWith("business-1", {
       status: "discarded",
       notes: null
     }, context);

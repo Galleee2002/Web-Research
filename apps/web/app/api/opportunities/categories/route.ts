@@ -5,7 +5,6 @@ import {
   logApiEvent,
   withApiRoute,
 } from "@/lib/api/http";
-import { requireAuth } from "@/lib/auth/session";
 import { listOpportunityCategories } from "@/lib/services/opportunity-service";
 
 export const runtime = "nodejs";
@@ -19,10 +18,9 @@ export async function GET(request: Request) {
     request,
     { route: "/api/opportunities/categories" },
     async (context) => {
-      const session = await requireAuth(request, context.operationContext);
       logApiEvent("opportunity_categories_requested", context.operationContext);
       return NextResponse.json(
-        await listOpportunityCategories(session.sub, context.operationContext),
+        await listOpportunityCategories(context.operationContext),
       );
     },
   );

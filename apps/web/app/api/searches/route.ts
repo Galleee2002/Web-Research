@@ -8,7 +8,6 @@ import {
   validationError,
   withApiRoute
 } from "@/lib/api/http";
-import { requireAuth } from "@/lib/auth/session";
 import { listSearchRuns } from "@/lib/services/search-service";
 
 export const runtime = "nodejs";
@@ -26,10 +25,7 @@ export async function GET(request: Request) {
       return validationError(context.correlationId, parsed.errors);
     }
 
-    const session = await requireAuth(request, context.operationContext);
     logApiEvent("search_runs_requested", context.operationContext);
-    return NextResponse.json(
-      await listSearchRuns(parsed.value, session.sub, context.operationContext)
-    );
+    return NextResponse.json(await listSearchRuns(parsed.value, context.operationContext));
   });
 }

@@ -3,13 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api/http";
 
 const createNextSearchRunMock = vi.fn();
-const requireAuthMock = vi.fn();
 
 vi.mock("@/lib/services/search-service", () => ({
   createNextSearchRun: createNextSearchRunMock
-}));
-vi.mock("@/lib/auth/session", () => ({
-  requireAuth: requireAuthMock
 }));
 
 describe("POST /api/search/[id]/next", () => {
@@ -17,8 +13,6 @@ describe("POST /api/search/[id]/next", () => {
 
   beforeEach(() => {
     createNextSearchRunMock.mockReset();
-    requireAuthMock.mockReset();
-    requireAuthMock.mockResolvedValue({ sub: "owner-1" });
   });
 
   it("returns validation errors with correlation_id for invalid UUID", async () => {
@@ -67,7 +61,7 @@ describe("POST /api/search/[id]/next", () => {
     );
 
     expect(response.status).toBe(201);
-    expect(createNextSearchRunMock).toHaveBeenCalledWith(validId, "owner-1", {
+    expect(createNextSearchRunMock).toHaveBeenCalledWith(validId, {
       correlationId: "corr-next",
       method: "POST",
       route: "/api/search/[id]/next"

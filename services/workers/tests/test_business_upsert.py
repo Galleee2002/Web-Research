@@ -56,11 +56,9 @@ class FakeBusinessRepository:
         self,
         business: NormalizedBusiness,
         search_run_id: str | None,
-        owner_user_id: str,
     ) -> BusinessRecord:
         record = BusinessRecord(
             id=f"business-{self.next_id}",
-            owner_user_id=owner_user_id,
             search_run_id=search_run_id,
             external_id=business.external_id,
             source=business.source,
@@ -119,13 +117,8 @@ def upsert(
     repository: FakeBusinessRepository,
     business: NormalizedBusiness,
     search_run_id: str | None = None,
-    owner_user_id: str = "owner-1",
 ) -> UpsertBusinessResult:
-    return BusinessUpsertService(repository).upsert_business(
-        business,
-        search_run_id,
-        owner_user_id,
-    )
+    return BusinessUpsertService(repository).upsert_business(business, search_run_id)
 
 
 def test_upsert_by_external_id_is_idempotent():
@@ -245,20 +238,8 @@ def test_postgres_upsert_uses_partial_unique_external_id_index():
         try:
             repository = BusinessRepository(connection)
             service = BusinessUpsertService(repository)
-            with connection.cursor() as cursor:
-                cursor.execute(
-                    "select id from users where role = 'admin' order by created_at asc, id asc limit 1"
-                )
-                owner_user_id = cursor.fetchone()[0]
-
-            first = service.upsert_business(
-                make_business(external_id=external_id),
-                owner_user_id=owner_user_id,
-            )
-            second = service.upsert_business(
-                make_business(external_id=external_id),
-                owner_user_id=owner_user_id,
-            )
+            first = service.upsert_business(make_business(external_id=external_id))
+            second = service.upsert_business(make_business(external_id=external_id))
 
             with connection.cursor() as cursor:
                 cursor.execute(

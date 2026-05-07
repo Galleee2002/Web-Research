@@ -47,7 +47,7 @@ describe("scans service", () => {
       page_size: 10,
     };
 
-    const result = await listProviderCalls(filters, "owner-1", mockOperationContext, {
+    const result = await listProviderCalls(filters, mockOperationContext, {
       getProviderCalls: mockGetProviderCalls,
       countGlobalRequestsDaily: mockCountGlobalRequestsDaily,
     });
@@ -73,17 +73,12 @@ describe("scans service", () => {
       status: "completed",
     };
 
-    await listProviderCalls(filters, "owner-1", mockOperationContext, {
+    await listProviderCalls(filters, mockOperationContext, {
       getProviderCalls: mockGetProviderCalls,
       countGlobalRequestsDaily: mockCountGlobalRequestsDaily,
     });
 
-    expect(mockGetProviderCalls).toHaveBeenCalledWith(filters, "owner-1", mockOperationContext);
-    expect(mockCountGlobalRequestsDaily).toHaveBeenCalledWith(
-      "owner-1",
-      undefined,
-      mockOperationContext
-    );
+    expect(mockGetProviderCalls).toHaveBeenCalledWith(filters, mockOperationContext);
   });
 
   it("should handle empty results", async () => {
@@ -98,7 +93,7 @@ describe("scans service", () => {
       page_size: 10,
     };
 
-    const result = await listProviderCalls(filters, "owner-1", mockOperationContext, {
+    const result = await listProviderCalls(filters, mockOperationContext, {
       getProviderCalls: mockGetProviderCalls,
       countGlobalRequestsDaily: mockCountGlobalRequestsDaily,
     });

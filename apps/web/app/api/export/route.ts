@@ -7,7 +7,6 @@ import {
   validationError,
   withApiRoute
 } from "@/lib/api/http";
-import { requireAuth } from "@/lib/auth/session";
 import { listBusinessesForExport } from "@/lib/services/business-service";
 import { toCsv } from "@/lib/utils/csv";
 
@@ -38,13 +37,8 @@ export async function GET(request: Request) {
       return validationError(context.correlationId, parsed.errors);
     }
 
-    const session = await requireAuth(request, context.operationContext);
     logApiEvent("business_export_requested", context.operationContext);
-    const businesses = await listBusinessesForExport(
-      parsed.value,
-      session.sub,
-      context.operationContext
-    );
+    const businesses = await listBusinessesForExport(parsed.value, context.operationContext);
     const csv = toCsv(EXPORT_COLUMNS, businesses);
 
     return new Response(csv, {

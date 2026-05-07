@@ -31,37 +31,33 @@ const defaultBusinessServiceDependencies = {
 
 export async function listBusinesses(
   filters: BusinessFilters,
-  ownerUserId: string,
   context: OperationContext,
   deps: BusinessServiceDependencies = defaultBusinessServiceDependencies
 ): Promise<PaginatedResponse<BusinessRead>> {
-  return deps.findBusinesses(filters, ownerUserId, context);
+  return deps.findBusinesses(filters, context);
 }
 
 export async function listBusinessesForExport(
   filters: BusinessFilters,
-  ownerUserId: string,
   context: OperationContext,
   deps: BusinessServiceDependencies = defaultBusinessServiceDependencies
 ): Promise<BusinessRead[]> {
-  return deps.findBusinessesForExport(filters, ownerUserId, context);
+  return deps.findBusinessesForExport(filters, context);
 }
 
 export async function getBusinessById(
   id: string,
-  ownerUserId: string,
   context: OperationContext,
   deps: BusinessServiceDependencies = defaultBusinessServiceDependencies
 ): Promise<BusinessDetailRead | null> {
-  return deps.findBusinessById(id, ownerUserId, context);
+  return deps.findBusinessById(id, context);
 }
 
 export async function updateBusinessStatus(
   id: string,
-  ownerUserId: string,
   payload: BusinessStatusUpdate,
   context: OperationContext,
   deps: BusinessServiceDependencies = defaultBusinessServiceDependencies
 ): Promise<BusinessDetailRead | null> {
-  return deps.updateBusinessLeadStatus(id, ownerUserId, payload, context);
+  return deps.updateBusinessLeadStatus(id, payload, context);
 }

@@ -14,7 +14,6 @@ import { toIsoString, whereSql } from "./shared-query";
 
 interface SearchRunRow {
   id: string;
-  owner_user_id: string;
   query: string;
   location: string;
   source: BusinessSource;
@@ -39,7 +38,6 @@ export interface SqlQuery {
 
 const SEARCH_RUN_SELECT = `
   id,
-  owner_user_id,
   query,
   location,
   source,
@@ -106,10 +104,8 @@ function buildSearchWhere(filters: SearchFilters): {
   return { clauses, values };
 }
 
-export function buildSearchListQuery(filters: SearchFilters, ownerUserId: string): SqlQuery {
+export function buildSearchListQuery(filters: SearchFilters): SqlQuery {
   const { clauses, values } = buildSearchWhere(filters);
-  values.push(ownerUserId);
-  clauses.push(`owner_user_id = $${values.length}::uuid`);
   const limitPosition = values.length + 1;
   const offsetPosition = values.length + 2;
 
@@ -127,10 +123,8 @@ export function buildSearchListQuery(filters: SearchFilters, ownerUserId: string
   };
 }
 
-export function buildSearchCountQuery(filters: SearchFilters, ownerUserId: string): SqlQuery {
+export function buildSearchCountQuery(filters: SearchFilters): SqlQuery {
   const { clauses, values } = buildSearchWhere(filters);
-  values.push(ownerUserId);
-  clauses.push(`owner_user_id = $${values.length}::uuid`);
 
   return {
     text: `
@@ -144,13 +138,11 @@ export function buildSearchCountQuery(filters: SearchFilters, ownerUserId: strin
 
 export async function insertSearchRun(
   payload: SearchCreate,
-  ownerUserId: string,
   context: OperationContext
 ): Promise<SearchRead> {
   const result = await query<SearchRunRow>(
     `
       insert into search_runs (
-        owner_user_id,
         query,
         location,
         source,
@@ -160,11 +152,10 @@ export async function insertSearchRun(
         correlation_id,
         observability
       )
-      values ($1::uuid, $2, $3, $4, 'pending', 0, 1, $5, $6::jsonb)
+      values ($1, $2, $3, 'pending', 0, 1, $4, $5::jsonb)
       returning ${SEARCH_RUN_SELECT}
     `,
     [
-      ownerUserId,
       payload.query,
       payload.location,
       DEFAULT_BUSINESS_SOURCE,
@@ -188,11 +179,10 @@ export async function insertSearchRun(
 
 export async function findSearchRuns(
   filters: SearchFilters,
-  ownerUserId: string,
   context: OperationContext
 ): Promise<PaginatedResponse<SearchRead>> {
-  const listQuery = buildSearchListQuery(filters, ownerUserId);
-  const countQuery = buildSearchCountQuery(filters, ownerUserId);
+  const listQuery = buildSearchListQuery(filters);
+  const countQuery = buildSearchCountQuery(filters);
   const [itemsResult, countResult] = await Promise.all([
     query<SearchRunRow>(listQuery.text, listQuery.values, {
       operationName: "find_search_runs",
@@ -214,7 +204,6 @@ export async function findSearchRuns(
 
 export async function findSearchRunRecordById(
   id: string,
-  ownerUserId: string,
   context: OperationContext
 ): Promise<SearchRunRecord | null> {
   const result = await query<SearchRunRow>(
@@ -222,10 +211,9 @@ export async function findSearchRunRecordById(
       select ${SEARCH_RUN_SELECT}
       from search_runs
       where id = $1::uuid
-        and owner_user_id = $2::uuid
       limit 1
     `,
-    [id, ownerUserId],
+    [id],
     {
       operationName: "find_search_run_by_id",
       context
@@ -238,7 +226,6 @@ export async function findSearchRunRecordById(
 
 export async function findSearchRunByParentId(
   parentSearchRunId: string,
-  ownerUserId: string,
   context: OperationContext
 ): Promise<SearchRead | null> {
   const result = await query<SearchRunRow>(
@@ -246,11 +233,10 @@ export async function findSearchRunByParentId(
       select ${SEARCH_RUN_SELECT}
       from search_runs
       where parent_search_run_id = $1::uuid
-        and owner_user_id = $2::uuid
       order by created_at desc
       limit 1
     `,
-    [parentSearchRunId, ownerUserId],
+    [parentSearchRunId],
     {
       operationName: "find_search_run_by_parent_id",
       context
@@ -263,7 +249,6 @@ export async function findSearchRunByParentId(
 
 export async function insertNextSearchRunFromParent(
   parent: SearchRunRecord,
-  ownerUserId: string,
   context: OperationContext
 ): Promise<{ searchRun: SearchRead; created: boolean }> {
   const observability = JSON.stringify({
@@ -278,7 +263,6 @@ export async function insertNextSearchRunFromParent(
   const inserted = await query<SearchRunRow>(
     `
       insert into search_runs (
-        owner_user_id,
         query,
         location,
         source,
@@ -291,17 +275,16 @@ export async function insertNextSearchRunFromParent(
         observability
       )
       values (
-        $1::uuid,
+        $1,
         $2,
         $3,
-        $4,
         'pending',
         0,
-        $5::uuid,
+        $4::uuid,
+        $5,
         $6,
         $7,
-        $8,
-        $9::jsonb
+        $8::jsonb
       )
       on conflict (parent_search_run_id)
       where parent_search_run_id is not null
@@ -309,7 +292,6 @@ export async function insertNextSearchRunFromParent(
       returning ${SEARCH_RUN_SELECT}
     `,
     [
-      ownerUserId,
       parent.query,
       parent.location,
       parent.source,
@@ -330,7 +312,7 @@ export async function insertNextSearchRunFromParent(
     return { searchRun: mapSearchRun(createdRow), created: true };
   }
 
-  const existing = await findSearchRunByParentId(parent.id, ownerUserId, context);
+  const existing = await findSearchRunByParentId(parent.id, context);
   if (!existing) {
     throw new Error("Failed to resolve child search run after idempotent insert");
   }

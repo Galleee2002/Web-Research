@@ -1,20 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const createSearchRunMock = vi.fn();
-const requireAuthMock = vi.fn();
 
 vi.mock("@/lib/services/search-service", () => ({
   createSearchRun: createSearchRunMock
-}));
-vi.mock("@/lib/auth/session", () => ({
-  requireAuth: requireAuthMock
 }));
 
 describe("POST /api/search", () => {
   beforeEach(() => {
     createSearchRunMock.mockReset();
-    requireAuthMock.mockReset();
-    requireAuthMock.mockResolvedValue({ sub: "owner-1" });
   });
 
   it("returns validation errors with correlation_id", async () => {
@@ -88,7 +82,6 @@ describe("POST /api/search", () => {
         query: "dentists",
         location: "Buenos Aires"
       },
-      "owner-1",
       {
         correlationId: "corr-123",
         method: "POST",

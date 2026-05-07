@@ -366,17 +366,12 @@ export default function OpportunitiesPage() {
                       >
                         <div className="opportunity-table__primary">
                           <h3>{opportunity.name}</h3>
-                          <p className="opportunity-table__category">
-                            {opportunity.category ?? "Uncategorized"}
-                          </p>
+                          <p>{opportunity.category ?? "Uncategorized"}</p>
                         </div>
                         <div className="opportunity-table__secondary">
-                          <span className="opportunity-table__phone">
-                            {opportunity.phone ?? "No phone"}
-                          </span>
+                          <span>{opportunity.phone ?? "No phone"}</span>
                           {opportunity.maps_url ? (
                             <a
-                              className="opportunity-table__map-link"
                               href={opportunity.maps_url}
                               target="_blank"
                               rel="noreferrer"
@@ -398,19 +393,14 @@ export default function OpportunitiesPage() {
                         </div>
                       </div>
 
-                      <div
-                        className="opportunity-table__cell opportunity-table__cell--location"
-                        role="cell"
-                      >
+                      <div className="opportunity-table__cell" role="cell">
                         <span
                           className="opportunity-table__field-label opportunity-table__field-label--location"
                           aria-hidden
                         >
                           Location
                         </span>
-                        <span className="opportunity-table__address">
-                          {opportunity.address ?? "No address"}
-                        </span>
+                        <span>{opportunity.address ?? "No address"}</span>
                         <div className="opportunity-table__notes-edit opportunity-table__notes-edit--mobile">
                           <button
                             type="button"
