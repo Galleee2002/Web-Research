@@ -89,6 +89,7 @@ class FakeGeocodingClient:
 def build_search_run() -> SearchRun:
     return SearchRun(
         id="search-1",
+        owner_user_id="owner-1",
         query="dentistas",
         location="Buenos Aires",
         source="google_places",

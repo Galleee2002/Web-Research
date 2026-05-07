@@ -8,6 +8,7 @@ import {
   validationError,
   withApiRoute,
 } from "@/lib/api/http";
+import { requireAuth } from "@/lib/auth/session";
 import { listOpportunities } from "@/lib/services/opportunity-service";
 
 export const runtime = "nodejs";
@@ -25,9 +26,10 @@ export async function GET(request: Request) {
       return validationError(context.correlationId, parsed.errors);
     }
 
+    const session = await requireAuth(request, context.operationContext);
     logApiEvent("opportunity_list_requested", context.operationContext);
     return NextResponse.json(
-      await listOpportunities(parsed.value, context.operationContext),
+      await listOpportunities(parsed.value, session.sub, context.operationContext),
     );
   });
 }

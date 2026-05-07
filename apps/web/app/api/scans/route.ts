@@ -8,6 +8,7 @@ import {
   validationError,
   withApiRoute,
 } from "@/lib/api/http";
+import { requireAuth } from "@/lib/auth/session";
 import { listProviderCalls } from "@/lib/services/scans";
 
 export const runtime = "nodejs";
@@ -28,9 +29,10 @@ export async function GET(request: Request) {
         return validationError(context.correlationId, parsed.errors);
       }
 
+      const session = await requireAuth(request, context.operationContext);
       logApiEvent("scans_list_requested", context.operationContext);
       return NextResponse.json(
-        await listProviderCalls(parsed.value, context.operationContext)
+        await listProviderCalls(parsed.value, session.sub, context.operationContext)
       );
     }
   );

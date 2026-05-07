@@ -3,14 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseOperationError } from "@/lib/api/http";
 
 const listOpportunitiesMock = vi.fn();
+const requireAuthMock = vi.fn();
 
 vi.mock("@/lib/services/opportunity-service", () => ({
   listOpportunities: listOpportunitiesMock,
+}));
+vi.mock("@/lib/auth/session", () => ({
+  requireAuth: requireAuthMock
 }));
 
 describe("GET /api/opportunities", () => {
   beforeEach(() => {
     listOpportunitiesMock.mockReset();
+    requireAuthMock.mockReset();
+    requireAuthMock.mockResolvedValue({ sub: "owner-1" });
   });
 
   it("lists opportunities with rating ordering by default", async () => {
@@ -32,6 +38,7 @@ describe("GET /api/opportunities", () => {
         page_size: 20,
         order_by: "rating",
       },
+      "owner-1",
       expect.objectContaining({
         route: "/api/opportunities",
         method: "GET",

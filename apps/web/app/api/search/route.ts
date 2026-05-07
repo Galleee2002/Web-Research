@@ -7,6 +7,7 @@ import {
   validationError,
   withApiRoute
 } from "@/lib/api/http";
+import { requireAuth } from "@/lib/auth/session";
 import { createSearchRun } from "@/lib/services/search-service";
 import { triggerWorkerRunInBackground } from "@/lib/services/worker-trigger";
 
@@ -25,7 +26,8 @@ export async function POST(request: Request) {
       return validationError(context.correlationId, parsed.errors);
     }
 
-    const searchRun = await createSearchRun(parsed.value, context.operationContext);
+    const session = await requireAuth(request, context.operationContext);
+    const searchRun = await createSearchRun(parsed.value, session.sub, context.operationContext);
     const workerTrigger = triggerWorkerRunInBackground();
     logApiEvent("search_run_created", context.operationContext, {
       search_run_id: searchRun.id,

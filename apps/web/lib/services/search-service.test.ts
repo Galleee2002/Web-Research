@@ -8,6 +8,7 @@ describe("search service", () => {
 
     const result = await createSearchRun(
       { query: "dentists", location: "Buenos Aires" },
+      "owner-1",
       {
         correlationId: "corr-1",
         method: "POST",
@@ -27,6 +28,7 @@ describe("search service", () => {
         query: "dentists",
         location: "Buenos Aires"
       },
+      "owner-1",
       {
         correlationId: "corr-1",
         method: "POST",
@@ -49,6 +51,7 @@ describe("search service", () => {
         page: 1,
         page_size: 20
       },
+      "owner-1",
       {
         correlationId: "corr-2",
         method: "GET",
@@ -68,6 +71,7 @@ describe("search service", () => {
         page: 1,
         page_size: 20
       },
+      "owner-1",
       {
         correlationId: "corr-2",
         method: "GET",
@@ -98,6 +102,7 @@ describe("search service", () => {
 
     const result = await createNextSearchRun(
       "parent-1",
+      "owner-1",
       {
         correlationId: "corr-3",
         method: "POST",
@@ -136,6 +141,7 @@ describe("search service", () => {
 
     const result = await createNextSearchRun(
       "parent-2",
+      "owner-1",
       {
         correlationId: "corr-4",
         method: "POST",
@@ -174,6 +180,7 @@ describe("search service", () => {
     await expect(
       createNextSearchRun(
         "missing",
+        "owner-1",
         {
           correlationId: "corr-5",
           method: "POST",
@@ -194,6 +201,7 @@ describe("search service", () => {
     await expect(
       createNextSearchRun(
         "parent-3",
+        "owner-1",
         {
           correlationId: "corr-6",
           method: "POST",

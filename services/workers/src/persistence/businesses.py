@@ -11,6 +11,7 @@ MatchedBy = Literal["external_id", "name_address", "none"]
 
 BUSINESS_COLUMNS = """
   id,
+  owner_user_id,
   search_run_id,
   external_id,
   source,
@@ -48,6 +49,7 @@ MERGE_FIELDS = (
 @dataclass(frozen=True, slots=True)
 class BusinessRecord:
     id: str
+    owner_user_id: str
     search_run_id: str | None
     external_id: str | None
     source: str
@@ -95,6 +97,7 @@ class BusinessRepositoryProtocol(Protocol):
         self,
         business: NormalizedBusiness,
         search_run_id: str | None,
+        owner_user_id: str,
     ) -> BusinessRecord:
         ...
 
@@ -160,10 +163,12 @@ class BusinessRepository:
         self,
         business: NormalizedBusiness,
         search_run_id: str | None,
+        owner_user_id: str,
     ) -> BusinessRecord:
         row = self._fetch_one(
             f"""
             insert into businesses (
+              owner_user_id,
               search_run_id,
               external_id,
               source,
@@ -181,11 +186,12 @@ class BusinessRepository:
               maps_url
             )
             values (
-              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
+              %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s
             )
             returning {BUSINESS_COLUMNS}
             """,
             (
+                owner_user_id,
                 search_run_id,
                 business.external_id,
                 business.source,
@@ -267,12 +273,15 @@ class BusinessUpsertService:
         self,
         business: NormalizedBusiness,
         search_run_id: str | None = None,
+        owner_user_id: str | None = None,
     ) -> UpsertBusinessResult:
         business = validate_normalized_business(business)
+        if owner_user_id is None:
+            raise ValueError("owner_user_id is required")
         match, matched_by = self._find_match(business)
 
         if match is None:
-            inserted = self.repository.insert_business(business, search_run_id)
+            inserted = self.repository.insert_business(business, search_run_id, owner_user_id)
             return UpsertBusinessResult(
                 business_id=inserted.id,
                 created=True,
@@ -332,6 +341,7 @@ class BusinessUpsertService:
 def upsert_business(
     business: NormalizedBusiness,
     search_run_id: str | None = None,
+    owner_user_id: str | None = None,
 ) -> UpsertBusinessResult:
     from psycopg import connect
     from workers.config.settings import WorkerSettings
@@ -345,6 +355,7 @@ def upsert_business(
         return BusinessUpsertService(repository).upsert_business(
             business,
             search_run_id,
+            owner_user_id,
         )
 
 
@@ -394,6 +405,7 @@ def _row_to_record(row: object | None) -> BusinessRecord | None:
 
     return BusinessRecord(
         id=str(row["id"]),
+        owner_user_id=str(row["owner_user_id"]),
         search_run_id=_optional_str(row["search_run_id"]),
         external_id=_optional_str(row["external_id"]),
         source=str(row["source"]),
