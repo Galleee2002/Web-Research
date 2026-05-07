@@ -148,8 +148,13 @@ function buildBusinessWhere(filters: BusinessFilters): {
   return { clauses, values };
 }
 
-export function buildBusinessListQuery(filters: BusinessFilters): SqlQuery {
+export function buildBusinessListQuery(
+  filters: BusinessFilters,
+  ownerUserId: string
+): SqlQuery {
   const { clauses, values } = buildBusinessWhere(filters);
+  values.push(ownerUserId);
+  clauses.push(`owner_user_id = $${values.length}::uuid`);
   const limitPosition = values.length + 1;
   const offsetPosition = values.length + 2;
   const orderBy = ORDER_BY[filters.order_by ?? "created_at"];
@@ -168,8 +173,13 @@ export function buildBusinessListQuery(filters: BusinessFilters): SqlQuery {
   };
 }
 
-export function buildBusinessCountQuery(filters: BusinessFilters): SqlQuery {
+export function buildBusinessCountQuery(
+  filters: BusinessFilters,
+  ownerUserId: string
+): SqlQuery {
   const { clauses, values } = buildBusinessWhere(filters);
+  values.push(ownerUserId);
+  clauses.push(`owner_user_id = $${values.length}::uuid`);
 
   return {
     text: `
@@ -181,8 +191,13 @@ export function buildBusinessCountQuery(filters: BusinessFilters): SqlQuery {
   };
 }
 
-export function buildBusinessExportQuery(filters: BusinessFilters): SqlQuery {
+export function buildBusinessExportQuery(
+  filters: BusinessFilters,
+  ownerUserId: string
+): SqlQuery {
   const { clauses, values } = buildBusinessWhere(filters);
+  values.push(ownerUserId);
+  clauses.push(`owner_user_id = $${values.length}::uuid`);
   const orderBy = ORDER_BY[filters.order_by ?? "created_at"];
 
   return {
@@ -198,10 +213,11 @@ export function buildBusinessExportQuery(filters: BusinessFilters): SqlQuery {
 
 export async function findBusinesses(
   filters: BusinessFilters,
+  ownerUserId: string,
   context: OperationContext
 ): Promise<PaginatedResponse<BusinessRead>> {
-  const listQuery = buildBusinessListQuery(filters);
-  const countQuery = buildBusinessCountQuery(filters);
+  const listQuery = buildBusinessListQuery(filters, ownerUserId);
+  const countQuery = buildBusinessCountQuery(filters, ownerUserId);
   const [itemsResult, countResult] = await Promise.all([
     query<BusinessRow>(listQuery.text, listQuery.values, {
       operationName: "find_businesses",
@@ -223,9 +239,10 @@ export async function findBusinesses(
 
 export async function findBusinessesForExport(
   filters: BusinessFilters,
+  ownerUserId: string,
   context: OperationContext
 ): Promise<BusinessRead[]> {
-  const exportQuery = buildBusinessExportQuery(filters);
+  const exportQuery = buildBusinessExportQuery(filters, ownerUserId);
   const result = await query<BusinessRow>(exportQuery.text, exportQuery.values, {
     operationName: "export_businesses",
     context
@@ -236,6 +253,7 @@ export async function findBusinessesForExport(
 
 export async function findBusinessById(
   id: string,
+  ownerUserId: string,
   context: OperationContext
 ): Promise<BusinessDetailRead | null> {
   const result = await query<BusinessRow>(
@@ -265,9 +283,10 @@ export async function findBusinessById(
       from businesses
       left join opportunities on opportunities.business_id = businesses.id
       where businesses.id = $1
+        and businesses.owner_user_id = $2::uuid
       limit 1
     `,
-    [id],
+    [id, ownerUserId],
     {
       operationName: "find_business_by_id",
       context
@@ -279,6 +298,7 @@ export async function findBusinessById(
 
 export async function updateBusinessLeadStatus(
   id: string,
+  ownerUserId: string,
   payload: BusinessStatusUpdate,
   context: OperationContext
 ): Promise<BusinessDetailRead | null> {
@@ -287,10 +307,11 @@ export async function updateBusinessLeadStatus(
       with updated_business as (
         update businesses
         set
-          status = $2,
-          notes = case when $3::boolean then $4::text else notes end,
+          status = $3,
+          notes = case when $4::boolean then $5::text else notes end,
           updated_at = now()
         where id = $1
+          and owner_user_id = $2::uuid
         returning *
       )
       select
@@ -318,7 +339,13 @@ export async function updateBusinessLeadStatus(
       from updated_business
       left join opportunities on opportunities.business_id = updated_business.id
     `,
-    [id, payload.status, Object.hasOwn(payload, "notes"), payload.notes ?? null],
+    [
+      id,
+      ownerUserId,
+      payload.status,
+      Object.hasOwn(payload, "notes"),
+      payload.notes ?? null
+    ],
     {
       operationName: "update_business_status",
       context

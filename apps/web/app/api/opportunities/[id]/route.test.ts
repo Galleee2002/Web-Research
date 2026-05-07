@@ -2,16 +2,22 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getOpportunityByIdMock = vi.fn();
 const setOpportunityMock = vi.fn();
+const requireAuthMock = vi.fn();
 
 vi.mock("@/lib/services/opportunity-service", () => ({
   getOpportunityById: getOpportunityByIdMock,
   setOpportunity: setOpportunityMock,
+}));
+vi.mock("@/lib/auth/session", () => ({
+  requireAuth: requireAuthMock
 }));
 
 describe("GET /api/opportunities/[id]", () => {
   beforeEach(() => {
     getOpportunityByIdMock.mockReset();
     setOpportunityMock.mockReset();
+    requireAuthMock.mockReset();
+    requireAuthMock.mockResolvedValue({ sub: "owner-1" });
   });
 
   it("returns 404 when the opportunity does not exist", async () => {
@@ -58,6 +64,7 @@ describe("PATCH /api/opportunities/[id]", () => {
     expect(response.status).toBe(200);
     expect(setOpportunityMock).toHaveBeenCalledWith(
       "00000000-0000-4000-8000-000000000000",
+      "owner-1",
       { rating: 4 },
       {
         correlationId: expect.any(String),

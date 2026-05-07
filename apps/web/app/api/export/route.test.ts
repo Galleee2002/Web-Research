@@ -1,14 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const listBusinessesForExportMock = vi.fn();
+const requireAuthMock = vi.fn();
 
 vi.mock("@/lib/services/business-service", () => ({
   listBusinessesForExport: listBusinessesForExportMock
+}));
+vi.mock("@/lib/auth/session", () => ({
+  requireAuth: requireAuthMock
 }));
 
 describe("GET /api/export", () => {
   beforeEach(() => {
     listBusinessesForExportMock.mockReset();
+    requireAuthMock.mockReset();
+    requireAuthMock.mockResolvedValue({ sub: "owner-1" });
   });
 
   it("exports filtered businesses as CSV with stable headers", async () => {
@@ -57,6 +63,7 @@ describe("GET /api/export", () => {
         query: "demo",
         order_by: "name"
       },
+      "owner-1",
       {
         correlationId: "corr-export",
         method: "GET",

@@ -21,13 +21,29 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
     method: "GET",
     route: "/integration-test",
   } as const;
+  const getOwnerUserId = async (): Promise<string> => {
+    const result = await query<{ id: string }>(
+      "select id from users where role = 'admin' order by created_at asc, id asc limit 1",
+      [],
+      {
+        operationName: "integration_get_owner_user",
+        context
+      }
+    );
+    const id = result.rows[0]?.id;
+    if (!id) {
+      throw new Error("Expected at least one admin user for integration tests");
+    }
+    return id;
+  };
 
   it("lists businesses through the repository contract", async () => {
+    const ownerUserId = await getOwnerUserId();
     const result = await findBusinesses({
       page: 1,
       page_size: 20,
       order_by: "created_at",
-    }, context);
+    }, ownerUserId, context);
 
     expect(Array.isArray(result.items)).toBe(true);
     expect(result.page).toBe(1);
@@ -36,8 +52,10 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
   });
 
   it("returns null for a missing business id", async () => {
+    const ownerUserId = await getOwnerUserId();
     const business = await findBusinessById(
       "00000000-0000-4000-8000-000000000000",
+      ownerUserId,
       context,
     );
 
@@ -46,11 +64,13 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
 
   it("creates and lists a search run through repository contracts", async () => {
     const suffix = randomUUID();
+    const ownerUserId = await getOwnerUserId();
     const searchRun = await insertSearchRun(
       {
         query: `integration dentists ${suffix}`,
         location: "Buenos Aires, Argentina",
       },
+      ownerUserId,
       {
         correlationId: `integration-${suffix}`,
         method: "POST",
@@ -67,7 +87,7 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
         page_size: 20,
         status: "pending",
         source: "google_places",
-      }, context);
+      }, ownerUserId, context);
 
       expect(listed.items.some((item) => item.id === searchRun.id)).toBe(true);
     } finally {
@@ -80,9 +100,11 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
 
   it("updates lead status while preserving omitted notes and clearing null notes", async () => {
     const suffix = randomUUID();
+    const ownerUserId = await getOwnerUserId();
     const insertResult = await query<{ id: string }>(
       `
         insert into businesses (
+          owner_user_id,
           source,
           name,
           address,
@@ -90,10 +112,10 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
           status,
           notes
         )
-        values ('google_places', $1, $2, false, 'new', 'Initial note')
+        values ($1::uuid, 'google_places', $2, $3, false, 'new', 'Initial note')
         returning id
       `,
-      [`Integration Business ${suffix}`, `Integration Address ${suffix}`],
+      [ownerUserId, `Integration Business ${suffix}`, `Integration Address ${suffix}`],
       {
         operationName: "insert_integration_business",
         context,
@@ -102,12 +124,18 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
     const id = insertResult.rows[0].id;
 
     try {
-      const reviewed = await updateBusinessLeadStatus(id, { status: "reviewed" }, context);
+      const reviewed = await updateBusinessLeadStatus(
+        id,
+        ownerUserId,
+        { status: "reviewed" },
+        context
+      );
       expect(reviewed?.status).toBe("reviewed");
       expect(reviewed?.notes).toBe("Initial note");
 
       const discarded = await updateBusinessLeadStatus(
         id,
+        ownerUserId,
         { status: "discarded", notes: null },
         context,
       );
@@ -123,9 +151,11 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
 
   it("creates, lists, updates, and clears opportunities without relying on demo seed data", async () => {
     const suffix = randomUUID();
+    const ownerUserId = await getOwnerUserId();
     const insertBusinessResult = await query<{ id: string }>(
       `
         insert into businesses (
+          owner_user_id,
           source,
           name,
           address,
@@ -134,10 +164,10 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
           status,
           notes
         )
-        values ('google_places', $1, $2, 'Buenos Aires', false, 'new', 'Opportunity note')
+        values ($1::uuid, 'google_places', $2, $3, 'Buenos Aires', false, 'new', 'Opportunity note')
         returning id
       `,
-      [`Opportunity Business ${suffix}`, `Opportunity Address ${suffix}`],
+      [ownerUserId, `Opportunity Business ${suffix}`, `Opportunity Address ${suffix}`],
       {
         operationName: "insert_opportunity_business",
         context,
@@ -148,10 +178,10 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
     const insertOpportunityResult = await query<{ id: string }>(
       `
         insert into opportunities (business_id, rating, is_selected)
-        values ($1, null, true)
+        values ($1, $2::uuid, null, true)
         returning id
       `,
-      [businessId],
+      [businessId, ownerUserId],
       {
         operationName: "insert_opportunity",
         context,
@@ -167,6 +197,7 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
           order_by: "rating",
           query: suffix,
         },
+        ownerUserId,
         context,
       );
 
@@ -174,11 +205,12 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
       const listedOpportunity = list.items.find((item) => item.id === opportunityId);
       expect(listedOpportunity?.is_selected).toBe(true);
 
-      const opportunity = await findOpportunityById(opportunityId, context);
+      const opportunity = await findOpportunityById(opportunityId, ownerUserId, context);
       expect(opportunity?.rating).toBeNull();
 
       const updated = await updateOpportunityRating(
         opportunityId,
+        ownerUserId,
         { rating: 3 },
         context,
       );
@@ -186,15 +218,21 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
 
       const cleared = await updateOpportunityRating(
         opportunityId,
+        ownerUserId,
         { rating: null },
         context,
       );
       expect(cleared?.rating).toBeNull();
 
-      const detail = await findBusinessById(businessId, context);
+      const detail = await findBusinessById(businessId, ownerUserId, context);
       expect(detail?.opportunity_selected).toBe(true);
 
-      await updateBusinessLeadStatus(businessId, { status: "discarded" }, context);
+      await updateBusinessLeadStatus(
+        businessId,
+        ownerUserId,
+        { status: "discarded" },
+        context
+      );
       const discardedList = await findOpportunities(
         {
           page: 1,
@@ -202,6 +240,7 @@ describe.skipIf(!process.env.DATABASE_URL)("database integration", () => {
           order_by: "rating",
           query: suffix,
         },
+        ownerUserId,
         context,
       );
       expect(discardedList.items.some((item) => item.id === opportunityId)).toBe(false);

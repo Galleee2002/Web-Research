@@ -162,13 +162,14 @@ def test_ensure_opportunity_inserts_placeholder_row_only_for_businesses_without_
 
     connection = FakeConnection()
 
-    repository._ensure_opportunity(connection, "business-1", False)
-    repository._ensure_opportunity(connection, "business-2", True)
+    repository._ensure_opportunity(connection, "business-1", "owner-1", False)
+    repository._ensure_opportunity(connection, "business-2", "owner-2", True)
 
     assert len(connection.calls) == 1
     query, params = connection.calls[0]
     assert "insert into opportunities" in query
     assert "is_selected" in query
     assert "false" in query
-    assert "on conflict (business_id) do nothing" in query
-    assert params == ("business-1",)
+    assert "owner_user_id" in query
+    assert "on conflict (business_id) do update" in query
+    assert params == ("business-1", "owner-1")

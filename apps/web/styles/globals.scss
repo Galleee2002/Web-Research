@@ -1536,29 +1536,61 @@
 
 .opportunity-table__primary h3 {
   margin: 0;
-  font-size: 1rem;
-  line-height: 1.2;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--text-primary);
 }
 
-.opportunity-table__primary p,
-.opportunity-table__cell p,
-.opportunity-table__cell span,
-.opportunity-table__secondary span {
+.opportunity-table__primary .opportunity-table__category {
+  margin: 0.22rem 0 0;
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.opportunity-table__cell p {
   margin: 0;
   color: var(--text-secondary);
 }
 
-.opportunity-table__secondary {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-top: 0.45rem;
-  font-size: 0.88rem;
+.opportunity-table__address {
+  display: block;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.45;
 }
 
-.opportunity-table__secondary a {
+.opportunity-table__phone {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.opportunity-table__secondary {
+  display: flex;
+  align-items: baseline;
+  gap: 0.65rem 0.85rem;
+  flex-wrap: wrap;
+  margin-top: 0.55rem;
+  font-size: 0.8125rem;
+}
+
+.opportunity-table__map-link {
+  flex-shrink: 0;
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  text-decoration: none;
+}
+
+.opportunity-table__map-link:hover {
+  text-decoration: underline;
 }
 
 .opportunity-table__notes-edit {
@@ -1670,12 +1702,19 @@
 
 .opportunity-table__field-label--location {
   display: none;
-  margin: 0 0 0.2rem;
-  font-size: 0.72rem;
+  margin: 0 0 0.28rem;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-tertiary);
+}
+
+.opportunity-table__cell--location {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .opportunity-table__discard-sheet-label {
@@ -2438,19 +2477,35 @@
     padding-right: 9.5rem;
   }
 
+  .opportunity-table__cell--location {
+    gap: 0;
+    padding-top: 0.15rem;
+  }
+
   .opportunity-table__field-label--location {
     display: block;
+    margin-bottom: 0.35rem;
+  }
+
+  .opportunity-table__address {
+    font-size: 0.84rem;
+    line-height: 1.42;
+    color: color-mix(in srgb, var(--text-secondary) 92%, var(--text-primary));
   }
 
   .opportunity-notes-modal-backdrop {
-    align-items: flex-end;
-    padding: 0.55rem;
+    align-items: center;
+    justify-content: center;
+    padding: max(1rem, env(safe-area-inset-top, 0px))
+      max(1rem, env(safe-area-inset-right, 0px))
+      max(1rem, env(safe-area-inset-bottom, 0px))
+      max(1rem, env(safe-area-inset-left, 0px));
   }
 
   .opportunity-notes-modal {
-    width: 100%;
+    width: min(24rem, 100%);
     max-width: 21rem;
-    border-radius: 0.95rem 0.95rem 0.75rem 0.75rem;
+    border-radius: 0.85rem;
   }
 
   .opportunity-table__field-label--status {

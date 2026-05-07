@@ -3,14 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseOperationError } from "@/lib/api/http";
 
 const listSearchRunsMock = vi.fn();
+const requireAuthMock = vi.fn();
 
 vi.mock("@/lib/services/search-service", () => ({
   listSearchRuns: listSearchRunsMock
+}));
+vi.mock("@/lib/auth/session", () => ({
+  requireAuth: requireAuthMock
 }));
 
 describe("GET /api/searches", () => {
   beforeEach(() => {
     listSearchRunsMock.mockReset();
+    requireAuthMock.mockReset();
+    requireAuthMock.mockResolvedValue({ sub: "owner-1" });
   });
 
   it("returns paginated search runs with the inbound correlation id", async () => {
@@ -74,6 +80,7 @@ describe("GET /api/searches", () => {
         status: "completed",
         source: "google_places"
       },
+      "owner-1",
       {
         correlationId: "corr-searches",
         method: "GET",

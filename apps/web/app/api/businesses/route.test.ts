@@ -3,14 +3,20 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseOperationError } from "@/lib/api/http";
 
 const listBusinessesMock = vi.fn();
+const requireAuthMock = vi.fn();
 
 vi.mock("@/lib/services/business-service", () => ({
   listBusinesses: listBusinessesMock
+}));
+vi.mock("@/lib/auth/session", () => ({
+  requireAuth: requireAuthMock
 }));
 
 describe("GET /api/businesses", () => {
   beforeEach(() => {
     listBusinessesMock.mockReset();
+    requireAuthMock.mockReset();
+    requireAuthMock.mockResolvedValue({ sub: "owner-1" });
   });
 
   it("returns the paginated business contract consumed by the dashboard", async () => {
@@ -71,6 +77,7 @@ describe("GET /api/businesses", () => {
         query: "demo",
         order_by: "created_at"
       },
+      "owner-1",
       {
         correlationId: "corr-businesses",
         method: "GET",

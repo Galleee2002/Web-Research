@@ -7,6 +7,7 @@ from contracts import NormalizedBusiness
 @dataclass(slots=True)
 class SearchRun:
     id: str
+    owner_user_id: str
     query: str
     location: str
     source: str

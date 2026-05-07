@@ -18,11 +18,12 @@ const defaultScanServiceDependencies = {
 
 export async function listProviderCalls(
   filters: ScanFilters,
+  ownerUserId: string,
   context: OperationContext,
   deps: ScanServiceDependencies = defaultScanServiceDependencies
 ): Promise<PaginatedScansResponse> {
-  const { rows, total } = await deps.getProviderCalls(filters, context);
-  const globalRequestCount = await deps.countGlobalRequestsDaily(undefined, context);
+  const { rows, total } = await deps.getProviderCalls(filters, ownerUserId, context);
+  const globalRequestCount = await deps.countGlobalRequestsDaily(ownerUserId, undefined, context);
 
   return {
     items: rows,

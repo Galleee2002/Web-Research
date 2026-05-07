@@ -7,6 +7,7 @@ import {
   validationError,
   withApiRoute,
 } from "@/lib/api/http";
+import { requireAuth } from "@/lib/auth/session";
 import {
   getOpportunityById,
   setOpportunity,
@@ -28,7 +29,8 @@ export async function GET(_request: Request, context: RouteContext) {
       return validationError(requestContext.correlationId, ["id must be a valid UUID"]);
     }
 
-    const opportunity = await getOpportunityById(id, requestContext.operationContext);
+    const session = await requireAuth(_request, requestContext.operationContext);
+    const opportunity = await getOpportunityById(id, session.sub, requestContext.operationContext);
 
     if (!opportunity) {
       return notFound(requestContext.correlationId, "Opportunity not found");
@@ -53,8 +55,10 @@ export async function PATCH(request: Request, context: RouteContext) {
       return validationError(requestContext.correlationId, parsed.errors);
     }
 
+    const session = await requireAuth(request, requestContext.operationContext);
     const opportunity = await setOpportunity(
       id,
+      session.sub,
       parsed.value,
       requestContext.operationContext,
     );

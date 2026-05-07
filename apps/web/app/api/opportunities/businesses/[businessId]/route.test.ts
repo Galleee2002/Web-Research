@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const setOpportunitySelectionByBusinessIdMock = vi.fn();
+const requireAuthMock = vi.fn();
 
 vi.mock("@/lib/services/opportunity-service", () => ({
   setOpportunitySelectionByBusinessId: setOpportunitySelectionByBusinessIdMock,
+}));
+vi.mock("@/lib/auth/session", () => ({
+  requireAuth: requireAuthMock
 }));
 
 const VALID_BUSINESS_ID = "11111111-1111-4111-8111-111111111111";
@@ -11,6 +15,8 @@ const VALID_BUSINESS_ID = "11111111-1111-4111-8111-111111111111";
 describe("PATCH /api/opportunities/businesses/[businessId]", () => {
   beforeEach(() => {
     setOpportunitySelectionByBusinessIdMock.mockReset();
+    requireAuthMock.mockReset();
+    requireAuthMock.mockResolvedValue({ sub: "owner-1" });
   });
 
   it("returns 400 for invalid UUID", async () => {
@@ -99,6 +105,7 @@ describe("PATCH /api/opportunities/businesses/[businessId]", () => {
     });
     expect(setOpportunitySelectionByBusinessIdMock).toHaveBeenCalledWith(
       VALID_BUSINESS_ID,
+      "owner-1",
       { is_selected: true },
       expect.objectContaining({
         method: "PATCH",
