@@ -11,7 +11,14 @@ import {
   X,
 } from "lucide-react";
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import type { OpportunityRead } from "@shared/index";
@@ -29,6 +36,32 @@ const CATEGORY_FILTER_ALL = "all" as const;
 type CategoryFilterValue = typeof CATEGORY_FILTER_ALL | string;
 
 export default function OpportunitiesPage() {
+  return (
+    <Suspense fallback={<OpportunitiesPageFallback />}>
+      <OpportunitiesPageContent />
+    </Suspense>
+  );
+}
+
+function OpportunitiesPageFallback() {
+  return (
+    <section
+      className="dashboard-content opportunity-board"
+      aria-labelledby="opportunities-title"
+    >
+      <header className="dashboard-content__header opportunity-board__header">
+        <h2 id="opportunities-title">Opportunities</h2>
+      </header>
+      <div className="opportunity-board__body">
+        <p className="opportunity-board__feedback" role="status">
+          Loading…
+        </p>
+      </div>
+    </section>
+  );
+}
+
+function OpportunitiesPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
