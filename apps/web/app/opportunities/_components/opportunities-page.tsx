@@ -1,1 +1,1 @@
-export { default as OpportunitiesPage } from "../page";
+export { default as OpportunitiesPage } from "../opportunities-client";
