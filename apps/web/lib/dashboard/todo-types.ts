@@ -9,4 +9,6 @@ export type DashboardTodoItem = {
   /** Display segment after the business name (e.g. lead status label). */
   statusLabel: string;
   completed: boolean;
+  /** Row still being composed (title input + business picker). */
+  isDraft?: boolean;
 };

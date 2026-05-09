@@ -3,6 +3,7 @@
 import { ChevronDown, Ellipsis, FolderOpen, Save, Trash2 } from "lucide-react";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import type { OpportunityRead } from "@shared/index";
 import {
@@ -19,6 +20,11 @@ const CATEGORY_FILTER_ALL = "all" as const;
 type CategoryFilterValue = typeof CATEGORY_FILTER_ALL | string;
 
 export default function OpportunitiesPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const processedFocusFromUrlRef = useRef<string | null>(null);
+
   const [items, setItems] = useState<OpportunityRead[]>([]);
   const [loadState, setLoadState] = useState<LoadState>("idle");
   const [categoryFilter, setCategoryFilter] =
@@ -81,6 +87,51 @@ export default function OpportunitiesPage() {
   useEffect(() => {
     void loadOpportunities();
   }, [loadOpportunities]);
+
+  useLayoutEffect(() => {
+    const focusId = searchParams.get("focus");
+    if (!focusId) {
+      processedFocusFromUrlRef.current = null;
+      return;
+    }
+
+    if (processedFocusFromUrlRef.current === focusId) return;
+
+    if (loadState !== "ready" || items.length === 0) return;
+
+    const stripFocusParam = () => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete("focus");
+      const qs = params.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    };
+
+    if (!items.some((o) => o.id === focusId)) {
+      processedFocusFromUrlRef.current = focusId;
+      stripFocusParam();
+      return;
+    }
+
+    const row = document.querySelector(
+      `[data-opportunity-row="${CSS.escape(focusId)}"]`
+    );
+    if (!(row instanceof HTMLElement)) {
+      processedFocusFromUrlRef.current = focusId;
+      stripFocusParam();
+      return;
+    }
+
+    processedFocusFromUrlRef.current = focusId;
+
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
+    row.classList.add("opportunity-table__row--focused");
+
+    window.setTimeout(() => {
+      row.classList.remove("opportunity-table__row--focused");
+    }, 2200);
+
+    stripFocusParam();
+  }, [items, loadState, pathname, router, searchParams]);
 
   useEffect(() => {
     if (!discardPanelOpportunityId) return;

@@ -753,6 +753,11 @@
   margin: 0;
 }
 
+.auth-form--dashboard.auth-form--settings-grid {
+  width: 100%;
+  max-width: none;
+}
+
 /* Settings profile: 2×2 fields on wide screens; stacked (4 rows) on mobile */
 .auth-form--settings-grid {
   grid-template-columns: 1fr;
@@ -1447,6 +1452,14 @@
   background: color-mix(in srgb, var(--surface-01) 86%, transparent);
   overflow: visible;
   isolation: isolate;
+}
+
+.opportunity-table__row--focused {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border-soft));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 22%, transparent);
+  transition:
+    border-color 280ms ease,
+    box-shadow 280ms ease;
 }
 
 .opportunity-table__row-main {
