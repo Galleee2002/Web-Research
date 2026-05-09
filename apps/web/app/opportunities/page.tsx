@@ -1,6 +1,15 @@
 "use client";
 
-import { ChevronDown, Ellipsis, FolderOpen, Save, Trash2 } from "lucide-react";
+import {
+  ChevronDown,
+  Ellipsis,
+  FolderOpen,
+  LaptopMinimalCheck,
+  NotebookText,
+  Save,
+  Trash2,
+  X,
+} from "lucide-react";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -136,12 +145,29 @@ export default function OpportunitiesPage() {
   useEffect(() => {
     if (!discardPanelOpportunityId) return;
     const onDoc = (event: MouseEvent) => {
-      const root = document.querySelector(
+      const target = event.target as Node;
+      const row = document.querySelector(
         `[data-opportunity-row="${CSS.escape(discardPanelOpportunityId)}"]`
       );
-      if (root && !root.contains(event.target as Node)) {
-        setDiscardPanelOpportunityId(null);
+      if (!row) return;
+
+      const targetEl =
+        target instanceof Element ? target : target.parentElement;
+      if (!targetEl) return;
+
+      if (targetEl.closest(".opportunity-table__discard-sheet-btn")) {
+        return;
       }
+      if (targetEl.closest(".opportunity-table__overflow-slot")) {
+        return;
+      }
+
+      if (!row.contains(target)) {
+        setDiscardPanelOpportunityId(null);
+        return;
+      }
+
+      setDiscardPanelOpportunityId(null);
     };
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") setDiscardPanelOpportunityId(null);
@@ -431,17 +457,12 @@ export default function OpportunitiesPage() {
                             </a>
                           ) : null}
                         </div>
-                        <div className="opportunity-table__notes-edit">
-                          <button
-                            type="button"
-                            className="opportunity-table__notes-view-button opportunity-table__notes-view-button--desktop"
-                            onClick={() => setOpenNotesOpportunity(opportunity)}
-                            disabled={isPending}
-                            aria-label={`View notes for ${opportunity.name}`}
-                          >
-                            View Notes
-                          </button>
-                        </div>
+                        <OpportunityNotesWebActions
+                          opportunity={opportunity}
+                          isPending={isPending}
+                          onOpenNotes={() => setOpenNotesOpportunity(opportunity)}
+                          variant="desktop"
+                        />
                       </div>
 
                       <div className="opportunity-table__cell" role="cell">
@@ -452,17 +473,12 @@ export default function OpportunitiesPage() {
                           Location
                         </span>
                         <span>{opportunity.address ?? "No address"}</span>
-                        <div className="opportunity-table__notes-edit opportunity-table__notes-edit--mobile">
-                          <button
-                            type="button"
-                            className="opportunity-table__notes-view-button opportunity-table__notes-view-button--mobile"
-                            onClick={() => setOpenNotesOpportunity(opportunity)}
-                            disabled={isPending}
-                            aria-label={`View notes for ${opportunity.name}`}
-                          >
-                            View Notes
-                          </button>
-                        </div>
+                        <OpportunityNotesWebActions
+                          opportunity={opportunity}
+                          isPending={isPending}
+                          onOpenNotes={() => setOpenNotesOpportunity(opportunity)}
+                          variant="mobile"
+                        />
                       </div>
 
                       <div
@@ -605,9 +621,23 @@ export default function OpportunitiesPage() {
                     event.stopPropagation();
                   }}
                 >
-                  <h3 className="opportunity-notes-modal__title">
-                    {openNotesOpportunity.name}
-                  </h3>
+                  <div className="opportunity-notes-modal__header">
+                    <h3 className="opportunity-notes-modal__title">
+                      {openNotesOpportunity.name}
+                    </h3>
+                    <button
+                      type="button"
+                      className="opportunity-notes-modal__close"
+                      aria-label="Close notes"
+                      onClick={() => setOpenNotesOpportunity(null)}
+                    >
+                      <X
+                        className="opportunity-notes-modal__close-icon"
+                        strokeWidth={2.25}
+                        aria-hidden
+                      />
+                    </button>
+                  </div>
                   <p className="opportunity-notes-modal__note">
                     {openNotesOpportunity.notes?.trim() ||
                       "No notes available for this business."}
@@ -619,6 +649,84 @@ export default function OpportunitiesPage() {
           : null}
       </div>
     </section>
+  );
+}
+
+function normalizeOpportunityWebsiteHref(website: string | null): string | null {
+  const w = website?.trim();
+  if (!w) return null;
+  if (/^https?:\/\//i.test(w)) return w;
+  return `https://${w}`;
+}
+
+function OpportunityNotesWebActions({
+  opportunity,
+  isPending,
+  onOpenNotes,
+  variant,
+}: {
+  opportunity: OpportunityRead;
+  isPending: boolean;
+  onOpenNotes: () => void;
+  variant: "desktop" | "mobile";
+}) {
+  const buttonClass =
+    variant === "desktop"
+      ? "opportunity-table__notes-view-button opportunity-table__notes-view-button--desktop"
+      : "opportunity-table__notes-view-button opportunity-table__notes-view-button--mobile";
+
+  const wrapperClass =
+    variant === "desktop"
+      ? "opportunity-table__notes-edit"
+      : "opportunity-table__notes-edit opportunity-table__notes-edit--mobile";
+
+  const webHref = normalizeOpportunityWebsiteHref(opportunity.website);
+  const hasWebsiteLink = opportunity.has_website && webHref !== null;
+
+  return (
+    <div className={wrapperClass}>
+      <button
+        type="button"
+        className={buttonClass}
+        onClick={onOpenNotes}
+        disabled={isPending}
+        aria-label={`View notes for ${opportunity.name}`}
+      >
+        <NotebookText
+          className="opportunity-table__notes-view-button-icon"
+          strokeWidth={2}
+          aria-hidden
+        />
+        View Notes
+      </button>
+      {hasWebsiteLink ? (
+        <a
+          href={webHref}
+          target="_blank"
+          rel="noreferrer"
+          className="opportunity-table__web-link opportunity-table__web-link--has-web"
+          aria-label={`Open website for ${opportunity.name}`}
+        >
+          <LaptopMinimalCheck
+            className="opportunity-table__web-link-icon"
+            strokeWidth={2}
+            aria-hidden
+          />
+        </a>
+      ) : (
+        <span
+          className="opportunity-table__web-link opportunity-table__web-link--no-web"
+          role="img"
+          aria-label={`No website for ${opportunity.name}`}
+        >
+          <LaptopMinimalCheck
+            className="opportunity-table__web-link-icon"
+            strokeWidth={2}
+            aria-hidden
+          />
+        </span>
+      )}
+    </div>
   );
 }
 
