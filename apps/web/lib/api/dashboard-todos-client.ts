@@ -1,6 +1,7 @@
 import type {
   DashboardTodoCreate,
   DashboardTodoRead,
+  DashboardTodoUpdate,
   DashboardTodosDeletedResponse,
   DashboardTodosListResponse,
 } from "@shared/index";
@@ -45,10 +46,12 @@ function readCookie(name: string): string | null {
 export function mapDashboardTodoReadToItem(row: DashboardTodoRead): DashboardTodoItem {
   return {
     id: row.id,
-    title: row.title,
+    name: row.name,
     businessName: row.business_name,
-    statusLabel: leadStatusLabel(row.business_status),
-    completed: row.completed,
+    businessStatusLabel: leadStatusLabel(row.business_status),
+    status: row.status,
+    startDate: row.start_date,
+    priority: row.priority,
   };
 }
 
@@ -96,11 +99,11 @@ export async function createDashboardTodo(
   return mapDashboardTodoReadToItem(body as DashboardTodoRead);
 }
 
-export async function patchDashboardTodoCompleted(
+export async function patchDashboardTodo(
   id: string,
-  completed: boolean,
+  payload: DashboardTodoUpdate,
   init?: RequestInit
-): Promise<void> {
+): Promise<DashboardTodoItem> {
   const csrfHeader = getCsrfHeader("PATCH");
   const response = await fetch(`/api/dashboard/todos/${encodeURIComponent(id)}`, {
     method: "PATCH",
@@ -109,7 +112,7 @@ export async function patchDashboardTodoCompleted(
       "Content-Type": "application/json",
       ...csrfHeader,
     },
-    body: JSON.stringify({ completed }),
+    body: JSON.stringify(payload),
     ...init,
   });
   const body = await readJsonBody(response);
@@ -120,6 +123,7 @@ export async function patchDashboardTodoCompleted(
       `Request failed with status ${response.status}`
     );
   }
+  return mapDashboardTodoReadToItem(body as DashboardTodoRead);
 }
 
 export async function deleteCompletedDashboardTodos(init?: RequestInit): Promise<number> {

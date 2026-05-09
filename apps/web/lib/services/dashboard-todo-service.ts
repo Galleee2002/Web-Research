@@ -1,7 +1,7 @@
 import type {
-  DashboardTodoCompletedUpdate,
   DashboardTodoCreate,
   DashboardTodoRead,
+  DashboardTodoUpdate,
   DashboardTodosDeletedResponse,
   DashboardTodosListResponse,
 } from "@shared/index";
@@ -12,20 +12,20 @@ import {
   deleteCompletedDashboardTodos as defaultDeleteCompletedDashboardTodos,
   findDashboardTodos as defaultFindDashboardTodos,
   insertDashboardTodo as defaultInsertDashboardTodo,
-  updateDashboardTodoCompleted as defaultUpdateDashboardTodoCompleted,
+  updateDashboardTodo as defaultUpdateDashboardTodo,
 } from "@/lib/db/dashboard-todos";
 
 interface DashboardTodoServiceDependencies {
   findDashboardTodos: typeof defaultFindDashboardTodos;
   insertDashboardTodo: typeof defaultInsertDashboardTodo;
-  updateDashboardTodoCompleted: typeof defaultUpdateDashboardTodoCompleted;
+  updateDashboardTodo: typeof defaultUpdateDashboardTodo;
   deleteCompletedDashboardTodos: typeof defaultDeleteCompletedDashboardTodos;
 }
 
 const defaultDeps = {
   findDashboardTodos: defaultFindDashboardTodos,
   insertDashboardTodo: defaultInsertDashboardTodo,
-  updateDashboardTodoCompleted: defaultUpdateDashboardTodoCompleted,
+  updateDashboardTodo: defaultUpdateDashboardTodo,
   deleteCompletedDashboardTodos: defaultDeleteCompletedDashboardTodos,
 } satisfies DashboardTodoServiceDependencies;
 
@@ -44,13 +44,13 @@ export async function createDashboardTodo(
   return deps.insertDashboardTodo(input, context);
 }
 
-export async function setDashboardTodoCompleted(
+export async function updateDashboardTodo(
   id: string,
-  payload: DashboardTodoCompletedUpdate,
+  payload: DashboardTodoUpdate,
   context: OperationContext,
   deps: DashboardTodoServiceDependencies = defaultDeps
 ): Promise<DashboardTodoRead | null> {
-  return deps.updateDashboardTodoCompleted(id, payload.completed, context);
+  return deps.updateDashboardTodo(id, payload, context);
 }
 
 export async function removeCompletedDashboardTodos(

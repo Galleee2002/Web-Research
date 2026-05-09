@@ -5,6 +5,8 @@ import {
   MAX_PAGE_SIZE,
   parseBusinessFilters,
   parseBusinessStatusUpdate,
+  parseDashboardTodoCreate,
+  parseDashboardTodoUpdate,
   parseGooglePlacesSearchRequest,
   parseOpportunityFilters,
   parseOpportunityRatingUpdate,
@@ -354,5 +356,82 @@ describe("shared contracts", () => {
       value: { role: "admin" },
     });
     expect(parseUserRoleUpdate({ role: "owner" }).ok).toBe(false);
+  });
+
+  it("parses dashboard todo creation payloads with optional metadata", () => {
+    const businessId = "00000000-0000-4000-8000-000000000002";
+
+    expect(parseDashboardTodoCreate({ name: " Buy ", business_id: businessId })).toEqual({
+      ok: true,
+      value: { name: "Buy", business_id: businessId },
+    });
+
+    expect(
+      parseDashboardTodoCreate({
+        name: "Plan launch",
+        business_id: businessId,
+        priority: "high",
+        start_date: "2026-05-12",
+        status: "completed",
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        name: "Plan launch",
+        business_id: businessId,
+        priority: "high",
+        start_date: "2026-05-12",
+        status: "completed",
+      },
+    });
+
+    expect(parseDashboardTodoCreate({ business_id: businessId }).ok).toBe(false);
+    expect(parseDashboardTodoCreate({ name: "", business_id: businessId }).ok).toBe(false);
+    expect(
+      parseDashboardTodoCreate({ name: "x", business_id: "not-uuid" }).ok
+    ).toBe(false);
+    expect(
+      parseDashboardTodoCreate({
+        name: "x",
+        business_id: businessId,
+        priority: "urgent",
+      }).ok
+    ).toBe(false);
+    expect(
+      parseDashboardTodoCreate({
+        name: "x",
+        business_id: businessId,
+        start_date: "2026/05/12",
+      }).ok
+    ).toBe(false);
+  });
+
+  it("parses dashboard todo updates and rejects empty payloads", () => {
+    expect(parseDashboardTodoUpdate({ status: "completed" })).toEqual({
+      ok: true,
+      value: { status: "completed" },
+    });
+
+    expect(
+      parseDashboardTodoUpdate({
+        name: " Refresh ",
+        priority: "low",
+        start_date: null,
+      })
+    ).toEqual({
+      ok: true,
+      value: { name: "Refresh", priority: "low", start_date: null },
+    });
+
+    expect(parseDashboardTodoUpdate({})).toEqual({
+      ok: false,
+      errors: [
+        "at least one of name, status, start_date, or priority is required",
+      ],
+    });
+
+    expect(parseDashboardTodoUpdate({ status: "archived" }).ok).toBe(false);
+    expect(parseDashboardTodoUpdate({ priority: 1 as unknown as string }).ok).toBe(false);
+    expect(parseDashboardTodoUpdate({ start_date: "yesterday" }).ok).toBe(false);
   });
 });

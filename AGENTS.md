@@ -92,11 +92,15 @@ persist via `apps/web/lib/db`, map errors with `correlation_id` preserved.
 
 - `GET /api/dashboard/todos` — list tasks joined to `businesses` for subtitle
   labels.
-- `POST /api/dashboard/todos` — body `{ title, business_id }`; `404` if
-  business missing.
-- `PATCH /api/dashboard/todos/{id}` — body `{ completed: boolean }`.
-- `DELETE /api/dashboard/todos/completed` — delete rows with `completed = true`;
-  response includes `deleted` count.
+- `POST /api/dashboard/todos` — body
+  `{ name, business_id, status?, start_date?, priority? }`; `404` if the
+  business is missing. `status` defaults to `pending`, `priority` to `medium`,
+  and `start_date` is optional (`YYYY-MM-DD` or `null`).
+- `PATCH /api/dashboard/todos/{id}` — partial update accepting any of `name`,
+  `status` (`pending` | `completed`), `start_date`, `priority`
+  (`low` | `medium` | `high`); at least one field is required.
+- `DELETE /api/dashboard/todos/completed` — delete rows with
+  `status = 'completed'`; response includes `deleted` count.
 
 **Scans**
 
@@ -168,10 +172,11 @@ persist via `apps/web/lib/db`, map errors with `correlation_id` preserved.
 - `opportunities` exists in PostgreSQL as a commercial 1:1 layer on top of
   `businesses`, with `business_id` unique and nullable `rating`.
 - `dashboard_todos` exists in PostgreSQL for the dashboard **To Do** list:
-  `business_id` references `businesses` (`on delete cascade`), `title`,
-  `completed`, timestamps. List APIs **join** `businesses` so the UI can show
-  `business_name` and current lead `status` as the subtitle without storing
-  duplicate label columns on the todo row.
+  `business_id` references `businesses` (`on delete cascade`), `name`,
+  `status` (`pending` | `completed`), nullable `start_date`, `priority`
+  (`low` | `medium` | `high`), timestamps. List APIs **join** `businesses`
+  so the UI can show `business_name` and current lead `status` as the subtitle
+  without storing duplicate label columns on the todo row.
 - `users` (including session-version fields for invalidation) and
   `auth_rate_limits` support login/register and admin flows as migrated.
 - `GET /api/opportunities` always derives visible rows from
@@ -198,8 +203,9 @@ persist via `apps/web/lib/db`, map errors with `correlation_id` preserved.
 
 ## Dashboard To Do Rules
 
-- Persisted tasks are rows in `dashboard_todos`; the only task-level state on
-  that row is `completed` (maps to the dashboard checkbox UI).
+- Persisted tasks are rows in `dashboard_todos`; task-level state covers
+  `name`, `status` (`pending` | `completed`), `start_date`, and `priority`
+  (`low` | `medium` | `high`). The dashboard checkbox toggles `status`.
 - Subtitle text (`Business — lead status`) reflects **`businesses.status` at read
   time** via SQL join; changing lead status elsewhere updates the subtitle on
   the next list fetch.

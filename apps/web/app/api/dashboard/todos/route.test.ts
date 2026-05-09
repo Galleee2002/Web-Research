@@ -8,6 +8,19 @@ vi.mock("@/lib/services/dashboard-todo-service", () => ({
   createDashboardTodo: createDashboardTodoMock,
 }));
 
+const SAMPLE_READ = {
+  id: "00000000-0000-4000-8000-000000000001",
+  name: "Hello",
+  business_id: "00000000-0000-4000-8000-000000000002",
+  business_name: "Acme",
+  business_status: "new",
+  status: "pending",
+  start_date: null,
+  priority: "medium",
+  created_at: "2026-01-01T00:00:00.000Z",
+  updated_at: "2026-01-01T00:00:00.000Z",
+};
+
 describe("GET /api/dashboard/todos", () => {
   beforeEach(() => {
     listDashboardTodosMock.mockReset();
@@ -33,17 +46,8 @@ describe("POST /api/dashboard/todos", () => {
     createDashboardTodoMock.mockReset();
   });
 
-  it("creates a task", async () => {
-    createDashboardTodoMock.mockResolvedValue({
-      id: "00000000-0000-4000-8000-000000000001",
-      title: "Hello",
-      business_id: "00000000-0000-4000-8000-000000000002",
-      business_name: "Acme",
-      business_status: "new",
-      completed: false,
-      created_at: "2026-01-01T00:00:00.000Z",
-      updated_at: "2026-01-01T00:00:00.000Z",
-    });
+  it("creates a task with default status and priority", async () => {
+    createDashboardTodoMock.mockResolvedValue(SAMPLE_READ);
 
     const response = await import("./route").then(({ POST }) =>
       POST(
@@ -51,7 +55,7 @@ describe("POST /api/dashboard/todos", () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: "Hello",
+            name: "Hello",
             business_id: "00000000-0000-4000-8000-000000000002",
           }),
         })
@@ -61,7 +65,7 @@ describe("POST /api/dashboard/todos", () => {
     expect(response.status).toBe(201);
     expect(createDashboardTodoMock).toHaveBeenCalledWith(
       {
-        title: "Hello",
+        name: "Hello",
         business_id: "00000000-0000-4000-8000-000000000002",
       },
       expect.objectContaining({
@@ -69,6 +73,59 @@ describe("POST /api/dashboard/todos", () => {
         method: "POST",
       })
     );
+  });
+
+  it("creates a task with priority and start date", async () => {
+    createDashboardTodoMock.mockResolvedValue({
+      ...SAMPLE_READ,
+      priority: "high",
+      start_date: "2026-05-12",
+    });
+
+    const response = await import("./route").then(({ POST }) =>
+      POST(
+        new Request("http://localhost/api/dashboard/todos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "Plan launch",
+            business_id: "00000000-0000-4000-8000-000000000002",
+            priority: "high",
+            start_date: "2026-05-12",
+          }),
+        })
+      )
+    );
+
+    expect(response.status).toBe(201);
+    expect(createDashboardTodoMock).toHaveBeenCalledWith(
+      {
+        name: "Plan launch",
+        business_id: "00000000-0000-4000-8000-000000000002",
+        priority: "high",
+        start_date: "2026-05-12",
+      },
+      expect.anything()
+    );
+  });
+
+  it("rejects invalid payloads", async () => {
+    const response = await import("./route").then(({ POST }) =>
+      POST(
+        new Request("http://localhost/api/dashboard/todos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "",
+            business_id: "00000000-0000-4000-8000-000000000002",
+            priority: "urgent",
+          }),
+        })
+      )
+    );
+
+    expect(response.status).toBe(400);
+    expect(createDashboardTodoMock).not.toHaveBeenCalled();
   });
 
   it("returns 404 when the business does not exist", async () => {
@@ -80,7 +137,7 @@ describe("POST /api/dashboard/todos", () => {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            title: "Hello",
+            name: "Hello",
             business_id: "00000000-0000-4000-8000-000000000002",
           }),
         })

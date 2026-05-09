@@ -9,5 +9,8 @@ export const INPUT_LIMITS = {
   city: 120,
   category: 120,
   textSearch: 160,
-  dashboardTodoTitle: 240,
+  dashboardTodoName: 240,
 } as const;
+
+export const DASHBOARD_TODO_STATUSES = ["pending", "completed"] as const;
+export const DASHBOARD_TODO_PRIORITIES = ["low", "medium", "high"] as const;

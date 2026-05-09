@@ -1,5 +1,11 @@
-import { patchDashboardTodoCompleted } from "@/lib/api/dashboard-todos-client";
+import type { DashboardTodoUpdate } from "@shared/index";
 
-export async function syncTodoCompleted(todoId: string, completed: boolean): Promise<void> {
-  await patchDashboardTodoCompleted(todoId, completed);
+import { patchDashboardTodo } from "@/lib/api/dashboard-todos-client";
+import type { DashboardTodoItem } from "@/lib/dashboard/todo-types";
+
+export async function syncDashboardTodo(
+  todoId: string,
+  patch: DashboardTodoUpdate
+): Promise<DashboardTodoItem> {
+  return patchDashboardTodo(todoId, patch);
 }

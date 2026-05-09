@@ -1,7 +1,18 @@
 "use client";
 
-import { MAX_PAGE_SIZE, type OpportunityRead } from "@shared/index";
-import { Check, ChevronDown, Eye, Plus, X } from "lucide-react";
+import {
+  MAX_PAGE_SIZE,
+  type DashboardTodoPriority,
+  type OpportunityRead,
+} from "@shared/index";
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  Eye,
+  Plus,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -14,7 +25,7 @@ import {
   fetchDashboardTodos,
 } from "@/lib/api/dashboard-todos-client";
 import { fetchOpportunities } from "@/lib/api/opportunities-client";
-import { syncTodoCompleted } from "@/lib/dashboard/todo-sync";
+import { syncDashboardTodo } from "@/lib/dashboard/todo-sync";
 import type { DashboardTodoItem } from "@/lib/dashboard/todo-types";
 
 function opportunityHasNotes(opp: OpportunityRead): boolean {
@@ -26,6 +37,25 @@ function newTodoId(): string {
     return crypto.randomUUID();
   }
   return `todo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+const PRIORITY_LABEL: Record<DashboardTodoPriority, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+};
+
+function formatStartDate(value: string): string {
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return new Intl.DateTimeFormat(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
 }
 
 type OppLoadState = "loading" | "ready" | "error";
@@ -229,28 +259,33 @@ export function DashboardHome() {
   }, [notesModalOpportunity]);
 
   const handleToggleTodo = useCallback(async (id: string) => {
-    let nextCompleted = false;
-    let revertTo = false;
+    let nextStatus: DashboardTodoItem["status"] = "pending";
+    let revertTo: DashboardTodoItem["status"] = "pending";
     let found = false;
 
     setTodos((prev) => {
       const current = prev.find((t) => t.id === id);
       if (!current || current.isDraft) return prev;
       found = true;
-      revertTo = current.completed;
-      nextCompleted = !current.completed;
-      return prev.map((t) =>
-        t.id === id ? { ...t, completed: nextCompleted } : t
-      );
+      revertTo = current.status;
+      nextStatus = current.status === "completed" ? "pending" : "completed";
+      return prev.map((t) => (t.id === id ? { ...t, status: nextStatus } : t));
     });
 
     if (!found) return;
 
     try {
-      await syncTodoCompleted(id, nextCompleted);
+      const synced = await syncDashboardTodo(id, { status: nextStatus });
+      // Re-hydrate from server response so any backend-derived fields
+      // (e.g. updated_at, business status changes) reflect immediately.
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === id && !t.isDraft ? { ...t, ...synced } : t
+        )
+      );
     } catch {
       setTodos((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, completed: revertTo } : t))
+        prev.map((t) => (t.id === id ? { ...t, status: revertTo } : t))
       );
     }
   }, []);
@@ -258,20 +293,41 @@ export function DashboardHome() {
   const handleAddTodo = useCallback(() => {
     const task: DashboardTodoItem = {
       id: newTodoId(),
-      title: "",
+      name: "",
       businessName: null,
-      statusLabel: "",
-      completed: false,
+      businessStatusLabel: "",
+      status: "pending",
+      startDate: null,
+      priority: "medium",
       isDraft: true,
     };
     setTodos((prev) => [...prev, task]);
   }, []);
 
-  const handleDraftTitleChange = useCallback((id: string, title: string) => {
+  const handleDraftNameChange = useCallback((id: string, name: string) => {
     setTodos((prev) =>
-      prev.map((t) => (t.id === id && t.isDraft ? { ...t, title } : t))
+      prev.map((t) => (t.id === id && t.isDraft ? { ...t, name } : t))
     );
   }, []);
+
+  const handleDraftPriorityChange = useCallback(
+    (id: string, priority: DashboardTodoPriority) => {
+      setTodos((prev) =>
+        prev.map((t) => (t.id === id && t.isDraft ? { ...t, priority } : t))
+      );
+    },
+    []
+  );
+
+  const handleDraftStartDateChange = useCallback(
+    (id: string, value: string) => {
+      const startDate = value.trim().length === 0 ? null : value;
+      setTodos((prev) =>
+        prev.map((t) => (t.id === id && t.isDraft ? { ...t, startDate } : t))
+      );
+    },
+    []
+  );
 
   const handleSelectBusinessForTodo = useCallback(
     async (todoId: string, opp: OpportunityRead) => {
@@ -280,13 +336,15 @@ export function DashboardHome() {
         setPickBusinessForTodoId(null);
         return;
       }
-      const title = draft.title.trim() || "New task";
+      const name = draft.name.trim() || "New task";
       setPickBusinessForTodoId(null);
       setTodoError(null);
       try {
         const created = await createDashboardTodo({
-          title,
+          name,
           business_id: opp.business_id,
+          priority: draft.priority,
+          start_date: draft.startDate,
         });
         setTodos((prev) =>
           prev.map((t) => (t.id === todoId && t.isDraft ? created : t))
@@ -304,7 +362,7 @@ export function DashboardHome() {
     setTodoError(null);
     try {
       await deleteCompletedDashboardTodos();
-      setTodos((prev) => prev.filter((t) => !t.completed));
+      setTodos((prev) => prev.filter((t) => t.status !== "completed"));
     } catch (error: unknown) {
       setTodoError(
         error instanceof Error ? error.message : "Could not delete completed tasks"
@@ -318,7 +376,7 @@ export function DashboardHome() {
       todos.some(
         (t) =>
           t.isDraft &&
-          (!t.title.trim() || t.businessName === null)
+          (!t.name.trim() || t.businessName === null)
       ),
     [todos, todoLoadState]
   );
@@ -358,7 +416,7 @@ export function DashboardHome() {
                   todoLoadState === "error"
                     ? "Tasks could not be loaded; try refreshing the page"
                     : cannotAddTask
-                      ? "Finish the task you're adding (title and business) before adding another"
+                      ? "Finish the task you're adding (name and business) before adding another"
                       : "Add task"
                 }
                 disabled={cannotAddTask}
@@ -372,7 +430,7 @@ export function DashboardHome() {
                 {Array.from({ length: TODO_SKELETON_ROWS }, (_, k) => (
                   <li key={k}>
                     <div className="dashboard-home-task dashboard-home-task--skeleton">
-                      <div className="dashboard-home-task__text">
+                      <div className="dashboard-home-task__main">
                         <span className="dashboard-home-shimmer dashboard-home-shimmer--task-title" />
                         <span className="dashboard-home-shimmer dashboard-home-shimmer--task-sub" />
                       </div>
@@ -397,52 +455,118 @@ export function DashboardHome() {
                     task.isDraft ? (
                       <li key={task.id}>
                         <div className="dashboard-home-task dashboard-home-task--draft">
-                          <div className="dashboard-home-task__text">
-                            <input
-                              type="text"
-                              className="dashboard-home-task__title-input"
-                              placeholder="Task title"
-                              value={task.title}
-                              onChange={(e) =>
-                                handleDraftTitleChange(task.id, e.target.value)
-                              }
-                              aria-label="Task title"
-                              autoComplete="off"
-                            />
+                          <div className="dashboard-home-task__draft-inner">
+                            <label className="dashboard-home-task__field dashboard-home-task__field--name">
+                              <span className="dashboard-home-task__field-label">
+                                Task name
+                              </span>
+                              <input
+                                type="text"
+                                className="dashboard-home-task__name-input dashboard-home-task__name-input--draft"
+                                placeholder="e.g. Call back lead"
+                                value={task.name}
+                                onChange={(e) =>
+                                  handleDraftNameChange(task.id, e.target.value)
+                                }
+                                aria-label="Task name"
+                                autoComplete="off"
+                              />
+                            </label>
+                            <div className="dashboard-home-task__draft-controls">
+                              <label className="dashboard-home-task__field">
+                                <span className="dashboard-home-task__field-label">
+                                  Priority
+                                </span>
+                                <select
+                                  className="dashboard-home-task__select dashboard-home-task__select--draft"
+                                  value={task.priority}
+                                  onChange={(e) =>
+                                    handleDraftPriorityChange(
+                                      task.id,
+                                      e.target.value as DashboardTodoPriority
+                                    )
+                                  }
+                                >
+                                  <option value="low">Low</option>
+                                  <option value="medium">Medium</option>
+                                  <option value="high">High</option>
+                                </select>
+                              </label>
+                              <label className="dashboard-home-task__field">
+                                <span className="dashboard-home-task__field-label">
+                                  Start date
+                                </span>
+                                <input
+                                  type="date"
+                                  className="dashboard-home-task__input dashboard-home-task__input--draft"
+                                  value={task.startDate ?? ""}
+                                  onChange={(e) =>
+                                    handleDraftStartDateChange(
+                                      task.id,
+                                      e.target.value
+                                    )
+                                  }
+                                />
+                              </label>
+                            </div>
                             <button
                               type="button"
-                              className="dashboard-home-task__select-business"
+                              className="dashboard-home-task__select-business dashboard-home-task__select-business--draft"
                               onClick={() => setPickBusinessForTodoId(task.id)}
                             >
                               Select Business
                             </button>
                           </div>
-                          <div
-                            className="dashboard-home-task__draft-slot"
-                            aria-hidden
-                          />
                         </div>
                       </li>
                     ) : (
                       <li key={task.id}>
                         <div className="dashboard-home-task">
-                          <div className="dashboard-home-task__text">
-                            <p className="dashboard-home-task__title">{task.title}</p>
+                          <div className="dashboard-home-task__main">
+                            <p className="dashboard-home-task__name">{task.name}</p>
                             <p className="dashboard-home-task__subtitle">
                               {task.businessName ? `${task.businessName} — ` : ""}
-                              {task.statusLabel}
+                              {task.businessStatusLabel}
                             </p>
+                            <div
+                              className="dashboard-home-task__meta"
+                              aria-live="polite"
+                            >
+                              <span
+                                key={`status-${task.status}`}
+                                className={`dashboard-home-task__badge dashboard-home-task__badge--status-${task.status}`}
+                              >
+                                {task.status === "completed"
+                                  ? "Completed"
+                                  : "Pending"}
+                              </span>
+                              <span
+                                className={`dashboard-home-task__badge dashboard-home-task__badge--priority-${task.priority}`}
+                              >
+                                {`${PRIORITY_LABEL[task.priority]} priority`}
+                              </span>
+                              {task.startDate ? (
+                                <span className="dashboard-home-task__date">
+                                  <CalendarDays
+                                    className="dashboard-home-task__date-icon"
+                                    strokeWidth={2}
+                                    aria-hidden
+                                  />
+                                  {formatStartDate(task.startDate)}
+                                </span>
+                              ) : null}
+                            </div>
                           </div>
                           <label className="dashboard-home-checkbox-wrap">
                             <input
                               type="checkbox"
                               className="dashboard-home-checkbox-native"
-                              checked={task.completed}
+                              checked={task.status === "completed"}
                               onChange={() => void handleToggleTodo(task.id)}
                               aria-label={
-                                task.completed
-                                  ? `Mark "${task.title}" as not done`
-                                  : `Complete "${task.title}"`
+                                task.status === "completed"
+                                  ? `Mark "${task.name}" as not done`
+                                  : `Complete "${task.name}"`
                               }
                             />
                             <span className="dashboard-home-checkbox-visual" aria-hidden>
@@ -454,7 +578,7 @@ export function DashboardHome() {
                     )
                   )}
                 </ul>
-                {todos.some((t) => t.completed) ? (
+                {todos.some((t) => t.status === "completed") ? (
                   <button
                     type="button"
                     className="dashboard-home-todo__clear-completed"

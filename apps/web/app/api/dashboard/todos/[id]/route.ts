@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseDashboardTodoCompletedUpdate } from "@shared/index";
+import { parseDashboardTodoUpdate } from "@shared/index";
 
 import {
   invalidJsonError,
@@ -9,7 +9,7 @@ import {
   validationError,
   withApiRoute,
 } from "@/lib/api/http";
-import { setDashboardTodoCompleted } from "@/lib/services/dashboard-todo-service";
+import { updateDashboardTodo } from "@/lib/services/dashboard-todo-service";
 
 export const runtime = "nodejs";
 
@@ -34,12 +34,12 @@ export async function PATCH(request: Request, routeContext: RouteContext) {
       return invalidJsonError(context.correlationId);
     }
 
-    const parsed = parseDashboardTodoCompletedUpdate(body);
+    const parsed = parseDashboardTodoUpdate(body);
     if (!parsed.ok) {
       return validationError(context.correlationId, parsed.errors);
     }
 
-    const updated = await setDashboardTodoCompleted(id, parsed.value, context.operationContext);
+    const updated = await updateDashboardTodo(id, parsed.value, context.operationContext);
     if (!updated) {
       return notFound(context.correlationId, "Task not found");
     }
