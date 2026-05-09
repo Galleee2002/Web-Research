@@ -23,11 +23,14 @@ The current repository already includes:
 
 ## Official Commands
 
-Install Node dependencies:
+Install Node dependencies (pnpm; [Corepack](https://nodejs.org/api/corepack.html) ships with Node.js):
 
 ```sh
-npm install
+corepack enable
+pnpm install
 ```
+
+If `pnpm` is not available after `corepack enable` (for example permission errors on Windows), use `npx pnpm@9.15.9 install` once, then install [pnpm](https://pnpm.io/installation) for your shell so `pnpm run …` works.
 
 Install Python worker dependencies:
 
@@ -44,31 +47,31 @@ Apply database migrations:
 Start the web app in development:
 
 ```sh
-npm run web:dev
+pnpm run web:dev
 ```
 
 Build the web app:
 
 ```sh
-npm run web:build
+pnpm run web:build
 ```
 
 Run the worker:
 
 ```sh
-npm run workers:run
+pnpm run workers:run
 ```
 
 Run web tests:
 
 ```sh
-npm test
+pnpm test
 ```
 
 Run worker tests:
 
 ```sh
-npm run workers:test
+pnpm run workers:test
 ```
 
 ## Repository Layout
