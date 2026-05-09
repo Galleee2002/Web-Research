@@ -8,8 +8,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DashboardWelcomeBanner } from "@/app/_components/dashboard-welcome-banner";
 import { leadStatusLabel } from "@/app/shared/model/status-label";
+import {
+  createDashboardTodo,
+  deleteCompletedDashboardTodos,
+  fetchDashboardTodos,
+} from "@/lib/api/dashboard-todos-client";
 import { fetchOpportunities } from "@/lib/api/opportunities-client";
-import { syncTodoCompleted, syncTodoCreated } from "@/lib/dashboard/todo-sync";
+import { syncTodoCompleted } from "@/lib/dashboard/todo-sync";
 import type { DashboardTodoItem } from "@/lib/dashboard/todo-types";
 
 function opportunityHasNotes(opp: OpportunityRead): boolean {
@@ -23,41 +28,16 @@ function newTodoId(): string {
   return `todo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-function initialTodos(): DashboardTodoItem[] {
-  return [
-    {
-      id: "dashboard-seed-todo-1",
-      title: "Follow up on proposal",
-      businessName: "Northside Bakery",
-      statusLabel: leadStatusLabel("reviewed"),
-      completed: false,
-    },
-    {
-      id: "dashboard-seed-todo-2",
-      title: "Send introductory email",
-      businessName: "Harbor Dental",
-      statusLabel: leadStatusLabel("new"),
-      completed: true,
-    },
-    {
-      id: "dashboard-seed-todo-3",
-      title: "Schedule callback",
-      businessName: "Elm Street Cafe",
-      statusLabel: leadStatusLabel("contacted"),
-      completed: true,
-    },
-  ];
-}
-
 type OppLoadState = "loading" | "ready" | "error";
 
-type TodoLoadState = "loading" | "ready";
+type TodoLoadState = "loading" | "ready" | "error";
 
 const TODO_SKELETON_ROWS = 3;
 
 export function DashboardHome() {
   const [todos, setTodos] = useState<DashboardTodoItem[]>([]);
   const [todoLoadState, setTodoLoadState] = useState<TodoLoadState>("loading");
+  const [todoError, setTodoError] = useState<string | null>(null);
 
   const [oppLoadState, setOppLoadState] = useState<OppLoadState>("loading");
   const [oppItems, setOppItems] = useState<OpportunityRead[]>([]);
@@ -71,8 +51,28 @@ export function DashboardHome() {
     useState<OpportunityRead | null>(null);
 
   useEffect(() => {
-    setTodos(initialTodos());
-    setTodoLoadState("ready");
+    let cancelled = false;
+    setTodoLoadState("loading");
+    setTodoError(null);
+
+    void fetchDashboardTodos({ cache: "no-store" })
+      .then((items) => {
+        if (cancelled) return;
+        setTodos(items);
+        setTodoLoadState("ready");
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setTodoError(
+          error instanceof Error ? error.message : "Could not load tasks"
+        );
+        setTodos([]);
+        setTodoLoadState("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -173,6 +173,49 @@ export function DashboardHome() {
   }, [pickBusinessForTodoId]);
 
   useEffect(() => {
+    if (!pickBusinessForTodoId) return;
+
+    const html = document.documentElement;
+    const body = document.body;
+    const scrollY = window.scrollY;
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyLeft: body.style.left,
+      bodyRight: body.style.right,
+      bodyWidth: body.style.width,
+      bodyPaddingRight: body.style.paddingRight,
+    };
+
+    const scrollbarGap = window.innerWidth - html.clientWidth;
+
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    body.style.width = "100%";
+    if (scrollbarGap > 0) {
+      body.style.paddingRight = `${scrollbarGap}px`;
+    }
+
+    return () => {
+      html.style.overflow = prev.htmlOverflow;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.position = prev.bodyPosition;
+      body.style.top = prev.bodyTop;
+      body.style.left = prev.bodyLeft;
+      body.style.right = prev.bodyRight;
+      body.style.width = prev.bodyWidth;
+      body.style.paddingRight = prev.bodyPaddingRight;
+      window.scrollTo(0, scrollY);
+    };
+  }, [pickBusinessForTodoId]);
+
+  useEffect(() => {
     if (!notesModalOpportunity) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -231,42 +274,53 @@ export function DashboardHome() {
   }, []);
 
   const handleSelectBusinessForTodo = useCallback(
-    (todoId: string, opp: OpportunityRead) => {
-      let created: DashboardTodoItem | undefined;
-      setTodos((prev) =>
-        prev.map((t) => {
-          if (t.id !== todoId || !t.isDraft) return t;
-          const title = t.title.trim() || "New task";
-          created = {
-            ...t,
-            isDraft: false,
-            title,
-            businessName: opp.name,
-            statusLabel: leadStatusLabel(opp.status),
-          };
-          return created;
-        })
-      );
+    async (todoId: string, opp: OpportunityRead) => {
+      const draft = todos.find((t) => t.id === todoId && t.isDraft);
+      if (!draft) {
+        setPickBusinessForTodoId(null);
+        return;
+      }
+      const title = draft.title.trim() || "New task";
       setPickBusinessForTodoId(null);
-      if (created) {
-        void syncTodoCreated(created);
+      setTodoError(null);
+      try {
+        const created = await createDashboardTodo({
+          title,
+          business_id: opp.business_id,
+        });
+        setTodos((prev) =>
+          prev.map((t) => (t.id === todoId && t.isDraft ? created : t))
+        );
+      } catch (error: unknown) {
+        setTodoError(
+          error instanceof Error ? error.message : "Could not save task"
+        );
       }
     },
-    []
+    [todos]
   );
 
-  const handleDeleteCompleted = useCallback(() => {
-    setTodos((prev) => prev.filter((t) => !t.completed));
+  const handleDeleteCompleted = useCallback(async () => {
+    setTodoError(null);
+    try {
+      await deleteCompletedDashboardTodos();
+      setTodos((prev) => prev.filter((t) => !t.completed));
+    } catch (error: unknown) {
+      setTodoError(
+        error instanceof Error ? error.message : "Could not delete completed tasks"
+      );
+    }
   }, []);
 
   const cannotAddTask = useMemo(
     () =>
+      todoLoadState === "error" ||
       todos.some(
         (t) =>
           t.isDraft &&
           (!t.title.trim() || t.businessName === null)
       ),
-    [todos]
+    [todos, todoLoadState]
   );
 
   return (
@@ -280,6 +334,11 @@ export function DashboardHome() {
         {oppError ? (
           <p className="dashboard-home-feedback" role="status">
             {oppError}
+          </p>
+        ) : null}
+        {todoError ? (
+          <p className="dashboard-home-feedback" role="status">
+            {todoError}
           </p>
         ) : null}
 
@@ -296,9 +355,11 @@ export function DashboardHome() {
                 type="button"
                 className="dashboard-home-card__add"
                 aria-label={
-                  cannotAddTask
-                    ? "Finish the task you're adding (title and business) before adding another"
-                    : "Add task"
+                  todoLoadState === "error"
+                    ? "Tasks could not be loaded; try refreshing the page"
+                    : cannotAddTask
+                      ? "Finish the task you're adding (title and business) before adding another"
+                      : "Add task"
                 }
                 disabled={cannotAddTask}
                 onClick={handleAddTodo}
@@ -323,6 +384,10 @@ export function DashboardHome() {
                   </li>
                 ))}
               </ul>
+            ) : todoLoadState === "error" ? (
+              <p className="dashboard-home-empty" role="status">
+                Could not load tasks.
+              </p>
             ) : todos.length === 0 ? (
               <p className="dashboard-home-empty">No tasks yet. Tap + to add one.</p>
             ) : (
@@ -563,7 +628,7 @@ export function DashboardHome() {
                               onClick={() => {
                                 const tid = pickBusinessForTodoId;
                                 if (tid) {
-                                  handleSelectBusinessForTodo(tid, opp);
+                                  void handleSelectBusinessForTodo(tid, opp);
                                 }
                               }}
                             >

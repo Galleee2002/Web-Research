@@ -21,43 +21,115 @@ and managing them from a dashboard and API.
   repositories, HTTP helpers, CSV utilities, and SCSS.
 - `services/workers`: Python ingestion clients, normalization, website
   detection, pipeline orchestration, repository persistence, and tests.
-- `packages/shared`: shared constants, schemas, pagination contracts, and
-  business/search types.
+- `packages/shared`: shared constants, schemas, pagination contracts,
+  business/search types, and dashboard to-do request/response contracts.
 - `database`: SQL migrations, seeds, and schema notes.
 - `docs`: architecture notes and implementation task documents.
 - `scripts/dev`: local helper scripts for web and worker flows.
 
 ## Current Implemented State
 
-- The web app is executable, not just scaffolded.
-- The dashboard shell and section placeholder pages exist for `Dashboard`,
-  `Businesses`, `Scans`, `Analytics`, and `Settings` (other areas use real screens
-  where implemented).
-- `/opportunities` is now a real screen backed by API data, with manual 5-star
-  prioritization.
-- Thin Next.js API routes exist for:
-  - `POST /api/search`
-  - `GET /api/searches`
-  - `GET /api/businesses`
-  - `GET /api/businesses/{id}`
-  - `PATCH /api/businesses/{id}`
-  - `GET /api/opportunities`
-  - `GET /api/opportunities/{id}`
-  - `PATCH /api/opportunities/{id}`
-  - `GET /api/export`
-  - `GET /api/health`
-- `apps/web/lib/services` delegates to repository code in `apps/web/lib/db`.
-- PostgreSQL migrations and deterministic seed data exist.
-- The Python worker pipeline is implemented for:
-  - claiming pending search runs;
-  - calling Google Places;
-  - optional geocoding enrichment;
-  - normalization;
-  - website classification;
-  - persistence/upsert and dedup support;
-  - search-run observability and failure tracking.
-- Unit tests exist across shared contracts, API behavior, services,
-  repositories, CSV helpers, and worker logic.
+The web app is executable end-to-end: UI talks to thin Next.js API routes,
+services, PostgreSQL repositories, and (for ingestion) Python workers.
+
+### Frontend (Next.js App Router, SCSS)
+
+- **Shell and navigation** under `apps/web/app` and `apps/web/app/_components`.
+- **`/`** — marketing/entry as implemented.
+- **`/dashboard` (home)** — real data:
+  - **To Do** card: loads and mutates persisted tasks via `/api/dashboard/todos`
+    (create with title + business chosen from opportunities list, toggle
+    `completed`, delete all completed). Client helpers in
+    `apps/web/lib/api/dashboard-todos-client.ts`.
+  - **Opportunities** preview: all pages of `/api/opportunities`, deep link to
+    the board, optional notes modal, scroll hints.
+- **`/opportunities`** — full board backed by `/api/opportunities` and
+  `PATCH /api/opportunities/{id}`; manual 5-star `rating`; filters/categories
+  via shared contracts and list APIs as implemented in the page.
+- **`/businesses`** — list/detail UX driven by `/api/businesses` and related
+  clients; lead status and opportunity selection flows as wired in
+  `apps/web/app/businesses`.
+- **`/scans`** — search-run history and drill-down using `/api/scans` and
+  businesses APIs.
+- **`/analytics`** — client-only chart bundle (`analytics-dynamic`) that
+  aggregates from existing businesses/opportunities list clients.
+- **`/settings`**, **`/profile`** — session-backed profile editing via auth
+  client where implemented.
+- **`/admin/users`** — admin-only user listing and role updates (guarded UI +
+  admin API routes).
+- **`(auth)/login`**, **`(auth)/register`** — align with cookie session and CSRF
+  expectations for mutating APIs.
+- Some nav destinations may still be thin or placeholder-like; confirm behavior
+  in `apps/web/app/**` before assuming empty implementations.
+
+### Backend (Next.js API, `runtime = "nodejs"`)
+
+Routes stay thin: parse with `packages/shared`, call `apps/web/lib/services`,
+persist via `apps/web/lib/db`, map errors with `correlation_id` preserved.
+
+**Search and runs**
+
+- `POST /api/search` — create search runs.
+- `GET /api/searches` — list runs with filters/pagination.
+- `GET /api/search/[id]/next` — continue paginated Google Places ingestion for a
+  parent run where supported.
+
+**Businesses and export**
+
+- `GET /api/businesses`, `GET /api/businesses/{id}`, `PATCH /api/businesses/{id}`.
+- `GET /api/export` — CSV export.
+
+**Opportunities**
+
+- `GET /api/opportunities`, `GET /api/opportunities/{id}`,
+  `PATCH /api/opportunities/{id}`.
+- `GET /api/opportunities/categories` — distinct category values for UI filters.
+- `PATCH /api/opportunities/businesses/{businessId}` — `is_selected` (and related
+  contract) for board inclusion rules.
+
+**Dashboard to-dos** (`apps/web/lib/db/dashboard-todos.ts`,
+`apps/web/lib/services/dashboard-todo-service.ts`)
+
+- `GET /api/dashboard/todos` — list tasks joined to `businesses` for subtitle
+  labels.
+- `POST /api/dashboard/todos` — body `{ title, business_id }`; `404` if
+  business missing.
+- `PATCH /api/dashboard/todos/{id}` — body `{ completed: boolean }`.
+- `DELETE /api/dashboard/todos/completed` — delete rows with `completed = true`;
+  response includes `deleted` count.
+
+**Scans**
+
+- `GET /api/scans` — scan-oriented listing for the Scans screen.
+
+**Auth and admin**
+
+- `POST /api/auth/login`, `POST /api/auth/register`, `POST /api/auth/logout`,
+  `GET /api/auth/me`.
+- `GET /api/admin/users`, `PATCH /api/admin/users/{id}/role`.
+
+**Provider helper**
+
+- `GET /api/google/places/search` — Places proxy for permitted callers.
+
+**Health**
+
+- `GET /api/health` — service health including database reachability.
+
+### Workers (Python)
+
+- Pipeline under `services/workers`: claim pending `search_runs`, Google Places,
+  optional geocoding, normalization, website classification, dedup-aware upsert
+  into `businesses` / `opportunities`, observability and failure tracking.
+- Dashboard to-dos are **not** worker-owned; they are app-layer CRUD on
+  PostgreSQL only.
+
+### Tests and tooling
+
+- Vitest coverage: `packages/shared`, `apps/web` (API routes, services, DB
+  helpers, CSV), and worker unit tests.
+- Commands: `npm run typecheck`, `npm test`, `npm --workspace apps/web run test`,
+  `./scripts/dev/test-workers.sh`.
 
 ## Domain Rules
 
@@ -95,6 +167,13 @@ and managing them from a dashboard and API.
   notes.
 - `opportunities` exists in PostgreSQL as a commercial 1:1 layer on top of
   `businesses`, with `business_id` unique and nullable `rating`.
+- `dashboard_todos` exists in PostgreSQL for the dashboard **To Do** list:
+  `business_id` references `businesses` (`on delete cascade`), `title`,
+  `completed`, timestamps. List APIs **join** `businesses` so the UI can show
+  `business_name` and current lead `status` as the subtitle without storing
+  duplicate label columns on the todo row.
+- `users` (including session-version fields for invalidation) and
+  `auth_rate_limits` support login/register and admin flows as migrated.
 - `GET /api/opportunities` always derives visible rows from
   `opportunities join businesses` and excludes businesses with
   `has_website = true`.
@@ -117,6 +196,16 @@ and managing them from a dashboard and API.
   Next.js APIs, workers when relevant, and
   `packages/shared`.
 
+## Dashboard To Do Rules
+
+- Persisted tasks are rows in `dashboard_todos`; the only task-level state on
+  that row is `completed` (maps to the dashboard checkbox UI).
+- Subtitle text (`Business — lead status`) reflects **`businesses.status` at read
+  time** via SQL join; changing lead status elsewhere updates the subtitle on
+  the next list fetch.
+- Workers do not create or update `dashboard_todos`; the Next.js service layer
+  owns lifecycle for these rows.
+
 ## Frontend Guardrails
 
 - The web app uses Next.js App Router and SCSS globals. Do not document or
@@ -127,6 +216,9 @@ and managing them from a dashboard and API.
 - The Opportunities screen consumes `/api/opportunities` and renders star
   controls; it must not own scoring rules beyond displaying backend state and
   sending `PATCH` requests.
+- The dashboard **To Do** card must use `/api/dashboard/todos` (and related
+  routes) via HTTP clients; it must not import database repositories from client
+  components.
 - Placeholder sections should remain clearly labeled until they have real API
   backing.
 
@@ -155,6 +247,8 @@ and managing them from a dashboard and API.
 
 - Install JS dependencies: `corepack enable` then `pnpm install`
 - Install worker dependencies: `python3 -m pip install -e 'services/workers[test]'`
+- Apply SQL migrations (requires `DATABASE_URL`; loads `.env` then
+  `.env.local`): `./scripts/dev/run-migrations.sh`
 - Start the web app: `./scripts/dev/start-web.sh`
 - Run the worker: `./scripts/dev/run-worker.sh`
 - Run web tests: `pnpm run web:test`
@@ -178,10 +272,12 @@ and managing them from a dashboard and API.
 
 ## MVP Boundaries
 
-- Included in the repo today: search-run creation, worker ingestion,
-  normalization, website detection, dedup-aware persistence, business listing,
-  business detail, lead status updates, opportunity rating, CSV export, and
-  health checks.
+- Included in the repo today: search-run creation and continuation APIs, worker
+  ingestion, normalization, website detection, dedup-aware persistence,
+  business listing and detail, lead status updates, opportunity rating and
+  selection, dashboard persisted **To Do** tasks, scans listing, CSV export,
+  session auth (login/register/logout/me), admin user role APIs, analytics
+  views built on existing list data, and health checks.
 - Still not implemented as first-class persisted features: outreach automation,
-  multi-user support, CRM integrations, historical auditing, and advanced
-  predictive scoring.
+  full multi-tenant productization beyond current auth/admin, CRM integrations,
+  historical auditing, and advanced predictive scoring.

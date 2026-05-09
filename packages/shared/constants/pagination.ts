@@ -9,4 +9,5 @@ export const INPUT_LIMITS = {
   city: 120,
   category: 120,
   textSearch: 160,
+  dashboardTodoTitle: 240,
 } as const;

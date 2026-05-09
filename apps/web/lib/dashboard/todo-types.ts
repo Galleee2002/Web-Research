@@ -1,6 +1,5 @@
 /**
- * Shape aligned with a future dashboard todos API.
- * Keep fields stable when wiring `PATCH` / `POST` routes.
+ * Dashboard To Do row for the home card (backed by `/api/dashboard/todos`).
  */
 export type DashboardTodoItem = {
   id: string;
