@@ -51,12 +51,16 @@ if (!process.env.DATABASE_URL) {
   console.warn("warning: DATABASE_URL is not set; database-backed API routes may fail.");
 }
 
-const npmCommand = "npm";
-const child = spawn(npmCommand, ["--workspace", "apps/web", "run", "dev"], {
-  cwd: rootDir,
-  shell: process.platform === "win32",
-  stdio: "inherit"
-});
+const pnpmCommand = "pnpm";
+const child = spawn(
+  pnpmCommand,
+  ["--filter", "@business-lead-finder/web", "run", "dev"],
+  {
+    cwd: rootDir,
+    shell: process.platform === "win32",
+    stdio: "inherit"
+  }
+);
 
 child.on("exit", (code, signal) => {
   if (signal) {

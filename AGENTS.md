@@ -153,13 +153,13 @@ and managing them from a dashboard and API.
 
 ## Local Workflow
 
-- Install JS dependencies: `npm install`
+- Install JS dependencies: `corepack enable` then `pnpm install`
 - Install worker dependencies: `python3 -m pip install -e 'services/workers[test]'`
 - Start the web app: `./scripts/dev/start-web.sh`
 - Run the worker: `./scripts/dev/run-worker.sh`
-- Run web tests: `npm --workspace apps/web run test`
-- Run all JS tests: `npm test`
-- Run typecheck: `npm run typecheck`
+- Run web tests: `pnpm run web:test`
+- Run all JS tests: `pnpm test`
+- Run typecheck: `pnpm run typecheck`
 - Run worker tests: `./scripts/dev/test-workers.sh`
 
 ## Environment Baseline
