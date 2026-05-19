@@ -1485,6 +1485,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .opportunity-skeleton--line {
@@ -2699,6 +2700,33 @@
 
   .opportunity-table__discard-sheet-label {
     display: inline;
+  }
+
+  .opportunity-table__row--skeleton {
+    min-height: 8.25rem;
+  }
+
+  .opportunity-table__row--skeleton .opportunity-skeleton-lines--business {
+    min-width: 0;
+    padding-right: 5.75rem;
+  }
+
+  .opportunity-table__row--skeleton .opportunity-skeleton-lines--location {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .opportunity-table__row--skeleton .opportunity-skeleton--status {
+    position: absolute;
+    top: 0.85rem;
+    right: 0.9rem;
+    justify-self: auto;
+    margin: 0;
+    z-index: 1;
+  }
+
+  .opportunity-table__row--skeleton .opportunity-table__overflow-slot {
+    display: none;
   }
 
 }

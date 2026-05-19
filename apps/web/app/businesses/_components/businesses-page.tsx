@@ -1409,18 +1409,26 @@ export function BusinessesPage() {
                             </span>
                           </div>
                           <div
-                            className="business-modal__field business-modal__field--copyable"
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => {
-                              void copyAndOpenWebsite(activeBusiness.website);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                void copyAndOpenWebsite(activeBusiness.website);
-                              }
-                            }}
+                            className={`business-modal__field${
+                              activeBusiness.has_website
+                                ? " business-modal__field--copyable"
+                                : ""
+                            }`}
+                            {...(activeBusiness.has_website
+                              ? {
+                                  role: "button" as const,
+                                  tabIndex: 0,
+                                  onClick: () => {
+                                    void copyAndOpenWebsite(activeBusiness.website);
+                                  },
+                                  onKeyDown: (event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      void copyAndOpenWebsite(activeBusiness.website);
+                                    }
+                                  },
+                                }
+                              : {})}
                           >
                             <span className="business-modal__label">Website</span>
                             <span className="business-modal__value">

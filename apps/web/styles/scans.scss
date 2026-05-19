@@ -585,7 +585,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: -0.35rem 0;
+  margin: 0;
 }
 
 .scan-card__skel--eye {
@@ -671,6 +671,10 @@
 
   .scan-card__delete-cta-label {
     color: inherit;
+  }
+
+  .scan-card--skeleton .scan-card__row {
+    row-gap: 0.85rem;
   }
 
   .scan-card--skeleton .scan-card__skeleton-cta {

@@ -643,8 +643,7 @@ export function DashboardHome() {
                             {opportunityHasNotes(opp) ? (
                               <>
                                 <span className="dashboard-home-opp__sep" aria-hidden>
-                                  {" "}
-                                  ·{" "}
+                                  ·
                                 </span>
                                 <button
                                   type="button"
