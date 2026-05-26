@@ -17,6 +17,11 @@ import {
 
 export { ApiClientError as DashboardTodosApiError };
 
+const defaultTodoFetchInit: RequestInit = {
+  credentials: "same-origin",
+  cache: "no-store",
+};
+
 function getCsrfHeader(method: RequestInit["method"]): Record<string, string> {
   const normalizedMethod = (method ?? "GET").toUpperCase();
   if (!["POST", "PUT", "PATCH", "DELETE"].includes(normalizedMethod)) {
@@ -57,6 +62,7 @@ export function mapDashboardTodoReadToItem(row: DashboardTodoRead): DashboardTod
 
 export async function fetchDashboardTodos(init?: RequestInit): Promise<DashboardTodoItem[]> {
   const response = await fetch("/api/dashboard/todos", {
+    ...defaultTodoFetchInit,
     method: "GET",
     headers: { Accept: "application/json" },
     ...init,
@@ -79,6 +85,7 @@ export async function createDashboardTodo(
 ): Promise<DashboardTodoItem> {
   const csrfHeader = getCsrfHeader("POST");
   const response = await fetch("/api/dashboard/todos", {
+    ...defaultTodoFetchInit,
     method: "POST",
     headers: {
       Accept: "application/json",
@@ -106,6 +113,7 @@ export async function patchDashboardTodo(
 ): Promise<DashboardTodoItem> {
   const csrfHeader = getCsrfHeader("PATCH");
   const response = await fetch(`/api/dashboard/todos/${encodeURIComponent(id)}`, {
+    ...defaultTodoFetchInit,
     method: "PATCH",
     headers: {
       Accept: "application/json",
@@ -129,6 +137,7 @@ export async function patchDashboardTodo(
 export async function deleteCompletedDashboardTodos(init?: RequestInit): Promise<number> {
   const csrfHeader = getCsrfHeader("DELETE");
   const response = await fetch("/api/dashboard/todos/completed", {
+    ...defaultTodoFetchInit,
     method: "DELETE",
     headers: {
       Accept: "application/json",

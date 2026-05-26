@@ -2,20 +2,20 @@
 
 import dynamic from "next/dynamic";
 
+import { AnalyticsChartsSkeleton } from "./analytics-charts-skeleton";
+
 const AnalyticsDashboard = dynamic(() => import("./analytics-dashboard"), {
   ssr: false,
   loading: () => (
     <section
       className="dashboard-content analytics-dashboard"
+      aria-labelledby="analytics-title"
       aria-busy="true"
-      aria-label="Loading analytics"
     >
       <header className="dashboard-content__header">
-        <h2>Analytics</h2>
+        <h2 id="analytics-title">Analytics</h2>
       </header>
-      <div className="dashboard-empty-state" role="status">
-        <p className="dashboard-empty-state__title">Loading charts…</p>
-      </div>
+      <AnalyticsChartsSkeleton />
     </section>
   ),
 });

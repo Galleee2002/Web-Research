@@ -9,6 +9,8 @@ import { MAX_PAGE_SIZE } from "@shared/index";
 import { fetchBusinessesPage } from "@/lib/api/businesses-client";
 import { fetchOpportunities } from "@/lib/api/opportunities-client";
 
+import { AnalyticsChartsSkeleton } from "./analytics-charts-skeleton";
+
 type PieDatum = { name: string; value: number; fill: string };
 
 const SLICE_COLORS = [
@@ -228,14 +230,7 @@ export default function AnalyticsDashboard() {
         <h2 id="analytics-title">Analytics</h2>
       </header>
 
-      {loadState === "loading" ? (
-        <div className="dashboard-empty-state" role="status" aria-live="polite">
-          <div className="dashboard-empty-state__content">
-            <ChartColumn className="dashboard-empty-state__icon" aria-hidden />
-            <p className="dashboard-empty-state__title">Loading charts…</p>
-          </div>
-        </div>
-      ) : null}
+      {loadState === "loading" ? <AnalyticsChartsSkeleton /> : null}
 
       {loadState === "error" ? (
         <div className="dashboard-empty-state" role="alert">
