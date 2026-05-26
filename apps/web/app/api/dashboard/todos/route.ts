@@ -18,7 +18,12 @@ export const runtime = "nodejs";
 export async function GET(_request: Request) {
   return withApiRoute(_request, { route: "/api/dashboard/todos" }, async (context) => {
     logApiEvent("dashboard_todo_list_requested", context.operationContext);
-    return NextResponse.json(await listDashboardTodos(context.operationContext));
+    const body = await listDashboardTodos(context.operationContext);
+    return NextResponse.json(body, {
+      headers: {
+        "Cache-Control": "private, no-store, max-age=0, must-revalidate",
+      },
+    });
   });
 }
 

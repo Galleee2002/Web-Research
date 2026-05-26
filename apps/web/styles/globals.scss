@@ -1264,6 +1264,72 @@
   color: var(--text-primary);
 }
 
+.analytics-dashboard__body--skeleton {
+  pointer-events: none;
+}
+
+.analytics-dashboard__skel-group-title {
+  display: block;
+  height: 1.05rem;
+  width: 38%;
+  max-width: 11rem;
+  border-radius: 0.35rem;
+  margin: 0;
+}
+
+.analytics-dashboard__skel-group-meta {
+  display: block;
+  height: 0.82rem;
+  width: 52%;
+  max-width: 14rem;
+  border-radius: 0.3rem;
+  margin: 0.35rem 0 0.75rem;
+}
+
+.analytics-dashboard__skel-chart-heading {
+  display: block;
+  height: 0.92rem;
+  width: 48%;
+  max-width: 9rem;
+  border-radius: 0.3rem;
+  margin: 0 0 0.35rem;
+}
+
+.analytics-dashboard__chart-surface--skeleton {
+  justify-content: flex-start;
+  padding-top: 0.35rem;
+}
+
+.analytics-dashboard__skel-donut {
+  flex-shrink: 0;
+  width: min(200px, 52%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  margin: 0.35rem auto 0.5rem;
+}
+
+.analytics-dashboard__skel-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+  width: 100%;
+  max-width: 420px;
+  padding-top: 0.35rem;
+}
+
+.analytics-dashboard__skel-legend-pill {
+  display: block;
+  height: 0.74rem;
+  width: 5.25rem;
+  border-radius: 0.3rem;
+}
+
+.analytics-dashboard__skel-legend-pill--short {
+  width: 3.75rem;
+}
+
 .dashboard-theme-toggle {
   margin-top: auto;
   width: 48px;

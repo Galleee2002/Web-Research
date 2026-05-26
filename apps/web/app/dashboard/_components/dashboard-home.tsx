@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { DashboardWelcomeBanner } from "@/app/_components/dashboard-welcome-banner";
 import { leadStatusLabel } from "@/app/shared/model/status-label";
+import { SelectMenu } from "@/app/shared/ui/select-menu";
 import {
   createDashboardTodo,
   deleteCompletedDashboardTodos,
@@ -44,6 +45,15 @@ const PRIORITY_LABEL: Record<DashboardTodoPriority, string> = {
   medium: "Medium",
   high: "High",
 };
+
+const DRAFT_PRIORITY_OPTIONS: {
+  value: DashboardTodoPriority;
+  label: string;
+}[] = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+];
 
 function formatStartDate(value: string): string {
   const date = new Date(`${value}T00:00:00Z`);
@@ -275,14 +285,12 @@ export function DashboardHome() {
     if (!found) return;
 
     try {
-      const synced = await syncDashboardTodo(id, { status: nextStatus });
-      // Re-hydrate from server response so any backend-derived fields
-      // (e.g. updated_at, business status changes) reflect immediately.
-      setTodos((prev) =>
-        prev.map((t) =>
-          t.id === id && !t.isDraft ? { ...t, ...synced } : t
-        )
-      );
+      await syncDashboardTodo(id, { status: nextStatus });
+      const items = await fetchDashboardTodos({ cache: "no-store" });
+      setTodos((prev) => {
+        const drafts = prev.filter((t) => t.isDraft);
+        return [...items, ...drafts];
+      });
     } catch {
       setTodos((prev) =>
         prev.map((t) => (t.id === id ? { ...t, status: revertTo } : t))
@@ -362,7 +370,11 @@ export function DashboardHome() {
     setTodoError(null);
     try {
       await deleteCompletedDashboardTodos();
-      setTodos((prev) => prev.filter((t) => t.status !== "completed"));
+      const items = await fetchDashboardTodos({ cache: "no-store" });
+      setTodos((prev) => {
+        const drafts = prev.filter((t) => t.isDraft);
+        return [...items, ...drafts];
+      });
     } catch (error: unknown) {
       setTodoError(
         error instanceof Error ? error.message : "Could not delete completed tasks"
@@ -473,25 +485,27 @@ export function DashboardHome() {
                               />
                             </label>
                             <div className="dashboard-home-task__draft-controls">
-                              <label className="dashboard-home-task__field">
+                              <div className="dashboard-home-task__field">
                                 <span className="dashboard-home-task__field-label">
                                   Priority
                                 </span>
-                                <select
-                                  className="dashboard-home-task__select dashboard-home-task__select--draft"
+                                <SelectMenu<DashboardTodoPriority>
+                                  ariaLabel="Task priority"
                                   value={task.priority}
-                                  onChange={(e) =>
-                                    handleDraftPriorityChange(
-                                      task.id,
-                                      e.target.value as DashboardTodoPriority
-                                    )
+                                  onChange={(next) =>
+                                    handleDraftPriorityChange(task.id, next)
                                   }
-                                >
-                                  <option value="low">Low</option>
-                                  <option value="medium">Medium</option>
-                                  <option value="high">High</option>
-                                </select>
-                              </label>
+                                  rootClassName="dashboard-home-priority-select"
+                                  triggerClassName="businesses-select__trigger"
+                                  triggerContent={
+                                    <span className="businesses-select__trigger-label">
+                                      {PRIORITY_LABEL[task.priority]}
+                                    </span>
+                                  }
+                                  options={DRAFT_PRIORITY_OPTIONS}
+                                  menuClassName="dashboard-home-priority-select__menu"
+                                />
+                              </div>
                               <label className="dashboard-home-task__field">
                                 <span className="dashboard-home-task__field-label">
                                   Start date
