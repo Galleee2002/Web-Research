@@ -10,6 +10,7 @@ import {
   Check,
   ChevronDown,
   Eye,
+  FolderOpen,
   Plus,
   X,
 } from "lucide-react";
@@ -72,6 +73,20 @@ function formatStartDate(value: string): string {
   }).format(date);
 }
 
+const START_DATE_PAST_ERROR = "Date must be today or later.";
+
+function todayIsoDateLocal(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function isStartDateBeforeToday(isoDate: string): boolean {
+  return isoDate < todayIsoDateLocal();
+}
+
 type OppLoadState = "loading" | "ready" | "error";
 
 type TodoLoadState = "loading" | "ready" | "error";
@@ -80,19 +95,59 @@ const TODO_SKELETON_ROWS = 3;
 
 const ASSIGNEE_UNASSIGNED = "";
 
-function formatTodoSubtitle(task: DashboardTodoItem): string {
-  const parts: string[] = [];
-  if (task.businessName) {
-    parts.push(
-      task.businessStatusLabel
-        ? `${task.businessName} — ${task.businessStatusLabel}`
-        : task.businessName
-    );
+type AssigneeAccent = "gael" | "manuel";
+
+const ASSIGNEE_ACCENT_BY_NAME: Record<string, AssigneeAccent> = {
+  "gael garcia": "gael",
+  "manuel rodriguez garcia": "manuel",
+};
+
+function normalizeAssigneeName(name: string): string {
+  return name.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function getAssigneeAccent(name: string | null): AssigneeAccent | null {
+  if (!name) {
+    return null;
   }
-  if (task.assigneeName) {
-    parts.push(`Assigned to ${task.assigneeName}`);
+  return ASSIGNEE_ACCENT_BY_NAME[normalizeAssigneeName(name)] ?? null;
+}
+
+function formatTodoBusinessLine(task: DashboardTodoItem): string | null {
+  if (!task.businessName) {
+    return null;
   }
-  return parts.join(" · ");
+  return task.businessStatusLabel
+    ? `${task.businessName} — ${task.businessStatusLabel}`
+    : task.businessName;
+}
+
+function DashboardHomeTaskSubtitle({ task }: { task: DashboardTodoItem }) {
+  const businessLine = formatTodoBusinessLine(task);
+  const assigneeAccent = getAssigneeAccent(task.assigneeName);
+
+  if (!businessLine && !task.assigneeName) {
+    return null;
+  }
+
+  return (
+    <p className="dashboard-home-task__subtitle">
+      {businessLine ? <span>{businessLine}</span> : null}
+      {businessLine && task.assigneeName ? <span aria-hidden> · </span> : null}
+      {task.assigneeName ? (
+        <span
+          className={[
+            "dashboard-home-task__assignee",
+            assigneeAccent ? `dashboard-home-task__assignee--${assigneeAccent}` : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          {`Assigned to ${task.assigneeName}`}
+        </span>
+      ) : null}
+    </p>
+  );
 }
 
 function assigneeSelectValue(task: DashboardTodoItem): string {
@@ -122,6 +177,9 @@ export function DashboardHome() {
     useState<OpportunityRead | null>(null);
   const [syncingTodoIds, setSyncingTodoIds] = useState<Set<string>>(() => new Set());
   const [isDeletingCompleted, setIsDeletingCompleted] = useState(false);
+  const [draftStartDateErrors, setDraftStartDateErrors] = useState<
+    Record<string, string>
+  >({});
 
   const todosRef = useRef(todos);
   todosRef.current = todos;
@@ -387,6 +445,17 @@ export function DashboardHome() {
     [refreshTodosFromServer]
   );
 
+  const clearDraftStartDateError = useCallback((id: string) => {
+    setDraftStartDateErrors((prev) => {
+      if (!prev[id]) {
+        return prev;
+      }
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, []);
+
   const handleAddTodo = useCallback(() => {
     const task: DashboardTodoItem = {
       id: newTodoId(),
@@ -421,12 +490,27 @@ export function DashboardHome() {
 
   const handleDraftStartDateChange = useCallback(
     (id: string, value: string) => {
-      const startDate = value.trim().length === 0 ? null : value;
+      const trimmed = value.trim();
+      if (trimmed.length === 0) {
+        clearDraftStartDateError(id);
+        setTodos((prev) =>
+          prev.map((t) => (t.id === id && t.isDraft ? { ...t, startDate: null } : t))
+        );
+        return;
+      }
+      if (isStartDateBeforeToday(trimmed)) {
+        setDraftStartDateErrors((prev) => ({
+          ...prev,
+          [id]: START_DATE_PAST_ERROR,
+        }));
+        return;
+      }
+      clearDraftStartDateError(id);
       setTodos((prev) =>
-        prev.map((t) => (t.id === id && t.isDraft ? { ...t, startDate } : t))
+        prev.map((t) => (t.id === id && t.isDraft ? { ...t, startDate: trimmed } : t))
       );
     },
-    []
+    [clearDraftStartDateError]
   );
 
   const handleDraftAssigneeChange = useCallback(
@@ -480,6 +564,13 @@ export function DashboardHome() {
       if (!name) {
         return;
       }
+      if (draft.startDate && isStartDateBeforeToday(draft.startDate)) {
+        setDraftStartDateErrors((prev) => ({
+          ...prev,
+          [todoId]: START_DATE_PAST_ERROR,
+        }));
+        return;
+      }
 
       setTodoError(null);
       try {
@@ -490,6 +581,7 @@ export function DashboardHome() {
           priority: draft.priority,
           start_date: draft.startDate,
         });
+        clearDraftStartDateError(todoId);
         setTodos((prev) =>
           prev.map((t) => (t.id === todoId && t.isDraft ? created : t))
         );
@@ -499,7 +591,7 @@ export function DashboardHome() {
         );
       }
     },
-    [todos]
+    [clearDraftStartDateError, todos]
   );
 
   const handleSelectBusinessForTodo = useCallback(
@@ -634,7 +726,19 @@ export function DashboardHome() {
                 Could not load tasks.
               </p>
             ) : todos.length === 0 ? (
-              <p className="dashboard-home-empty">No tasks yet. Tap + to add one.</p>
+              <div
+                className="dashboard-home-empty-state"
+                role="status"
+                aria-live="polite"
+              >
+                <div className="dashboard-home-empty-state__icon-wrap" aria-hidden>
+                  <FolderOpen
+                    className="dashboard-home-empty-state__icon"
+                    strokeWidth={1.5}
+                  />
+                </div>
+                <p className="dashboard-home-empty-state__title">No tasks yet</p>
+              </div>
             ) : (
               <>
                 <ul className="dashboard-home-list">
@@ -695,6 +799,13 @@ export function DashboardHome() {
                                   type="date"
                                   className="dashboard-home-task__input dashboard-home-task__input--draft"
                                   value={task.startDate ?? ""}
+                                  min={todayIsoDateLocal()}
+                                  aria-invalid={Boolean(draftStartDateErrors[task.id])}
+                                  aria-describedby={
+                                    draftStartDateErrors[task.id]
+                                      ? `dashboard-todo-start-date-error-${task.id}`
+                                      : undefined
+                                  }
                                   onChange={(e) =>
                                     handleDraftStartDateChange(
                                       task.id,
@@ -702,6 +813,15 @@ export function DashboardHome() {
                                     )
                                   }
                                 />
+                                {draftStartDateErrors[task.id] ? (
+                                  <span
+                                    id={`dashboard-todo-start-date-error-${task.id}`}
+                                    className="dashboard-home-task__field-error"
+                                    role="alert"
+                                  >
+                                    {draftStartDateErrors[task.id]}
+                                  </span>
+                                ) : null}
                               </label>
                             </div>
                             <div className="dashboard-home-task__draft-actions">
@@ -732,7 +852,10 @@ export function DashboardHome() {
                               <button
                                 type="button"
                                 className="dashboard-home-task__save-draft"
-                                disabled={!task.name.trim()}
+                                disabled={
+                                  !task.name.trim() ||
+                                  Boolean(draftStartDateErrors[task.id])
+                                }
                                 onClick={() => void handleSaveDraft(task.id)}
                               >
                                 Save task
@@ -746,11 +869,7 @@ export function DashboardHome() {
                         <div className="dashboard-home-task">
                           <div className="dashboard-home-task__main">
                             <p className="dashboard-home-task__name">{task.name}</p>
-                            {formatTodoSubtitle(task) ? (
-                              <p className="dashboard-home-task__subtitle">
-                                {formatTodoSubtitle(task)}
-                              </p>
-                            ) : null}
+                            <DashboardHomeTaskSubtitle task={task} />
                             <div
                               className="dashboard-home-task__meta"
                               aria-live="polite"

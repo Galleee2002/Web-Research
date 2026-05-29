@@ -263,6 +263,26 @@
   word-break: break-word;
 }
 
+.dashboard-home-task__assignee {
+  font-weight: 600;
+}
+
+.dashboard-home-task__assignee--gael {
+  color: #2563eb;
+}
+
+.dashboard-home-task__assignee--manuel {
+  color: #7c3aed;
+}
+
+[data-theme="dark"] .dashboard-home-task__assignee--gael {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .dashboard-home-task__assignee--manuel {
+  color: #a78bfa;
+}
+
 .dashboard-home-task__meta {
   display: flex;
   flex-wrap: wrap;
@@ -508,6 +528,13 @@
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-tertiary);
+}
+
+.dashboard-home-task__field-error {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  color: color-mix(in srgb, #b42318 88%, var(--text-primary));
 }
 
 .dashboard-home-priority-select.businesses-select {
@@ -929,6 +956,66 @@
   text-align: center;
   font-size: 0.92rem;
   color: var(--text-tertiary);
+}
+
+.dashboard-home-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.5rem;
+  padding: 1.35rem 1rem 1.5rem;
+  min-height: 7.5rem;
+}
+
+.dashboard-home-empty-state__icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.15rem;
+}
+
+.dashboard-home-empty-state__icon {
+  width: 1.55rem;
+  height: 1.55rem;
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .dashboard-home-empty-state__icon {
+  color: #000000;
+}
+
+.dashboard-home-empty-state__title {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+@media (max-width: 600px) {
+  .dashboard-home-empty-state {
+    padding: 1.15rem 0.75rem 1.35rem;
+    min-height: 6.75rem;
+    gap: 0.4rem;
+  }
+
+  .dashboard-home-empty-state__icon {
+    width: 1.4rem;
+    height: 1.4rem;
+  }
+
+  .dashboard-home-empty-state__title {
+    font-size: 0.94rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .dashboard-home-empty-state {
+    padding: 1rem 0.5rem 1.2rem;
+  }
 }
 
 .dashboard-home-opp {
