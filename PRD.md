@@ -1,8 +1,8 @@
-# PRD - Business Lead Finder (Arquitectura Hibrida)
+# PRD - leadScope (Arquitectura Hibrida)
 
 ## 1. Overview
 
-- **Nombre del producto:** Business Lead Finder
+- **Nombre del producto:** leadScope
 - **Tipo:** Web App + Data Pipeline
 - **Arquitectura:** Next.js + Python Workers + PostgreSQL
 
@@ -290,7 +290,7 @@ El MVP es exitoso si:
 ## 19. Estructura del proyecto
 
 ```txt
-lead-finder/
+leadscope/
   apps/
     web/        # Next.js
   services/

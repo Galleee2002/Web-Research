@@ -7,6 +7,7 @@ import { AuthRadar } from "./auth-radar-background/radar";
 
 export function AuthScreen({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<"dark" | "light">("light");
+  const [scopeIntro, setScopeIntro] = useState(true);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem("theme");
@@ -58,7 +59,42 @@ export function AuthScreen({ children }: { children: React.ReactNode }) {
       </div>
       <div className="auth-main__stack">
         <header className="auth-top-nav">
-          <h1 className="auth-top-nav__brand">GRG</h1>
+          <div className="auth-top-nav__brand-block">
+            <h1 className="auth-top-nav__brand">
+              <span className="auth-top-nav__brand-lead">lead</span>
+              <span
+                className={
+                  scopeIntro
+                    ? "auth-top-nav__brand-scope auth-top-nav__brand-scope--intro"
+                    : "auth-top-nav__brand-scope"
+                }
+                onAnimationEnd={() => setScopeIntro(false)}
+              >
+                Scope
+              </span>
+            </h1>
+            <p className="auth-top-nav__powered">
+              <span className="auth-top-nav__powered-label">Powered by:</span>
+              <span className="auth-top-nav__powered-logo-wrap">
+                <img
+                  src="/logos/logo-negro.svg"
+                  alt="GRG"
+                  className="auth-top-nav__powered-logo auth-top-nav__powered-logo--light"
+                  width={72}
+                  height={26}
+                  decoding="async"
+                />
+                <img
+                  src="/logos/logo.svg"
+                  alt="GRG"
+                  className="auth-top-nav__powered-logo auth-top-nav__powered-logo--dark"
+                  width={72}
+                  height={26}
+                  decoding="async"
+                />
+              </span>
+            </p>
+          </div>
           <button
             type="button"
             className="dashboard-theme-toggle auth-top-nav__theme"

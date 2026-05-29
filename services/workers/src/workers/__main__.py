@@ -46,7 +46,7 @@ def main() -> None:
         processed_runs += 1
 
     print(
-        "Business Lead Finder workers finished "
+        "leadScope workers finished "
         f"(env={settings.app_env}, processed_runs={processed_runs})"
     )
     log_event(

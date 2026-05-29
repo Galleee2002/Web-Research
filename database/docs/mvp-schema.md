@@ -2,7 +2,7 @@
 
 ## Alcance
 
-La Fase 3 crea el schema persistente del MVP de Business Lead Finder usando
+La Fase 3 crea el schema persistente del MVP de leadScope usando
 archivos SQL planos. Todavia no requiere un framework de migraciones.
 
 ## Archivos

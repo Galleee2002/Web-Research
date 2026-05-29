@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Analytics | Business Lead Finder",
+  title: "Analytics | leadScope",
 };
 
 export default function AnalyticsLayout({

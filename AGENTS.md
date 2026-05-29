@@ -1,8 +1,8 @@
-# Business Lead Finder
+# leadScope
 
 ## Project Purpose
 
-Business Lead Finder is a Next.js + Python monorepo for finding local businesses,
+leadScope is a Next.js + Python monorepo for finding local businesses,
 classifying whether they have a real website, persisting leads in PostgreSQL,
 and managing them from a dashboard and API.
 

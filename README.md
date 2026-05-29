@@ -1,6 +1,6 @@
-# Business Lead Finder
+# leadScope
 
-Business Lead Finder is a monorepo for finding local businesses without their
+leadScope is a monorepo for finding local businesses without their
 own website and turning them into manageable leads.
 
 The current repository already includes:

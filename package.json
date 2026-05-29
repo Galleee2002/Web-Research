@@ -1,5 +1,5 @@
 {
-  "name": "business-lead-finder",
+  "name": "leadscope",
   "private": true,
   "packageManager": "pnpm@9.15.9",
   "scripts": {
@@ -7,8 +7,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "web:dev": "node ./scripts/dev/start-web.mjs",
-    "web:build": "pnpm --filter @business-lead-finder/web run build",
-    "web:test": "pnpm --filter @business-lead-finder/web run test",
+    "web:build": "pnpm --filter @leadscope/web run build",
+    "web:test": "pnpm --filter @leadscope/web run test",
     "workers:run": "python3 -m workers",
     "workers:test": "python3 -m pytest services/workers/tests"
   },

@@ -54,7 +54,7 @@ if (!process.env.DATABASE_URL) {
 const pnpmCommand = "pnpm";
 const child = spawn(
   pnpmCommand,
-  ["--filter", "@business-lead-finder/web", "run", "dev"],
+  ["--filter", "@leadscope/web", "run", "dev"],
   {
     cwd: rootDir,
     shell: process.platform === "win32",

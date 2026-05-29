@@ -1,9 +1,9 @@
-# Documento de Tareas Frontend MVP - Business Lead Finder
+# Documento de Tareas Frontend MVP - leadScope
 
 ## 1. Objetivo y alcance frontend MVP
 
 Este documento define las tareas frontend necesarias para construir el MVP de
-Business Lead Finder, en coherencia con el documento backend
+leadScope, en coherencia con el documento backend
 `docs/architecture/backend-implementation-tasks.md`.
 
 El foco de este documento es funcional. No define diseno visual, layout,

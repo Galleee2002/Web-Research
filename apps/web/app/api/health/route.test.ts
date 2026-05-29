@@ -15,7 +15,7 @@ describe("GET /api/health", () => {
 
       expect(response.status).toBe(200);
       expect(body).toMatchObject({
-        app: "business-lead-finder",
+        app: "leadscope",
         environment: "development",
         database: {
           configured: false,

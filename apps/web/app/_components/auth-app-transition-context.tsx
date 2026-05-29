@@ -15,6 +15,8 @@ const MIN_OVERLAY_MS = 950;
 
 type AuthAppTransitionContextValue = {
   beginEnteringProtectedApp: () => void;
+  sidebarBrandIntro: boolean;
+  consumeSidebarBrandIntro: () => void;
 };
 
 const AuthAppTransitionContext = createContext<AuthAppTransitionContextValue | null>(
@@ -30,12 +32,18 @@ export function AuthAppTransitionProvider({
 }) {
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [overlayExiting, setOverlayExiting] = useState(false);
+  const [sidebarBrandIntro, setSidebarBrandIntro] = useState(false);
   const startedAtRef = useRef<number | null>(null);
 
   const beginEnteringProtectedApp = useCallback(() => {
     startedAtRef.current = Date.now();
     setOverlayExiting(false);
     setOverlayOpen(true);
+    setSidebarBrandIntro(true);
+  }, []);
+
+  const consumeSidebarBrandIntro = useCallback(() => {
+    setSidebarBrandIntro(false);
   }, []);
 
   useEffect(() => {
@@ -57,7 +65,13 @@ export function AuthAppTransitionProvider({
   }, []);
 
   return (
-    <AuthAppTransitionContext.Provider value={{ beginEnteringProtectedApp }}>
+    <AuthAppTransitionContext.Provider
+      value={{
+        beginEnteringProtectedApp,
+        sidebarBrandIntro,
+        consumeSidebarBrandIntro,
+      }}
+    >
       {children}
       {overlayOpen ? (
         <AuthEnterOverlay exiting={overlayExiting} onExitComplete={handleOverlayExitComplete} />

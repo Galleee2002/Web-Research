@@ -28,6 +28,8 @@ import type { AuthUser } from "@shared/index";
 
 import { getCurrentUser, logout } from "@/lib/api/auth-client";
 
+import { useAuthAppTransition } from "./auth-app-transition-context";
+
 type NavItem = {
   label: string;
   href: string;
@@ -69,7 +71,9 @@ const isRouteActive = (pathname: string, href: string): boolean => {
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { sidebarBrandIntro, consumeSidebarBrandIntro } = useAuthAppTransition();
   const [theme, setTheme] = useState<"dark" | "light">("light");
+  const [scopeIntro, setScopeIntro] = useState(sidebarBrandIntro);
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [moreMounted, setMoreMounted] = useState(false);
   const [moreEntered, setMoreEntered] = useState(false);
@@ -81,6 +85,12 @@ export function SidebarNav() {
   const [navPortalNode, setNavPortalNode] = useState<HTMLElement | null>(null);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [logoutSubmitting, setLogoutSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (sidebarBrandIntro) {
+      setScopeIntro(true);
+    }
+  }, [sidebarBrandIntro]);
 
   useLayoutEffect(() => {
     setNavPortalNode(document.body);
@@ -463,8 +473,43 @@ export function SidebarNav() {
       <aside className="dashboard-sidebar" aria-label="Primary">
         <div className="dashboard-sidebar__header">
           <div className="dashboard-sidebar__header-text">
-            <p className="dashboard-sidebar__eyebrow">Business Lead Finder</p>
-            <h1 className="dashboard-sidebar__title">GRG Solutions</h1>
+            <h1 className="dashboard-sidebar__title">
+              <span className="dashboard-sidebar__brand-lead">lead</span>
+              <span
+                className={
+                  scopeIntro
+                    ? "dashboard-sidebar__brand-scope dashboard-sidebar__brand-scope--intro"
+                    : "dashboard-sidebar__brand-scope"
+                }
+                onAnimationEnd={() => {
+                  setScopeIntro(false);
+                  consumeSidebarBrandIntro();
+                }}
+              >
+                Scope
+              </span>
+            </h1>
+            <p className="dashboard-sidebar__eyebrow dashboard-sidebar__powered">
+              <span className="dashboard-sidebar__powered-label">Powered by:</span>
+              <span className="dashboard-sidebar__powered-logo-wrap">
+                <img
+                  src="/logos/logo-negro.svg"
+                  alt="GRG"
+                  className="dashboard-sidebar__powered-logo dashboard-sidebar__powered-logo--light"
+                  width={72}
+                  height={26}
+                  decoding="async"
+                />
+                <img
+                  src="/logos/logo.svg"
+                  alt="GRG"
+                  className="dashboard-sidebar__powered-logo dashboard-sidebar__powered-logo--dark"
+                  width={72}
+                  height={26}
+                  decoding="async"
+                />
+              </span>
+            </p>
           </div>
           <button
             type="button"
