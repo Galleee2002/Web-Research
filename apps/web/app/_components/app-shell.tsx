@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 
+import { AppToaster } from "./app-toaster";
 import { AuthAppTransitionProvider } from "./auth-app-transition-context";
 import { AuthScreen } from "./auth-screen";
 import { SidebarNav } from "./sidebar-nav";
@@ -12,6 +13,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthAppTransitionProvider isAuthRoute={isAuthRoute}>
+      <AppToaster />
       {isAuthRoute ? (
         <AuthScreen>{children}</AuthScreen>
       ) : (

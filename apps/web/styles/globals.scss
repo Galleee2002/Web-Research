@@ -3,6 +3,7 @@
 @use "./scans" as *;
 @use "./shared/tokens" as *;
 @use "./shared/base" as *;
+@use "./shared/toasts" as *;
 
 .dashboard-shell {
   display: grid;

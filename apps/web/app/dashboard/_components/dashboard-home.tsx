@@ -33,6 +33,7 @@ import type {
   DashboardTodoAssigneeOption,
   DashboardTodoItem,
 } from "@/lib/dashboard/todo-types";
+import { appToast } from "@/lib/ui/toast";
 
 function opportunityHasNotes(opp: OpportunityRead): boolean {
   return Boolean(opp.notes?.trim());
@@ -426,10 +427,14 @@ export function DashboardHome() {
         try {
           await syncDashboardTodo(id, { status: nextStatus });
           await refreshTodosFromServer();
+          if (nextStatus === "completed") {
+            appToast.success("Task marked as completed.");
+          }
         } catch {
           setTodos((prev) =>
             prev.map((t) => (t.id === id ? { ...t, status: revertTo } : t))
           );
+          appToast.error("Could not update task.");
         } finally {
           pendingTodoSyncsRef.current.delete(id);
           setSyncingTodoIds((prev) => {
@@ -585,8 +590,12 @@ export function DashboardHome() {
         setTodos((prev) =>
           prev.map((t) => (t.id === todoId && t.isDraft ? created : t))
         );
+        appToast.success("Task created.");
       } catch (error: unknown) {
         setTodoError(
+          error instanceof Error ? error.message : "Could not save task"
+        );
+        appToast.error(
           error instanceof Error ? error.message : "Could not save task"
         );
       }
@@ -624,8 +633,12 @@ export function DashboardHome() {
         return;
       }
       mergeServerTodos(items);
+      appToast.success("Completed tasks deleted.");
     } catch (error: unknown) {
       setTodoError(
+        error instanceof Error ? error.message : "Could not delete completed tasks"
+      );
+      appToast.error(
         error instanceof Error ? error.message : "Could not delete completed tasks"
       );
       if (generation === todosFetchGenerationRef.current) {
