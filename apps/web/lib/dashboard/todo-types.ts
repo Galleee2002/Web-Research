@@ -9,6 +9,8 @@ import type {
 export type DashboardTodoItem = {
   id: string;
   name: string;
+  /** Brief task notes; null when unset. */
+  description: string | null;
   businessId: string | null;
   businessName: string | null;
   /** Display label for the linked business lead status (e.g. "Reviewed"). */

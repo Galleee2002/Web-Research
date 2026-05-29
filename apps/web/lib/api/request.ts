@@ -50,13 +50,20 @@ export function toApiClientError(
   body: unknown,
   fallbackMessage: string
 ): ApiClientError {
-  const errorBody = body as ApiErrorBody;
-  return new ApiClientError(
-    errorBody?.error?.message ?? fallbackMessage,
-    response.status,
-    {
-      code: errorBody?.error?.code,
-      correlationId: errorBody?.error?.correlation_id,
-    }
+  const errorBody = body as ApiErrorBody & {
+    error?: { details?: string[] };
+  };
+  const baseMessage = errorBody?.error?.message ?? fallbackMessage;
+  const details = errorBody?.error?.details?.filter(
+    (detail) => typeof detail === "string" && detail.trim().length > 0
   );
+  const message =
+    details && details.length > 0
+      ? `${baseMessage}: ${details.join("; ")}`
+      : baseMessage;
+
+  return new ApiClientError(message, response.status, {
+    code: errorBody?.error?.code,
+    correlationId: errorBody?.error?.correlation_id,
+  });
 }

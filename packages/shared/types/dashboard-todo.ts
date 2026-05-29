@@ -20,6 +20,8 @@ export interface DashboardTodoAssigneesResponse {
 export interface DashboardTodoRead {
   id: string;
   name: string;
+  /** Brief task notes; nullable when unset. */
+  description: string | null;
   business_id: string | null;
   business_name: string | null;
   business_status: LeadStatus | null;
@@ -39,6 +41,7 @@ export interface DashboardTodosListResponse {
 
 export interface DashboardTodoCreate {
   name: string;
+  description?: string | null;
   business_id?: string | null;
   assigned_user_id?: string | null;
   status?: DashboardTodoStatus;
@@ -48,6 +51,7 @@ export interface DashboardTodoCreate {
 
 export interface DashboardTodoUpdate {
   name?: string;
+  description?: string | null;
   status?: DashboardTodoStatus;
   start_date?: string | null;
   priority?: DashboardTodoPriority;

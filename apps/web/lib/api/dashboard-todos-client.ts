@@ -60,6 +60,7 @@ export function mapDashboardTodoReadToItem(row: DashboardTodoRead): DashboardTod
   return {
     id: row.id,
     name: row.name,
+    description: row.description,
     businessId: row.business_id,
     businessName: row.business_name,
     businessStatusLabel: row.business_status

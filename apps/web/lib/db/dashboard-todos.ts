@@ -13,6 +13,7 @@ import { toIsoString } from "./shared-query";
 interface DashboardTodoRow {
   id: string;
   name: string;
+  description: string | null;
   business_id: string | null;
   business_name: string | null;
   business_status: DashboardTodoRead["business_status"];
@@ -28,6 +29,7 @@ interface DashboardTodoRow {
 const SELECT_FIELDS = `
   dashboard_todos.id,
   dashboard_todos.name,
+  dashboard_todos.description,
   dashboard_todos.business_id,
   businesses.name as business_name,
   businesses.status as business_status,
@@ -69,6 +71,7 @@ function mapRow(row: DashboardTodoRow): DashboardTodoRead {
   return {
     id: row.id,
     name: row.name,
+    description: row.description,
     business_id: row.business_id,
     business_name: row.business_name,
     business_status: row.business_status,
@@ -127,18 +130,19 @@ export async function insertDashboardTodo(
   const startDate = input.start_date ?? null;
   const businessId = input.business_id ?? null;
   const assignedUserId = input.assigned_user_id ?? null;
+  const description = input.description ?? null;
 
   const insertResult = await query<{ id: string }>(
     `
       insert into dashboard_todos (
-        business_id, assigned_user_id, name, status, start_date, priority
+        business_id, assigned_user_id, name, description, status, start_date, priority
       )
-      select $1::uuid, $2::uuid, $3, $4, $5::date, $6
+      select $1::uuid, $2::uuid, $3, $4, $5, $6::date, $7
       where ($1::uuid is null or exists (select 1 from businesses b where b.id = $1::uuid))
         and ($2::uuid is null or exists (select 1 from users u where u.id = $2::uuid))
       returning dashboard_todos.id
     `,
-    [businessId, assignedUserId, input.name, status, startDate, priority],
+    [businessId, assignedUserId, input.name, description, status, startDate, priority],
     { operationName: "insert_dashboard_todo", context }
   );
 
@@ -160,6 +164,10 @@ export async function updateDashboardTodo(
   if (patch.name !== undefined) {
     params.push(patch.name);
     sets.push(`name = $${params.length}`);
+  }
+  if (patch.description !== undefined) {
+    params.push(patch.description);
+    sets.push(`description = $${params.length}`);
   }
   if (patch.status !== undefined) {
     params.push(patch.status);

@@ -9,6 +9,7 @@ vi.mock("@/lib/services/dashboard-todo-service", () => ({
 const BASE_READ = {
   id: "00000000-0000-4000-8000-000000000001",
   name: "Hello",
+  description: null,
   business_id: "00000000-0000-4000-8000-000000000002",
   business_name: "Acme",
   business_status: "new",
@@ -50,6 +51,35 @@ describe("PATCH /api/dashboard/todos/[id]", () => {
         route: "/api/dashboard/todos/[id]",
         method: "PATCH",
       })
+    );
+  });
+
+  it("updates description only", async () => {
+    updateDashboardTodoMock.mockResolvedValue({
+      ...BASE_READ,
+      description: "Follow up tomorrow",
+    });
+
+    const response = await import("./route").then(({ PATCH }) =>
+      PATCH(
+        new Request("http://localhost/api/dashboard/todos/x", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ description: "Follow up tomorrow" }),
+        }),
+        {
+          params: Promise.resolve({
+            id: "00000000-0000-4000-8000-000000000001",
+          }),
+        }
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(updateDashboardTodoMock).toHaveBeenCalledWith(
+      "00000000-0000-4000-8000-000000000001",
+      { description: "Follow up tomorrow" },
+      expect.anything()
     );
   });
 

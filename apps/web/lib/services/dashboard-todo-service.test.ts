@@ -16,6 +16,7 @@ const context = {
 const SAMPLE = {
   id: "00000000-0000-4000-8000-000000000001",
   name: "Plan launch",
+  description: null,
   business_id: "00000000-0000-4000-8000-000000000002",
   business_name: "Acme",
   business_status: "new" as const,

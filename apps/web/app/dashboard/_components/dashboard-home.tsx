@@ -26,6 +26,7 @@ import {
   deleteCompletedDashboardTodos,
   fetchDashboardTodoAssignees,
   fetchDashboardTodos,
+  patchDashboardTodo,
 } from "@/lib/api/dashboard-todos-client";
 import { fetchOpportunities } from "@/lib/api/opportunities-client";
 import { syncDashboardTodo } from "@/lib/dashboard/todo-sync";
@@ -76,6 +77,20 @@ function formatStartDate(value: string): string {
 
 const START_DATE_PAST_ERROR = "Date must be today or later.";
 
+const DESCRIPTION_COLLAPSE_CHAR_LIMIT = 96;
+
+function normalizeTodoDescription(value: string): string | null {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function descriptionNeedsExpand(description: string): boolean {
+  return (
+    description.length > DESCRIPTION_COLLAPSE_CHAR_LIMIT ||
+    description.includes("\n")
+  );
+}
+
 function todayIsoDateLocal(): string {
   const now = new Date();
   const year = now.getFullYear();
@@ -121,6 +136,162 @@ function formatTodoBusinessLine(task: DashboardTodoItem): string | null {
   return task.businessStatusLabel
     ? `${task.businessName} — ${task.businessStatusLabel}`
     : task.businessName;
+}
+
+function DashboardHomeTaskDescription({
+  task,
+  disabled,
+  onSaved,
+}: {
+  task: DashboardTodoItem;
+  disabled: boolean;
+  onSaved: (item: DashboardTodoItem) => void;
+}) {
+  const storedDescription = task.description?.trim() ?? "";
+  const [expanded, setExpanded] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(storedDescription);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(storedDescription);
+    }
+  }, [storedDescription, editing]);
+
+  const hasDescription = storedDescription.length > 0;
+  const canExpand = hasDescription && descriptionNeedsExpand(storedDescription);
+  const showClamped = hasDescription && !expanded && canExpand;
+
+  const openEditor = useCallback(() => {
+    setDraft(storedDescription);
+    setEditing(true);
+    setExpanded(true);
+  }, [storedDescription]);
+
+  const closeEditor = useCallback(() => {
+    setDraft(storedDescription);
+    setEditing(false);
+    if (!hasDescription) {
+      setExpanded(false);
+    }
+  }, [hasDescription, storedDescription]);
+
+  const handleSave = useCallback(async () => {
+    const nextDescription = normalizeTodoDescription(draft);
+    if (nextDescription === normalizeTodoDescription(storedDescription)) {
+      closeEditor();
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const updated = await patchDashboardTodo(task.id, {
+        description: nextDescription,
+      });
+      onSaved(updated);
+      setEditing(false);
+      setExpanded(
+        nextDescription !== null && descriptionNeedsExpand(nextDescription)
+      );
+      appToast.success("Description saved.");
+    } catch (error: unknown) {
+      appToast.error(
+        error instanceof Error ? error.message : "Could not save description"
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [closeEditor, draft, onSaved, storedDescription, task.id]);
+
+  if (editing) {
+    return (
+      <div className="dashboard-home-task__description">
+        <label className="dashboard-home-task__description-form">
+          <span className="dashboard-home-task__field-label">Description</span>
+          <textarea
+            className="dashboard-home-task__description-input"
+            value={draft}
+            rows={3}
+            maxLength={500}
+            placeholder="Brief notes for this task…"
+            disabled={disabled || saving}
+            onChange={(event) => setDraft(event.target.value)}
+            aria-label={`Description for ${task.name}`}
+          />
+        </label>
+        <div className="dashboard-home-task__description-actions">
+          <button
+            type="button"
+            className="dashboard-home-task__description-save"
+            disabled={disabled || saving}
+            onClick={() => void handleSave()}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button
+            type="button"
+            className="dashboard-home-task__description-cancel"
+            disabled={disabled || saving}
+            onClick={closeEditor}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasDescription) {
+    return (
+      <div className="dashboard-home-task__description">
+        <button
+          type="button"
+          className="dashboard-home-task__description-add"
+          disabled={disabled}
+          onClick={openEditor}
+        >
+          Add a brief description
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="dashboard-home-task__description">
+      <p
+        className={[
+          "dashboard-home-task__description-text",
+          showClamped ? "dashboard-home-task__description-text--clamped" : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
+      >
+        {storedDescription}
+      </p>
+      <div className="dashboard-home-task__description-toolbar">
+        {canExpand ? (
+          <button
+            type="button"
+            className="dashboard-home-task__description-toggle"
+            disabled={disabled}
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+          >
+            {expanded ? "Show less" : "Show more"}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="dashboard-home-task__description-toggle"
+          disabled={disabled}
+          onClick={openEditor}
+        >
+          Edit
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function DashboardHomeTaskSubtitle({ task }: { task: DashboardTodoItem }) {
@@ -461,10 +632,15 @@ export function DashboardHome() {
     });
   }, []);
 
+  const handleTodoDescriptionSaved = useCallback((item: DashboardTodoItem) => {
+    setTodos((prev) => prev.map((t) => (t.id === item.id ? item : t)));
+  }, []);
+
   const handleAddTodo = useCallback(() => {
     const task: DashboardTodoItem = {
       id: newTodoId(),
       name: "",
+      description: null,
       businessId: null,
       businessName: null,
       businessStatusLabel: "",
@@ -481,6 +657,16 @@ export function DashboardHome() {
   const handleDraftNameChange = useCallback((id: string, name: string) => {
     setTodos((prev) =>
       prev.map((t) => (t.id === id && t.isDraft ? { ...t, name } : t))
+    );
+  }, []);
+
+  const handleDraftDescriptionChange = useCallback((id: string, value: string) => {
+    setTodos((prev) =>
+      prev.map((t) =>
+        t.id === id && t.isDraft
+          ? { ...t, description: value.length > 0 ? value : null }
+          : t
+      )
     );
   }, []);
 
@@ -581,6 +767,7 @@ export function DashboardHome() {
       try {
         const created = await createDashboardTodo({
           name,
+          description: draft.description,
           business_id: draft.businessId,
           assigned_user_id: draft.assignedUserId,
           priority: draft.priority,
@@ -782,6 +969,28 @@ export function DashboardHome() {
                                 autoComplete="off"
                               />
                             </label>
+                            <label className="dashboard-home-task__field dashboard-home-task__field--description">
+                              <span className="dashboard-home-task__field-label">
+                                Description
+                                <span className="dashboard-home-task__field-label-hint">
+                                  optional
+                                </span>
+                              </span>
+                              <textarea
+                                className="dashboard-home-task__description-input dashboard-home-task__description-input--draft"
+                                rows={2}
+                                maxLength={500}
+                                placeholder="Brief notes for this task…"
+                                value={task.description ?? ""}
+                                onChange={(event) =>
+                                  handleDraftDescriptionChange(
+                                    task.id,
+                                    event.target.value
+                                  )
+                                }
+                                aria-label="Task description"
+                              />
+                            </label>
                             <div className="dashboard-home-task__draft-controls">
                               <div className="dashboard-home-task__field">
                                 <span className="dashboard-home-task__field-label">
@@ -882,6 +1091,11 @@ export function DashboardHome() {
                         <div className="dashboard-home-task">
                           <div className="dashboard-home-task__main">
                             <p className="dashboard-home-task__name">{task.name}</p>
+                            <DashboardHomeTaskDescription
+                              task={task}
+                              disabled={syncingTodoIds.has(task.id)}
+                              onSaved={handleTodoDescriptionSaved}
+                            />
                             <DashboardHomeTaskSubtitle task={task} />
                             <div
                               className="dashboard-home-task__meta"

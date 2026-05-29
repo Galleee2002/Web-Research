@@ -113,6 +113,33 @@ function parseName(value: unknown, errors: string[]): string | undefined {
   return trimmed;
 }
 
+function parseDescription(
+  value: unknown,
+  errors: string[]
+): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "string") {
+    errors.push("description must be a string or null");
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  if (trimmed.length > INPUT_LIMITS.dashboardTodoDescription) {
+    errors.push(
+      `description must be at most ${INPUT_LIMITS.dashboardTodoDescription} characters`
+    );
+    return undefined;
+  }
+  return trimmed;
+}
+
 export function parseDashboardTodoCreate(
   input: unknown
 ): ValidationResult<DashboardTodoCreate> {
@@ -159,6 +186,10 @@ export function parseDashboardTodoCreate(
     ? parseStartDate(input.start_date, errors)
     : undefined;
 
+  const description = Object.hasOwn(input, "description")
+    ? parseDescription(input.description, errors)
+    : undefined;
+
   if (errors.length > 0) {
     return { ok: false, errors };
   }
@@ -181,6 +212,9 @@ export function parseDashboardTodoCreate(
   if (startDate !== undefined) {
     value.start_date = startDate;
   }
+  if (description !== undefined) {
+    value.description = description;
+  }
   return { ok: true, value };
 }
 
@@ -199,6 +233,16 @@ export function parseDashboardTodoUpdate(
     const parsed = parseName(input.name, errors);
     if (parsed !== undefined) {
       value.name = parsed;
+    }
+    hasField = true;
+  }
+
+  if (Object.hasOwn(input, "description")) {
+    const parsed = parseDescription(input.description, errors);
+    if (parsed === null) {
+      value.description = null;
+    } else if (typeof parsed === "string") {
+      value.description = parsed;
     }
     hasField = true;
   }
@@ -234,7 +278,9 @@ export function parseDashboardTodoUpdate(
   if (!hasField) {
     return {
       ok: false,
-      errors: ["at least one of name, status, start_date, or priority is required"],
+      errors: [
+        "at least one of name, description, status, start_date, or priority is required",
+      ],
     };
   }
 

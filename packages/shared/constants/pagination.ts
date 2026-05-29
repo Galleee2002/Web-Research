@@ -10,6 +10,7 @@ export const INPUT_LIMITS = {
   category: 120,
   textSearch: 160,
   dashboardTodoName: 240,
+  dashboardTodoDescription: 500,
 } as const;
 
 export const DASHBOARD_TODO_STATUSES = ["pending", "completed"] as const;

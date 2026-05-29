@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { parseDashboardTodoUpdate } from "@shared/index";
+import { parseDashboardTodoUpdate } from "@shared/schemas/dashboard-todo";
 
 import {
   invalidJsonError,

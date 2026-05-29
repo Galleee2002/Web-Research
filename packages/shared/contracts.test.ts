@@ -430,10 +430,20 @@ describe("shared contracts", () => {
       value: { name: "Refresh", priority: "low", start_date: null },
     });
 
+    expect(parseDashboardTodoUpdate({ description: " Follow up " })).toEqual({
+      ok: true,
+      value: { description: "Follow up" },
+    });
+
+    expect(parseDashboardTodoUpdate({ description: null })).toEqual({
+      ok: true,
+      value: { description: null },
+    });
+
     expect(parseDashboardTodoUpdate({})).toEqual({
       ok: false,
       errors: [
-        "at least one of name, status, start_date, or priority is required",
+        "at least one of name, description, status, start_date, or priority is required",
       ],
     });
 

@@ -1,4 +1,8 @@
+import path from "node:path";
+
 import type { NextConfig } from "next";
+
+const monorepoRoot = path.join(process.cwd(), "../..");
 
 const securityHeaders = [
   {
@@ -21,6 +25,10 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Watch shared contracts under packages/ so API validators hot-reload with schema edits.
+  turbopack: {
+    root: monorepoRoot,
+  },
   async headers() {
     return [
       {

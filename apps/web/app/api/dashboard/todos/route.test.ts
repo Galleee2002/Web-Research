@@ -11,6 +11,7 @@ vi.mock("@/lib/services/dashboard-todo-service", () => ({
 const SAMPLE_READ = {
   id: "00000000-0000-4000-8000-000000000001",
   name: "Hello",
+  description: null,
   business_id: "00000000-0000-4000-8000-000000000002",
   business_name: "Acme",
   business_status: "new",
