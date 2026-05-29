@@ -1,4 +1,5 @@
 import type {
+  DashboardTodoAssigneesResponse,
   DashboardTodoCreate,
   DashboardTodoRead,
   DashboardTodoUpdate,
@@ -10,6 +11,7 @@ import type { OperationContext } from "@/lib/api/http";
 
 import {
   deleteCompletedDashboardTodos as defaultDeleteCompletedDashboardTodos,
+  findDashboardTodoAssignees as defaultFindDashboardTodoAssignees,
   findDashboardTodos as defaultFindDashboardTodos,
   insertDashboardTodo as defaultInsertDashboardTodo,
   updateDashboardTodo as defaultUpdateDashboardTodo,
@@ -17,6 +19,7 @@ import {
 
 interface DashboardTodoServiceDependencies {
   findDashboardTodos: typeof defaultFindDashboardTodos;
+  findDashboardTodoAssignees: typeof defaultFindDashboardTodoAssignees;
   insertDashboardTodo: typeof defaultInsertDashboardTodo;
   updateDashboardTodo: typeof defaultUpdateDashboardTodo;
   deleteCompletedDashboardTodos: typeof defaultDeleteCompletedDashboardTodos;
@@ -24,6 +27,7 @@ interface DashboardTodoServiceDependencies {
 
 const defaultDeps = {
   findDashboardTodos: defaultFindDashboardTodos,
+  findDashboardTodoAssignees: defaultFindDashboardTodoAssignees,
   insertDashboardTodo: defaultInsertDashboardTodo,
   updateDashboardTodo: defaultUpdateDashboardTodo,
   deleteCompletedDashboardTodos: defaultDeleteCompletedDashboardTodos,
@@ -34,6 +38,14 @@ export async function listDashboardTodos(
   deps: DashboardTodoServiceDependencies = defaultDeps
 ): Promise<DashboardTodosListResponse> {
   return deps.findDashboardTodos(context);
+}
+
+export async function listDashboardTodoAssignees(
+  context: OperationContext,
+  deps: DashboardTodoServiceDependencies = defaultDeps
+): Promise<DashboardTodoAssigneesResponse> {
+  const items = await deps.findDashboardTodoAssignees(context);
+  return { items };
 }
 
 export async function createDashboardTodo(

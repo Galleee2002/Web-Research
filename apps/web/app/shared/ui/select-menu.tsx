@@ -15,6 +15,7 @@ type SelectMenuProps<T extends string> = {
   ariaLabel: string;
   rootClassName?: string;
   menuClassName?: string;
+  disabled?: boolean;
 };
 
 export function SelectMenu<T extends string>({
@@ -26,6 +27,7 @@ export function SelectMenu<T extends string>({
   ariaLabel,
   rootClassName,
   menuClassName,
+  disabled = false,
 }: SelectMenuProps<T>) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -52,7 +54,11 @@ export function SelectMenu<T extends string>({
         aria-label={ariaLabel}
         aria-expanded={open}
         aria-haspopup="listbox"
-        onClick={() => setOpen((current) => !current)}
+        disabled={disabled}
+        onClick={() => {
+          if (disabled) return;
+          setOpen((current) => !current);
+        }}
       >
         {triggerContent}
         <ChevronDown

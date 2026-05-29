@@ -38,6 +38,32 @@ function isDashboardTodoPriority(
   );
 }
 
+function parseOptionalUuid(
+  value: unknown,
+  field: string,
+  errors: string[]
+): string | null | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== "string") {
+    errors.push(`${field} must be a valid UUID or null`);
+    return undefined;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  if (!isUuidString(trimmed)) {
+    errors.push(`${field} must be a valid UUID`);
+    return undefined;
+  }
+  return trimmed;
+}
+
 function parseStartDate(
   value: unknown,
   errors: string[]
@@ -103,11 +129,13 @@ export function parseDashboardTodoCreate(
     ? parseName(input.name, errors)
     : undefined;
 
-  if (!Object.hasOwn(input, "business_id")) {
-    errors.push("business_id is required");
-  } else if (!isUuidString(input.business_id)) {
-    errors.push("business_id must be a valid UUID");
-  }
+  const businessId = Object.hasOwn(input, "business_id")
+    ? parseOptionalUuid(input.business_id, "business_id", errors)
+    : undefined;
+
+  const assignedUserId = Object.hasOwn(input, "assigned_user_id")
+    ? parseOptionalUuid(input.assigned_user_id, "assigned_user_id", errors)
+    : undefined;
 
   let status: DashboardTodoStatus | undefined;
   if (Object.hasOwn(input, "status") && input.status !== undefined) {
@@ -137,8 +165,13 @@ export function parseDashboardTodoCreate(
 
   const value: DashboardTodoCreate = {
     name: name as string,
-    business_id: input.business_id as string,
   };
+  if (businessId !== undefined) {
+    value.business_id = businessId;
+  }
+  if (assignedUserId !== undefined) {
+    value.assigned_user_id = assignedUserId;
+  }
   if (status !== undefined) {
     value.status = status;
   }

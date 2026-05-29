@@ -9,13 +9,21 @@ import type {
 export type DashboardTodoItem = {
   id: string;
   name: string;
+  businessId: string | null;
   businessName: string | null;
   /** Display label for the linked business lead status (e.g. "Reviewed"). */
   businessStatusLabel: string;
+  assignedUserId: string | null;
+  assigneeName: string | null;
   status: DashboardTodoStatus;
   /** ISO date string `YYYY-MM-DD`, nullable. */
   startDate: string | null;
   priority: DashboardTodoPriority;
   /** Row still being composed (name input + business picker + extras). */
   isDraft?: boolean;
+};
+
+export type DashboardTodoAssigneeOption = {
+  id: string;
+  label: string;
 };

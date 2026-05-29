@@ -14,6 +14,8 @@ const SAMPLE_READ = {
   business_id: "00000000-0000-4000-8000-000000000002",
   business_name: "Acme",
   business_status: "new",
+  assigned_user_id: null,
+  assigned_user_name: null,
   status: "pending",
   start_date: null,
   priority: "medium",
@@ -126,6 +128,35 @@ describe("POST /api/dashboard/todos", () => {
 
     expect(response.status).toBe(400);
     expect(createDashboardTodoMock).not.toHaveBeenCalled();
+  });
+
+  it("creates a task without a linked business", async () => {
+    createDashboardTodoMock.mockResolvedValue({
+      ...SAMPLE_READ,
+      business_id: null,
+      business_name: null,
+      business_status: null,
+    });
+
+    const response = await import("./route").then(({ POST }) =>
+      POST(
+        new Request("http://localhost/api/dashboard/todos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "Internal follow-up",
+          }),
+        })
+      )
+    );
+
+    expect(response.status).toBe(201);
+    expect(createDashboardTodoMock).toHaveBeenCalledWith(
+      {
+        name: "Internal follow-up",
+      },
+      expect.anything()
+    );
   });
 
   it("returns 404 when the business does not exist", async () => {

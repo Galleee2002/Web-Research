@@ -43,7 +43,7 @@ export async function POST(request: Request) {
 
     const created = await createDashboardTodo(parsed.value, context.operationContext);
     if (!created) {
-      return notFound(context.correlationId, "Business not found");
+      return notFound(context.correlationId, "Business or assignee not found");
     }
 
     logApiEvent("dashboard_todo_created", context.operationContext);

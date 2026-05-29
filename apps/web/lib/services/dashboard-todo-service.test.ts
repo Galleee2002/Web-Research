@@ -19,6 +19,8 @@ const SAMPLE = {
   business_id: "00000000-0000-4000-8000-000000000002",
   business_name: "Acme",
   business_status: "new" as const,
+  assigned_user_id: null,
+  assigned_user_name: null,
   status: "pending" as const,
   start_date: null,
   priority: "medium" as const,
@@ -29,9 +31,11 @@ const SAMPLE = {
 describe("dashboard todo service", () => {
   it("delegates listDashboardTodos to the repository", async () => {
     const findDashboardTodos = vi.fn().mockResolvedValue({ items: [SAMPLE] });
+    const findDashboardTodoAssignees = vi.fn();
 
     const result = await listDashboardTodos(context, {
       findDashboardTodos,
+      findDashboardTodoAssignees,
       insertDashboardTodo: vi.fn(),
       updateDashboardTodo: vi.fn(),
       deleteCompletedDashboardTodos: vi.fn(),
@@ -54,6 +58,7 @@ describe("dashboard todo service", () => {
       context,
       {
         findDashboardTodos: vi.fn(),
+        findDashboardTodoAssignees: vi.fn(),
         insertDashboardTodo,
         updateDashboardTodo: vi.fn(),
         deleteCompletedDashboardTodos: vi.fn(),
@@ -83,6 +88,7 @@ describe("dashboard todo service", () => {
       context,
       {
         findDashboardTodos: vi.fn(),
+        findDashboardTodoAssignees: vi.fn(),
         insertDashboardTodo: vi.fn(),
         updateDashboardTodo: updateDashboardTodoMock,
         deleteCompletedDashboardTodos: vi.fn(),
@@ -102,6 +108,7 @@ describe("dashboard todo service", () => {
 
     const result = await removeCompletedDashboardTodos(context, {
       findDashboardTodos: vi.fn(),
+      findDashboardTodoAssignees: vi.fn(),
       insertDashboardTodo: vi.fn(),
       updateDashboardTodo: vi.fn(),
       deleteCompletedDashboardTodos,

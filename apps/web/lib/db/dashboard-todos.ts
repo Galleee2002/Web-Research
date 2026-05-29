@@ -13,9 +13,11 @@ import { toIsoString } from "./shared-query";
 interface DashboardTodoRow {
   id: string;
   name: string;
-  business_id: string;
-  business_name: string;
+  business_id: string | null;
+  business_name: string | null;
   business_status: DashboardTodoRead["business_status"];
+  assigned_user_id: string | null;
+  assigned_user_name: string | null;
   status: DashboardTodoRead["status"];
   start_date: Date | string | null;
   priority: DashboardTodoRead["priority"];
@@ -29,6 +31,13 @@ const SELECT_FIELDS = `
   dashboard_todos.business_id,
   businesses.name as business_name,
   businesses.status as business_status,
+  dashboard_todos.assigned_user_id,
+  nullif(
+    trim(
+      coalesce(users.first_name, '') || ' ' || coalesce(users.last_name, '')
+    ),
+    ''
+  ) as assigned_user_name,
   dashboard_todos.status,
   dashboard_todos.start_date,
   dashboard_todos.priority,
@@ -36,18 +45,10 @@ const SELECT_FIELDS = `
   dashboard_todos.updated_at
 `;
 
-/** Aliases for UPDATE ... FROM ... RETURNING (dt = dashboard_todos, b = businesses). */
-const UPDATE_RETURNING_FIELDS = `
-  dt.id,
-  dt.name,
-  dt.business_id,
-  b.name as business_name,
-  b.status as business_status,
-  dt.status,
-  dt.start_date,
-  dt.priority,
-  dt.created_at,
-  dt.updated_at
+const TODO_JOINS = `
+  from dashboard_todos
+  left join businesses on businesses.id = dashboard_todos.business_id
+  left join users on users.id = dashboard_todos.assigned_user_id
 `;
 
 function toIsoDateString(value: Date | string | null): string | null {
@@ -71,6 +72,8 @@ function mapRow(row: DashboardTodoRow): DashboardTodoRead {
     business_id: row.business_id,
     business_name: row.business_name,
     business_status: row.business_status,
+    assigned_user_id: row.assigned_user_id,
+    assigned_user_name: row.assigned_user_name,
     status: row.status,
     start_date: toIsoDateString(row.start_date),
     priority: row.priority,
@@ -85,8 +88,7 @@ export async function findDashboardTodos(
   const result = await query<DashboardTodoRow>(
     `
       select ${SELECT_FIELDS}
-      from dashboard_todos
-      inner join businesses on businesses.id = dashboard_todos.business_id
+      ${TODO_JOINS}
       order by dashboard_todos.created_at asc, dashboard_todos.id asc
     `,
     [],
@@ -103,8 +105,7 @@ export async function findDashboardTodoById(
   const result = await query<DashboardTodoRow>(
     `
       select ${SELECT_FIELDS}
-      from dashboard_todos
-      inner join businesses on businesses.id = dashboard_todos.business_id
+      ${TODO_JOINS}
       where dashboard_todos.id = $1::uuid
     `,
     [id],
@@ -124,18 +125,20 @@ export async function insertDashboardTodo(
   const status = input.status ?? "pending";
   const priority = input.priority ?? "medium";
   const startDate = input.start_date ?? null;
+  const businessId = input.business_id ?? null;
+  const assignedUserId = input.assigned_user_id ?? null;
 
   const insertResult = await query<{ id: string }>(
     `
       insert into dashboard_todos (
-        business_id, name, status, start_date, priority
+        business_id, assigned_user_id, name, status, start_date, priority
       )
-      select b.id, $2, $3, $4::date, $5
-      from businesses b
-      where b.id = $1::uuid
+      select $1::uuid, $2::uuid, $3, $4, $5::date, $6
+      where ($1::uuid is null or exists (select 1 from businesses b where b.id = $1::uuid))
+        and ($2::uuid is null or exists (select 1 from users u where u.id = $2::uuid))
       returning dashboard_todos.id
     `,
-    [input.business_id, input.name, status, startDate, priority],
+    [businessId, assignedUserId, input.name, status, startDate, priority],
     { operationName: "insert_dashboard_todo", context }
   );
 
@@ -177,14 +180,12 @@ export async function updateDashboardTodo(
 
   sets.push(`updated_at = now()`);
 
-  const result = await query<DashboardTodoRow>(
+  const result = await query<{ id: string }>(
     `
-      update dashboard_todos dt
+      update dashboard_todos
       set ${sets.join(", ")}
-      from businesses b
-      where dt.id = $1::uuid
-        and b.id = dt.business_id
-      returning ${UPDATE_RETURNING_FIELDS}
+      where id = $1::uuid
+      returning id
     `,
     params,
     { operationName: "update_dashboard_todo", context }
@@ -193,7 +194,7 @@ export async function updateDashboardTodo(
   if (result.rows.length === 0) {
     return null;
   }
-  return mapRow(result.rows[0]!);
+  return findDashboardTodoById(result.rows[0]!.id, context);
 }
 
 export async function deleteCompletedDashboardTodos(
@@ -205,4 +206,20 @@ export async function deleteCompletedDashboardTodos(
     { operationName: "delete_completed_dashboard_todos", context }
   );
   return result.rowCount ?? 0;
+}
+
+export async function findDashboardTodoAssignees(
+  context: OperationContext
+): Promise<{ id: string; first_name: string; last_name: string }[]> {
+  const result = await query<{ id: string; first_name: string; last_name: string }>(
+    `
+      select id, first_name, last_name
+      from users
+      order by lower(first_name), lower(last_name), created_at asc
+    `,
+    [],
+    { operationName: "find_dashboard_todo_assignees", context }
+  );
+
+  return result.rows;
 }

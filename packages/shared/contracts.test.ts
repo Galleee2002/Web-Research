@@ -360,16 +360,18 @@ describe("shared contracts", () => {
 
   it("parses dashboard todo creation payloads with optional metadata", () => {
     const businessId = "00000000-0000-4000-8000-000000000002";
+    const assigneeId = "00000000-0000-4000-8000-000000000003";
 
-    expect(parseDashboardTodoCreate({ name: " Buy ", business_id: businessId })).toEqual({
+    expect(parseDashboardTodoCreate({ name: " Buy " })).toEqual({
       ok: true,
-      value: { name: "Buy", business_id: businessId },
+      value: { name: "Buy" },
     });
 
     expect(
       parseDashboardTodoCreate({
         name: "Plan launch",
         business_id: businessId,
+        assigned_user_id: assigneeId,
         priority: "high",
         start_date: "2026-05-12",
         status: "completed",
@@ -379,14 +381,19 @@ describe("shared contracts", () => {
       value: {
         name: "Plan launch",
         business_id: businessId,
+        assigned_user_id: assigneeId,
         priority: "high",
         start_date: "2026-05-12",
         status: "completed",
       },
     });
 
-    expect(parseDashboardTodoCreate({ business_id: businessId }).ok).toBe(false);
-    expect(parseDashboardTodoCreate({ name: "", business_id: businessId }).ok).toBe(false);
+    expect(parseDashboardTodoCreate({ name: "x", business_id: null })).toEqual({
+      ok: true,
+      value: { name: "x", business_id: null },
+    });
+
+    expect(parseDashboardTodoCreate({ name: "" }).ok).toBe(false);
     expect(
       parseDashboardTodoCreate({ name: "x", business_id: "not-uuid" }).ok
     ).toBe(false);

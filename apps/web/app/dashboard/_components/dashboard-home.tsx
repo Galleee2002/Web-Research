@@ -23,11 +23,15 @@ import { SelectMenu } from "@/app/shared/ui/select-menu";
 import {
   createDashboardTodo,
   deleteCompletedDashboardTodos,
+  fetchDashboardTodoAssignees,
   fetchDashboardTodos,
 } from "@/lib/api/dashboard-todos-client";
 import { fetchOpportunities } from "@/lib/api/opportunities-client";
 import { syncDashboardTodo } from "@/lib/dashboard/todo-sync";
-import type { DashboardTodoItem } from "@/lib/dashboard/todo-types";
+import type {
+  DashboardTodoAssigneeOption,
+  DashboardTodoItem,
+} from "@/lib/dashboard/todo-types";
 
 function opportunityHasNotes(opp: OpportunityRead): boolean {
   return Boolean(opp.notes?.trim());
@@ -74,6 +78,27 @@ type TodoLoadState = "loading" | "ready" | "error";
 
 const TODO_SKELETON_ROWS = 3;
 
+const ASSIGNEE_UNASSIGNED = "";
+
+function formatTodoSubtitle(task: DashboardTodoItem): string {
+  const parts: string[] = [];
+  if (task.businessName) {
+    parts.push(
+      task.businessStatusLabel
+        ? `${task.businessName} — ${task.businessStatusLabel}`
+        : task.businessName
+    );
+  }
+  if (task.assigneeName) {
+    parts.push(`Assigned to ${task.assigneeName}`);
+  }
+  return parts.join(" · ");
+}
+
+function assigneeSelectValue(task: DashboardTodoItem): string {
+  return task.assignedUserId ?? ASSIGNEE_UNASSIGNED;
+}
+
 export function DashboardHome() {
   const [todos, setTodos] = useState<DashboardTodoItem[]>([]);
   const [todoLoadState, setTodoLoadState] = useState<TodoLoadState>("loading");
@@ -87,8 +112,37 @@ export function DashboardHome() {
   const [pickBusinessForTodoId, setPickBusinessForTodoId] = useState<string | null>(
     null
   );
+  const [assigneeOptions, setAssigneeOptions] = useState<DashboardTodoAssigneeOption[]>(
+    []
+  );
+  const [assigneeLoadState, setAssigneeLoadState] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
   const [notesModalOpportunity, setNotesModalOpportunity] =
     useState<OpportunityRead | null>(null);
+  const [syncingTodoIds, setSyncingTodoIds] = useState<Set<string>>(() => new Set());
+  const [isDeletingCompleted, setIsDeletingCompleted] = useState(false);
+
+  const todosRef = useRef(todos);
+  todosRef.current = todos;
+  const pendingTodoSyncsRef = useRef(new Map<string, Promise<void>>());
+  const todosFetchGenerationRef = useRef(0);
+
+  const mergeServerTodos = useCallback((items: DashboardTodoItem[]) => {
+    setTodos((prev) => {
+      const drafts = prev.filter((t) => t.isDraft);
+      return [...items, ...drafts];
+    });
+  }, []);
+
+  const refreshTodosFromServer = useCallback(async () => {
+    const generation = ++todosFetchGenerationRef.current;
+    const items = await fetchDashboardTodos({ cache: "no-store" });
+    if (generation !== todosFetchGenerationRef.current) {
+      return;
+    }
+    mergeServerTodos(items);
+  }, [mergeServerTodos]);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +162,27 @@ export function DashboardHome() {
         );
         setTodos([]);
         setTodoLoadState("error");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setAssigneeLoadState("loading");
+
+    void fetchDashboardTodoAssignees({ cache: "no-store" })
+      .then((items) => {
+        if (cancelled) return;
+        setAssigneeOptions(items);
+        setAssigneeLoadState("ready");
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAssigneeOptions([]);
+        setAssigneeLoadState("error");
       });
 
     return () => {
@@ -268,42 +343,59 @@ export function DashboardHome() {
     };
   }, [notesModalOpportunity]);
 
-  const handleToggleTodo = useCallback(async (id: string) => {
-    let nextStatus: DashboardTodoItem["status"] = "pending";
-    let revertTo: DashboardTodoItem["status"] = "pending";
-    let found = false;
+  const handleToggleTodo = useCallback(
+    async (id: string) => {
+      const current = todosRef.current.find((t) => t.id === id);
+      if (!current || current.isDraft) {
+        return;
+      }
 
-    setTodos((prev) => {
-      const current = prev.find((t) => t.id === id);
-      if (!current || current.isDraft) return prev;
-      found = true;
-      revertTo = current.status;
-      nextStatus = current.status === "completed" ? "pending" : "completed";
-      return prev.map((t) => (t.id === id ? { ...t, status: nextStatus } : t));
-    });
+      const revertTo = current.status;
+      const nextStatus =
+        current.status === "completed" ? "pending" : "completed";
 
-    if (!found) return;
-
-    try {
-      await syncDashboardTodo(id, { status: nextStatus });
-      const items = await fetchDashboardTodos({ cache: "no-store" });
-      setTodos((prev) => {
-        const drafts = prev.filter((t) => t.isDraft);
-        return [...items, ...drafts];
-      });
-    } catch {
       setTodos((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, status: revertTo } : t))
+        prev.map((t) => (t.id === id ? { ...t, status: nextStatus } : t))
       );
-    }
-  }, []);
+
+      setSyncingTodoIds((prev) => {
+        const next = new Set(prev);
+        next.add(id);
+        return next;
+      });
+
+      const syncPromise = (async () => {
+        try {
+          await syncDashboardTodo(id, { status: nextStatus });
+          await refreshTodosFromServer();
+        } catch {
+          setTodos((prev) =>
+            prev.map((t) => (t.id === id ? { ...t, status: revertTo } : t))
+          );
+        } finally {
+          pendingTodoSyncsRef.current.delete(id);
+          setSyncingTodoIds((prev) => {
+            const next = new Set(prev);
+            next.delete(id);
+            return next;
+          });
+        }
+      })();
+
+      pendingTodoSyncsRef.current.set(id, syncPromise);
+    },
+    [refreshTodosFromServer]
+  );
 
   const handleAddTodo = useCallback(() => {
     const task: DashboardTodoItem = {
       id: newTodoId(),
       name: "",
+      businessId: null,
       businessName: null,
       businessStatusLabel: "",
+      assignedUserId: null,
+      assigneeName: null,
       status: "pending",
       startDate: null,
       priority: "medium",
@@ -337,20 +429,64 @@ export function DashboardHome() {
     []
   );
 
-  const handleSelectBusinessForTodo = useCallback(
-    async (todoId: string, opp: OpportunityRead) => {
+  const handleDraftAssigneeChange = useCallback(
+    (id: string, assignedUserId: string) => {
+      setTodos((prev) =>
+        prev.map((t) => {
+          if (t.id !== id || !t.isDraft) {
+            return t;
+          }
+          if (assignedUserId === ASSIGNEE_UNASSIGNED) {
+            return { ...t, assignedUserId: null, assigneeName: null };
+          }
+          const assignee = assigneeOptions.find((option) => option.id === assignedUserId);
+          return {
+            ...t,
+            assignedUserId,
+            assigneeName: assignee?.label ?? null,
+          };
+        })
+      );
+    },
+    [assigneeOptions]
+  );
+
+  const handlePickBusinessForDraft = useCallback(
+    (todoId: string, opp: OpportunityRead) => {
+      setTodos((prev) =>
+        prev.map((t) =>
+          t.id === todoId && t.isDraft
+            ? {
+                ...t,
+                businessId: opp.business_id,
+                businessName: opp.name,
+                businessStatusLabel: leadStatusLabel(opp.status),
+              }
+            : t
+        )
+      );
+      setPickBusinessForTodoId(null);
+    },
+    []
+  );
+
+  const handleSaveDraft = useCallback(
+    async (todoId: string) => {
       const draft = todos.find((t) => t.id === todoId && t.isDraft);
       if (!draft) {
-        setPickBusinessForTodoId(null);
         return;
       }
-      const name = draft.name.trim() || "New task";
-      setPickBusinessForTodoId(null);
+      const name = draft.name.trim();
+      if (!name) {
+        return;
+      }
+
       setTodoError(null);
       try {
         const created = await createDashboardTodo({
           name,
-          business_id: opp.business_id,
+          business_id: draft.businessId,
+          assigned_user_id: draft.assignedUserId,
           priority: draft.priority,
           start_date: draft.startDate,
         });
@@ -366,31 +502,70 @@ export function DashboardHome() {
     [todos]
   );
 
+  const handleSelectBusinessForTodo = useCallback(
+    (todoId: string, opp: OpportunityRead) => {
+      handlePickBusinessForDraft(todoId, opp);
+    },
+    [handlePickBusinessForDraft]
+  );
+
   const handleDeleteCompleted = useCallback(async () => {
     setTodoError(null);
+    setIsDeletingCompleted(true);
+    const generation = ++todosFetchGenerationRef.current;
+
     try {
+      await Promise.all([...pendingTodoSyncsRef.current.values()]);
+
+      setTodos((prev) =>
+        prev.filter((t) => t.isDraft || t.status !== "completed")
+      );
+
       await deleteCompletedDashboardTodos();
+
+      if (generation !== todosFetchGenerationRef.current) {
+        return;
+      }
+
       const items = await fetchDashboardTodos({ cache: "no-store" });
-      setTodos((prev) => {
-        const drafts = prev.filter((t) => t.isDraft);
-        return [...items, ...drafts];
-      });
+      if (generation !== todosFetchGenerationRef.current) {
+        return;
+      }
+      mergeServerTodos(items);
     } catch (error: unknown) {
       setTodoError(
         error instanceof Error ? error.message : "Could not delete completed tasks"
       );
+      if (generation === todosFetchGenerationRef.current) {
+        await refreshTodosFromServer();
+      }
+    } finally {
+      setIsDeletingCompleted(false);
     }
-  }, []);
+  }, [mergeServerTodos, refreshTodosFromServer]);
+
+  const hasCompletedTodos = useMemo(
+    () => todos.some((t) => !t.isDraft && t.status === "completed"),
+    [todos]
+  );
+
+  const canDeleteCompleted =
+    hasCompletedTodos && syncingTodoIds.size === 0 && !isDeletingCompleted;
 
   const cannotAddTask = useMemo(
-    () =>
-      todoLoadState === "error" ||
-      todos.some(
-        (t) =>
-          t.isDraft &&
-          (!t.name.trim() || t.businessName === null)
-      ),
+    () => todoLoadState === "error" || todos.some((t) => t.isDraft),
     [todos, todoLoadState]
+  );
+
+  const draftAssigneeSelectOptions = useMemo(
+    () => [
+      { value: ASSIGNEE_UNASSIGNED, label: "Select person in charge" },
+      ...assigneeOptions.map((option) => ({
+        value: option.id,
+        label: option.label,
+      })),
+    ],
+    [assigneeOptions]
   );
 
   return (
@@ -428,7 +603,7 @@ export function DashboardHome() {
                   todoLoadState === "error"
                     ? "Tasks could not be loaded; try refreshing the page"
                     : cannotAddTask
-                      ? "Finish the task you're adding (name and business) before adding another"
+                      ? "Finish or save the task you're adding before adding another"
                       : "Add task"
                 }
                 disabled={cannotAddTask}
@@ -480,6 +655,12 @@ export function DashboardHome() {
                                 onChange={(e) =>
                                   handleDraftNameChange(task.id, e.target.value)
                                 }
+                                onKeyDown={(event) => {
+                                  if (event.key === "Enter") {
+                                    event.preventDefault();
+                                    void handleSaveDraft(task.id);
+                                  }
+                                }}
                                 aria-label="Task name"
                                 autoComplete="off"
                               />
@@ -523,13 +704,40 @@ export function DashboardHome() {
                                 />
                               </label>
                             </div>
-                            <button
-                              type="button"
-                              className="dashboard-home-task__select-business dashboard-home-task__select-business--draft"
-                              onClick={() => setPickBusinessForTodoId(task.id)}
-                            >
-                              Select Business
-                            </button>
+                            <div className="dashboard-home-task__draft-actions">
+                              <button
+                                type="button"
+                                className="dashboard-home-task__select-business dashboard-home-task__select-business--draft"
+                                onClick={() => setPickBusinessForTodoId(task.id)}
+                              >
+                                {task.businessName ?? "Select Business"}
+                              </button>
+                              <SelectMenu
+                                ariaLabel="Person in charge"
+                                value={assigneeSelectValue(task)}
+                                onChange={(next) =>
+                                  handleDraftAssigneeChange(task.id, next)
+                                }
+                                rootClassName="dashboard-home-assignee-select"
+                                triggerClassName="dashboard-home-task__select-assignee dashboard-home-task__select-assignee--draft"
+                                triggerContent={
+                                  <span className="dashboard-home-task__select-assignee-label">
+                                    {task.assigneeName ?? "Select person in charge"}
+                                  </span>
+                                }
+                                options={draftAssigneeSelectOptions}
+                                menuClassName="dashboard-home-assignee-select__menu"
+                                disabled={assigneeLoadState !== "ready"}
+                              />
+                              <button
+                                type="button"
+                                className="dashboard-home-task__save-draft"
+                                disabled={!task.name.trim()}
+                                onClick={() => void handleSaveDraft(task.id)}
+                              >
+                                Save task
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </li>
@@ -538,10 +746,11 @@ export function DashboardHome() {
                         <div className="dashboard-home-task">
                           <div className="dashboard-home-task__main">
                             <p className="dashboard-home-task__name">{task.name}</p>
-                            <p className="dashboard-home-task__subtitle">
-                              {task.businessName ? `${task.businessName} — ` : ""}
-                              {task.businessStatusLabel}
-                            </p>
+                            {formatTodoSubtitle(task) ? (
+                              <p className="dashboard-home-task__subtitle">
+                                {formatTodoSubtitle(task)}
+                              </p>
+                            ) : null}
                             <div
                               className="dashboard-home-task__meta"
                               aria-live="polite"
@@ -592,13 +801,19 @@ export function DashboardHome() {
                     )
                   )}
                 </ul>
-                {todos.some((t) => t.status === "completed") ? (
+                {hasCompletedTodos ? (
                   <button
                     type="button"
                     className="dashboard-home-todo__clear-completed"
-                    onClick={handleDeleteCompleted}
+                    disabled={!canDeleteCompleted}
+                    aria-busy={isDeletingCompleted}
+                    onClick={() => void handleDeleteCompleted()}
                   >
-                    Delete completed tasks
+                    {isDeletingCompleted
+                      ? "Deleting…"
+                      : syncingTodoIds.size > 0
+                        ? "Saving changes…"
+                        : "Delete completed tasks"}
                   </button>
                 ) : null}
               </>

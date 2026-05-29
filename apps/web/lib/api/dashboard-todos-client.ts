@@ -1,4 +1,5 @@
 import type {
+  DashboardTodoAssigneesResponse,
   DashboardTodoCreate,
   DashboardTodoRead,
   DashboardTodoUpdate,
@@ -7,7 +8,10 @@ import type {
 } from "@shared/index";
 
 import { leadStatusLabel } from "@/app/shared/model/status-label";
-import type { DashboardTodoItem } from "@/lib/dashboard/todo-types";
+import type {
+  DashboardTodoAssigneeOption,
+  DashboardTodoItem,
+} from "@/lib/dashboard/todo-types";
 
 import {
   ApiClientError,
@@ -48,16 +52,49 @@ function readCookie(name: string): string | null {
   return null;
 }
 
+function formatAssigneeName(firstName: string, lastName: string): string {
+  return `${firstName} ${lastName}`.trim();
+}
+
 export function mapDashboardTodoReadToItem(row: DashboardTodoRead): DashboardTodoItem {
   return {
     id: row.id,
     name: row.name,
+    businessId: row.business_id,
     businessName: row.business_name,
-    businessStatusLabel: leadStatusLabel(row.business_status),
+    businessStatusLabel: row.business_status
+      ? leadStatusLabel(row.business_status)
+      : "",
+    assignedUserId: row.assigned_user_id,
+    assigneeName: row.assigned_user_name,
     status: row.status,
     startDate: row.start_date,
     priority: row.priority,
   };
+}
+
+export async function fetchDashboardTodoAssignees(
+  init?: RequestInit
+): Promise<DashboardTodoAssigneeOption[]> {
+  const response = await fetch("/api/dashboard/todos/assignees", {
+    ...defaultTodoFetchInit,
+    method: "GET",
+    headers: { Accept: "application/json" },
+    ...init,
+  });
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    throw toApiClientError(
+      response,
+      body,
+      `Request failed with status ${response.status}`
+    );
+  }
+  const list = body as DashboardTodoAssigneesResponse;
+  return (list.items ?? []).map((user) => ({
+    id: user.id,
+    label: formatAssigneeName(user.first_name, user.last_name),
+  }));
 }
 
 export async function fetchDashboardTodos(init?: RequestInit): Promise<DashboardTodoItem[]> {
