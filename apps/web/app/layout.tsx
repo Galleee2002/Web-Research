@@ -10,7 +10,7 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Business Lead Finder",
+  title: "leadScope",
   description: "Dashboard and ingestion pipeline for local business leads."
 };
 

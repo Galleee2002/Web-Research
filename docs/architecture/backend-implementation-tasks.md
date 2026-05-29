@@ -1,9 +1,9 @@
-# Documento de Tareas Backend - Business Lead Finder
+# Documento de Tareas Backend - leadScope
 
 ## 1. Objetivo y alcance backend
 
 Este documento define las tareas backend necesarias para construir el MVP de
-Business Lead Finder. El objetivo es convertir el plan funcional en una guia
+leadScope. El objetivo es convertir el plan funcional en una guia
 tecnica ejecutable, alineada con la arquitectura actual del repositorio:
 
 - API backend: Next.js API routes en `apps/web/app/api`.

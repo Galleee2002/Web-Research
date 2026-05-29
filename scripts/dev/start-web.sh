@@ -22,4 +22,4 @@ if [ -z "${DATABASE_URL:-}" ]; then
   echo "warning: DATABASE_URL is not set; database-backed API routes may fail." >&2
 fi
 
-exec pnpm --filter @business-lead-finder/web dev
+exec pnpm --filter @leadscope/web dev

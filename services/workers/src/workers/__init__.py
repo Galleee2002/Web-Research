@@ -1,1 +1,1 @@
-"""Business Lead Finder worker package."""
+"""leadScope worker package."""

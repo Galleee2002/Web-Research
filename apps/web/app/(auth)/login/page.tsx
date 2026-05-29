@@ -52,7 +52,7 @@ export default function LoginPage() {
 
   return (
     <section className="auth-card" aria-labelledby="login-title">
-      <p className="auth-card__eyebrow">Business Lead Finder</p>
+      <p className="auth-card__eyebrow">leadScope</p>
       <h1 id="login-title">Sign in</h1>
       <p className="auth-card__subtitle">Use your account to access the dashboard.</p>
       <form className="auth-form" onSubmit={handleSubmit}>

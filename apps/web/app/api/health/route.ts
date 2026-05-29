@@ -16,7 +16,7 @@ type DatabaseHealth =
     };
 
 type HealthResponse = {
-  app: "business-lead-finder";
+  app: "leadscope";
   environment: string;
   timestamp: string;
   database: DatabaseHealth;
@@ -72,7 +72,7 @@ export async function GET(request: Request): Promise<Response> {
     const database = await checkDatabase(context.operationContext);
     const status = database.configured && !database.reachable ? 503 : 200;
     const body: HealthResponse = {
-      app: "business-lead-finder",
+      app: "leadscope",
       environment: getRuntimeConfig().appEnv,
       timestamp: new Date().toISOString(),
       database

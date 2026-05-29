@@ -101,7 +101,7 @@ export default function RegisterPage() {
 
   return (
     <section className="auth-card" aria-labelledby="register-title">
-      <p className="auth-card__eyebrow">Business Lead Finder</p>
+      <p className="auth-card__eyebrow">leadScope</p>
       <h1 id="register-title">Create account</h1>
       <p className="auth-card__subtitle">Please fill in all fields to create an account.</p>
       <form className="auth-form auth-form--grid" onSubmit={handleSubmit}>
