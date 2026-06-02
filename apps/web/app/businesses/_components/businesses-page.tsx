@@ -109,6 +109,19 @@ function normalizedWebsiteHref(raw: string | null): string | null {
   return `https://${s}`;
 }
 
+/** WhatsApp chat URL (wa.me) when the stored phone has enough digits. */
+function whatsappChatHref(raw: string | null): string | null {
+  const s = raw?.trim() ?? "";
+  if (s.length === 0) return null;
+  const digits = s.replace(/\D/g, "");
+  if (digits.length < 7) return null;
+  return `https://wa.me/${digits}`;
+}
+
+function hasUsablePhone(raw: string | null): boolean {
+  return whatsappChatHref(raw) !== null;
+}
+
 function BusinessesTableWebCell({
   row,
   onOpenWebsite,
@@ -665,6 +678,18 @@ export function BusinessesPage() {
     }
     await copyIfPresent(website);
     const href = normalizedWebsiteHref(rawWebsite);
+    if (href) {
+      window.open(href, "_blank", "noopener,noreferrer");
+    }
+  }, [copyIfPresent]);
+
+  const copyAndOpenWhatsApp = useCallback(async (rawPhone: string | null) => {
+    const phone = rawPhone?.trim() ?? "";
+    if (phone.length === 0) {
+      return;
+    }
+    await copyIfPresent(phone);
+    const href = whatsappChatHref(rawPhone);
     if (href) {
       window.open(href, "_blank", "noopener,noreferrer");
     }
@@ -1390,18 +1415,27 @@ export function BusinessesPage() {
                         <h4 className="business-modal__subtitle">Contact</h4>
                         <div className="business-modal__grid">
                           <div
-                            className="business-modal__field business-modal__field--copyable"
-                            role="button"
-                            tabIndex={0}
-                            onClick={() => {
-                              void copyIfPresent(activeBusiness.phone);
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.preventDefault();
-                                void copyIfPresent(activeBusiness.phone);
-                              }
-                            }}
+                            className={`business-modal__field${
+                              hasUsablePhone(activeBusiness.phone)
+                                ? " business-modal__field--copyable"
+                                : ""
+                            }`}
+                            {...(hasUsablePhone(activeBusiness.phone)
+                              ? {
+                                  role: "button" as const,
+                                  tabIndex: 0,
+                                  title: "Copy phone and open WhatsApp chat",
+                                  onClick: () => {
+                                    void copyAndOpenWhatsApp(activeBusiness.phone);
+                                  },
+                                  onKeyDown: (event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      void copyAndOpenWhatsApp(activeBusiness.phone);
+                                    }
+                                  },
+                                }
+                              : {})}
                           >
                             <span className="business-modal__label">Phone</span>
                             <span className="business-modal__value">
