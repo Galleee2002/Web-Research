@@ -1,14 +1,15 @@
 import { NextResponse } from "next/server";
-import { parseBusinessStatusUpdate } from "@shared/index";
+import { parseBusinessUpdate } from "@shared/index";
 
 import {
   corsPreflight,
+  invalidJsonError,
   isUuid,
   notFound,
   validationError,
   withApiRoute
 } from "@/lib/api/http";
-import { getBusinessById, updateBusinessStatus } from "@/lib/services/business-service";
+import { getBusinessById, updateBusiness } from "@/lib/services/business-service";
 
 export const runtime = "nodejs";
 
@@ -48,14 +49,19 @@ export async function PATCH(request: Request, context: RouteContext) {
       return validationError(requestContext.correlationId, ["id must be a valid UUID"]);
     }
 
-    const payload = await request.json();
-    const parsed = parseBusinessStatusUpdate(payload);
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return invalidJsonError(requestContext.correlationId);
+    }
 
+    const parsed = parseBusinessUpdate(body);
     if (!parsed.ok) {
       return validationError(requestContext.correlationId, parsed.errors);
     }
 
-    const business = await updateBusinessStatus(
+    const business = await updateBusiness(
       id,
       parsed.value,
       requestContext.operationContext

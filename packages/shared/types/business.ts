@@ -7,6 +7,8 @@ export interface BusinessRead {
   address: string | null;
   city: string | null;
   phone: string | null;
+  email: string | null;
+  social_links: string[];
   website: string | null;
   has_website: boolean;
   status: LeadStatus;
@@ -30,6 +32,29 @@ export interface BusinessDetailRead extends BusinessRead {
 export interface BusinessStatusUpdate {
   status: LeadStatus;
   notes?: string | null;
+}
+
+export interface BusinessCreate {
+  name: string;
+  category?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  social_links?: string[];
+  website?: string | null;
+  notes?: string | null;
+  address?: string | null;
+}
+
+export interface BusinessUpdate {
+  name?: string;
+  category?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  social_links?: string[] | null;
+  website?: string | null;
+  notes?: string | null;
+  address?: string | null;
+  status?: LeadStatus;
 }
 
 export interface BusinessFilters {

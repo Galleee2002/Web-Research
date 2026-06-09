@@ -383,3 +383,21 @@ export async function setOpportunitySelectionByBusinessId(
     updated_at: toIsoString(result.rows[0].updated_at),
   };
 }
+
+export async function ensureOpportunityForBusiness(
+  businessId: string,
+  context: OperationContext
+): Promise<void> {
+  await query(
+    `
+      insert into opportunities (business_id, rating, is_selected)
+      values ($1, null, false)
+      on conflict (business_id) do nothing
+    `,
+    [businessId],
+    {
+      operationName: "ensure_opportunity_for_business",
+      context,
+    },
+  );
+}

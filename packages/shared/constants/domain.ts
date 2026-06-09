@@ -16,7 +16,7 @@ export const SEARCH_RUN_STATUSES = [
 
 export type SearchRunStatus = (typeof SEARCH_RUN_STATUSES)[number];
 
-export const BUSINESS_SOURCES = ["google_places"] as const;
+export const BUSINESS_SOURCES = ["google_places", "manual"] as const;
 
 export type BusinessSource = (typeof BUSINESS_SOURCES)[number];
 

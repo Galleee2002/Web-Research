@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
+  parseBusinessCreate,
   parseBusinessFilters,
   parseBusinessStatusUpdate,
+  parseBusinessUpdate,
   parseDashboardTodoCreate,
   parseDashboardTodoUpdate,
   parseGooglePlacesSearchRequest,
@@ -74,6 +76,61 @@ describe("shared contracts", () => {
     });
     expect(DEFAULT_PAGE_SIZE).toBe(20);
     expect(MAX_PAGE_SIZE).toBe(100);
+  });
+
+  it("parses manual business creation payloads", () => {
+    expect(
+      parseBusinessCreate({
+        name: " Clinica Manual ",
+        category: " Dentist ",
+        email: " CONTACTO@EXAMPLE.COM ",
+        phone: "+54 11 5555 1234",
+        social_links: [" https://instagram.com/clinica "],
+        website: null,
+        notes: "Lead manual",
+        address: "Av. Corrientes 1234"
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        name: "Clinica Manual",
+        category: "Dentist",
+        email: "contacto@example.com",
+        phone: "+54 11 5555 1234",
+        social_links: ["https://instagram.com/clinica"],
+        website: null,
+        notes: "Lead manual",
+        address: "Av. Corrientes 1234"
+      }
+    });
+
+    expect(parseBusinessCreate({}).ok).toBe(false);
+    expect(parseBusinessCreate({ name: "", email: "bad" }).ok).toBe(false);
+  });
+
+  it("parses partial business updates for manual correction flows", () => {
+    expect(
+      parseBusinessUpdate({
+        email: "nuevo@example.com",
+        social_links: ["https://facebook.com/clinica"],
+        notes: null
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        email: "nuevo@example.com",
+        social_links: ["https://facebook.com/clinica"],
+        notes: null
+      }
+    });
+
+    expect(parseBusinessUpdate({ status: "reviewed" })).toEqual({
+      ok: true,
+      value: { status: "reviewed" }
+    });
+
+    expect(parseBusinessUpdate({}).ok).toBe(false);
+    expect(parseBusinessUpdate({ email: "bad" }).ok).toBe(false);
   });
 
   it("validates business status updates and preserves nullable notes", () => {

@@ -3,14 +3,17 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DatabaseOperationError } from "@/lib/api/http";
 
 const listBusinessesMock = vi.fn();
+const createManualBusinessMock = vi.fn();
 
 vi.mock("@/lib/services/business-service", () => ({
-  listBusinesses: listBusinessesMock
+  listBusinesses: listBusinessesMock,
+  createManualBusiness: createManualBusinessMock
 }));
 
 describe("GET /api/businesses", () => {
   beforeEach(() => {
     listBusinessesMock.mockReset();
+    createManualBusinessMock.mockReset();
   });
 
   it("returns the paginated business contract consumed by the dashboard", async () => {
@@ -23,6 +26,8 @@ describe("GET /api/businesses", () => {
           address: "Av. Corrientes 1234",
           city: "Buenos Aires",
           phone: "+54 11 5555 1234",
+          email: null,
+          social_links: [],
           website: null,
           has_website: false,
           status: "new",
@@ -54,6 +59,8 @@ describe("GET /api/businesses", () => {
       address: "Av. Corrientes 1234",
       city: "Buenos Aires",
       phone: "+54 11 5555 1234",
+      email: null,
+      social_links: [],
       website: null,
       has_website: false,
       status: "new",
@@ -111,5 +118,99 @@ describe("GET /api/businesses", () => {
     expect(body.error.code).toBe("database_error");
     expect(body.error.message).toBe("Database operation failed");
     expect(body.error.correlation_id).toEqual(expect.any(String));
+  });
+});
+
+describe("POST /api/businesses", () => {
+  beforeEach(() => {
+    listBusinessesMock.mockReset();
+    createManualBusinessMock.mockReset();
+  });
+
+  it("creates a manual business and returns 201", async () => {
+    createManualBusinessMock.mockResolvedValue({
+      id: "11111111-1111-4111-8111-111111111111",
+      name: "Clinica Manual",
+      category: "Dentist",
+      address: "Av. Corrientes 1234",
+      city: null,
+      phone: "+54 11 5555 1234",
+      email: "contacto@clinica.example",
+      social_links: ["https://instagram.com/clinica"],
+      website: null,
+      has_website: false,
+      status: "new",
+      maps_url: null,
+      search_run_id: null,
+      external_id: null,
+      source: "manual",
+      region: null,
+      country: null,
+      lat: null,
+      lng: null,
+      notes: "Lead manual",
+      opportunity_selected: false,
+      created_at: "2026-06-08T00:00:00.000Z",
+      updated_at: "2026-06-08T00:00:00.000Z"
+    });
+
+    const response = await import("./route").then(({ POST }) =>
+      POST(
+        new Request("http://localhost/api/businesses", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Correlation-Id": "corr-create"
+          },
+          body: JSON.stringify({
+            name: "Clinica Manual",
+            category: "Dentist",
+            email: "contacto@clinica.example",
+            phone: "+54 11 5555 1234",
+            social_links: ["https://instagram.com/clinica"],
+            address: "Av. Corrientes 1234",
+            notes: "Lead manual"
+          })
+        })
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(body.source).toBe("manual");
+    expect(body.email).toBe("contacto@clinica.example");
+    expect(createManualBusinessMock).toHaveBeenCalledWith(
+      {
+        name: "Clinica Manual",
+        category: "Dentist",
+        email: "contacto@clinica.example",
+        phone: "+54 11 5555 1234",
+        social_links: ["https://instagram.com/clinica"],
+        address: "Av. Corrientes 1234",
+        notes: "Lead manual"
+      },
+      {
+        correlationId: "corr-create",
+        method: "POST",
+        route: "/api/businesses"
+      }
+    );
+  });
+
+  it("returns validation_error for invalid create payloads", async () => {
+    const response = await import("./route").then(({ POST }) =>
+      POST(
+        new Request("http://localhost/api/businesses", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: "not-an-email" })
+        })
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error.code).toBe("validation_error");
+    expect(createManualBusinessMock).not.toHaveBeenCalled();
   });
 });
