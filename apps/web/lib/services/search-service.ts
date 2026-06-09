@@ -10,6 +10,8 @@ import {
   insertSearchRun as defaultInsertSearchRun
 } from "@/lib/db/searches";
 
+export { cancelPendingSearchRun } from "./cancel-pending-search-run";
+
 interface SearchServiceDependencies {
   insertSearchRun: typeof defaultInsertSearchRun;
   findSearchRuns: typeof defaultFindSearchRuns;

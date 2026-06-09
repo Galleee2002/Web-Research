@@ -319,3 +319,24 @@ export async function insertNextSearchRunFromParent(
 
   return { searchRun: existing, created: false };
 }
+
+export async function deletePendingSearchRun(
+  id: string,
+  context: OperationContext
+): Promise<boolean> {
+  const result = await query<{ id: string }>(
+    `
+      delete from search_runs
+      where id = $1
+        and status = 'pending'
+      returning id
+    `,
+    [id],
+    {
+      operationName: "delete_pending_search_run",
+      context
+    }
+  );
+
+  return (result.rowCount ?? 0) > 0;
+}

@@ -6,6 +6,7 @@ import {
   Calendar,
   ChevronDown,
   Eye,
+  RotateCw,
   Search,
   X
 } from "lucide-react";
@@ -20,7 +21,12 @@ import type {
 import { MAX_PAGE_SIZE } from "@shared/index";
 
 import { SelectMenu } from "@/app/shared/ui/select-menu";
-import { fetchBusinessesPage } from "@/lib/api/businesses-client";
+import {
+  cancelSearchRun,
+  fetchBusinessesPage,
+  retryWorkerRun,
+  SearchRunsApiError
+} from "@/lib/api/businesses-client";
 import { fetchScansPage } from "@/lib/api/scans-client";
 
 type ScansLoadState = "idle" | "loading" | "ready" | "error";
@@ -128,6 +134,11 @@ export function ScansPage() {
   const [modalTotal, setModalTotal] = useState(0);
   const [modalState, setModalState] = useState<ModalLoadState>("idle");
   const [modalError, setModalError] = useState<string | null>(null);
+  const [cancelConfirmScan, setCancelConfirmScan] = useState<ScanListItem | null>(null);
+  const [cancellingRunId, setCancellingRunId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [retryingRunId, setRetryingRunId] = useState<string | null>(null);
+  const [retryMessage, setRetryMessage] = useState<string | null>(null);
 
   const loadScans = useCallback(async () => {
     setScansState("loading");
@@ -219,6 +230,77 @@ export function ScansPage() {
       document.body.style.overflow = "";
     };
   }, [modalRunId]);
+
+  const closeCancelConfirmModal = useCallback(() => {
+    if (cancellingRunId) return;
+    setCancelConfirmScan(null);
+    setCancelError(null);
+  }, [cancellingRunId]);
+
+  const handleCancelScan = useCallback(async (runId: string) => {
+    setCancelError(null);
+    setCancellingRunId(runId);
+    try {
+      await cancelSearchRun(runId);
+      setScans((current) => current.filter((scan) => scanRunId(scan) !== runId));
+      setCancelConfirmScan(null);
+    } catch (error) {
+      const message =
+        error instanceof SearchRunsApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Could not cancel this scan.";
+      setCancelError(message);
+    } finally {
+      setCancellingRunId(null);
+    }
+  }, []);
+
+  const handleRetryScan = useCallback(
+    async (runId: string) => {
+      setRetryMessage(null);
+      setRetryingRunId(runId);
+      try {
+        await retryWorkerRun();
+        setRetryMessage("Worker started. This scan should begin processing shortly.");
+        window.setTimeout(() => {
+          void loadScans();
+        }, 3000);
+      } catch (error) {
+        const message =
+          error instanceof SearchRunsApiError
+            ? error.message
+            : error instanceof Error
+              ? error.message
+              : "Could not start the worker for this scan.";
+        setRetryMessage(message);
+      } finally {
+        setRetryingRunId(null);
+      }
+    },
+    [loadScans]
+  );
+
+  const openCancelConfirmModal = useCallback((scan: ScanListItem) => {
+    const runId = scanRunId(scan);
+    if (!runId || scan.status !== "pending") return;
+    setCancelError(null);
+    setCancelConfirmScan(scan);
+  }, []);
+
+  useEffect(() => {
+    if (!cancelConfirmScan) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeCancelConfirmModal();
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [cancelConfirmScan, closeCancelConfirmModal]);
 
   const copyText = useCallback(async (value: string) => {
     const v = value.trim();
@@ -326,6 +408,12 @@ export function ScansPage() {
           </div>
         </div>
 
+        {retryMessage ? (
+          <p className="scans-action-feedback" role="status" aria-live="polite">
+            {retryMessage}
+          </p>
+        ) : null}
+
         {scansState === "error" ? (
           <p className="businesses-empty" role="alert">
             {scansError}
@@ -398,7 +486,10 @@ export function ScansPage() {
               const corr = scan.correlationId?.trim() || "—";
               const statusInfo = scanStatusLine(scan);
               const isErrorStatus = statusInfo.variant === "error";
+              const isPending = scan.status === "pending";
               const detailsDisabled = !runId || isErrorStatus;
+              const isCancelling = runId !== null && cancellingRunId === runId;
+              const isRetrying = runId !== null && retryingRunId === runId;
               return (
                 <article key={scan.id} className="scan-card">
                   <div className="scan-card__row">
@@ -441,29 +532,65 @@ export function ScansPage() {
                     </div>
 
                     <div className="scan-card__actions">
-                      <button
-                        type="button"
-                        className="businesses-icon-button scan-card__details-cta"
-                        aria-label={
-                          !runId
-                            ? "Run id unavailable"
-                            : isErrorStatus
-                              ? "View details unavailable — scan failed"
-                              : "View details"
-                        }
-                        disabled={detailsDisabled}
-                        title={
-                          !runId
-                            ? "No run id for this scan"
-                            : isErrorStatus
-                              ? "Details unavailable for failed scans"
-                              : undefined
-                        }
-                        onClick={() => openBusinessesModal(scan)}
-                      >
-                        <Eye className="businesses-icon-button__icon" aria-hidden />
-                        <span className="scan-card__details-cta-label">View Details</span>
-                      </button>
+                      {isPending ? (
+                        <>
+                          <button
+                            type="button"
+                            className="businesses-icon-button scan-card__retry-cta"
+                            aria-label={isRetrying ? "Starting worker" : "Retry"}
+                            disabled={!runId || isRetrying || isCancelling}
+                            title={
+                              !runId
+                                ? "No run id for this scan"
+                                : "Start the ingestion worker for pending scans"
+                            }
+                            onClick={() => {
+                              if (!runId) return;
+                              void handleRetryScan(runId);
+                            }}
+                          >
+                            <RotateCw className="businesses-icon-button__icon" aria-hidden />
+                            <span className="scan-card__retry-cta-label">
+                              {isRetrying ? "Starting..." : "Retry"}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            className="businesses-icon-button scan-card__delete-cta"
+                            aria-label={isCancelling ? "Cancelling scan" : "Cancel"}
+                            disabled={!runId || isCancelling || isRetrying}
+                            title={!runId ? "No run id for this scan" : undefined}
+                            onClick={() => openCancelConfirmModal(scan)}
+                          >
+                            <X className="businesses-icon-button__icon" aria-hidden />
+                            <span className="scan-card__delete-cta-label">Cancel</span>
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          className="businesses-icon-button scan-card__details-cta"
+                          aria-label={
+                            !runId
+                              ? "Run id unavailable"
+                              : isErrorStatus
+                                ? "View details unavailable — scan failed"
+                                : "View details"
+                          }
+                          disabled={detailsDisabled}
+                          title={
+                            !runId
+                              ? "No run id for this scan"
+                              : isErrorStatus
+                                ? "Details unavailable for failed scans"
+                                : undefined
+                          }
+                          onClick={() => openBusinessesModal(scan)}
+                        >
+                          <Eye className="businesses-icon-button__icon" aria-hidden />
+                          <span className="scan-card__details-cta-label">View Details</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -472,6 +599,67 @@ export function ScansPage() {
           </div>
         )}
       </div>
+
+      {cancelConfirmScan ? (
+        <div
+          className="business-modal-backdrop"
+          role="presentation"
+          onClick={closeCancelConfirmModal}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="scan-cancel-confirmation-title"
+            aria-describedby="scan-cancel-confirmation-description"
+            className="business-confirmation-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="scan-cancel-confirmation-title" className="business-confirmation-modal__title">
+              Cancel pending scan?
+            </h3>
+            <p
+              id="scan-cancel-confirmation-description"
+              className="business-confirmation-modal__text"
+            >
+              Provider:{" "}
+              <strong>{cancelConfirmScan.provider?.trim() || "—"}</strong>
+              <br />
+              Run ID: <strong>{scanRunId(cancelConfirmScan) ?? "—"}</strong>
+              <br />
+              <br />
+              This removes the pending scan from the queue. It will not call Google Places
+              or add businesses.
+            </p>
+            {cancelError ? (
+              <p className="businesses-empty" role="alert">
+                {cancelError}
+              </p>
+            ) : null}
+            <div className="business-confirmation-modal__actions">
+              <button
+                type="button"
+                className="business-confirmation-modal__button business-confirmation-modal__button--secondary"
+                disabled={Boolean(cancellingRunId)}
+                onClick={closeCancelConfirmModal}
+              >
+                Keep scan
+              </button>
+              <button
+                type="button"
+                className="business-confirmation-modal__button business-confirmation-modal__button--primary"
+                disabled={Boolean(cancellingRunId) || !scanRunId(cancelConfirmScan)}
+                onClick={() => {
+                  const runId = scanRunId(cancelConfirmScan);
+                  if (!runId) return;
+                  void handleCancelScan(runId);
+                }}
+              >
+                {cancellingRunId ? "Cancelling..." : "Cancel scan"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       {modalRunId ? (
         <div
