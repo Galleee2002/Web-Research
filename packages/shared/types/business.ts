@@ -41,6 +41,7 @@ export interface BusinessCreate {
   phone?: string | null;
   social_links?: string[];
   website?: string | null;
+  maps_url?: string | null;
   notes?: string | null;
   address?: string | null;
 }
@@ -52,6 +53,7 @@ export interface BusinessUpdate {
   phone?: string | null;
   social_links?: string[] | null;
   website?: string | null;
+  maps_url?: string | null;
   notes?: string | null;
   address?: string | null;
   status?: LeadStatus;

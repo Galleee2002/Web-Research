@@ -9,6 +9,7 @@ import type {
 } from "@shared/index";
 
 import { ApiError, type OperationContext } from "@/lib/api/http";
+import { partitionManualBusinessUrls } from "@/lib/domain/maps-url-detection";
 import { detectOwnWebsite } from "@/lib/domain/website-detection";
 
 import {
@@ -30,6 +31,7 @@ const MANUAL_ONLY_FIELDS = [
   "phone",
   "social_links",
   "website",
+  "maps_url",
   "address"
 ] as const;
 
@@ -110,12 +112,26 @@ export async function createManualBusiness(
   context: OperationContext,
   deps: BusinessServiceDependencies = defaultBusinessServiceDependencies
 ): Promise<BusinessDetailRead> {
-  const detectedWebsite = detectOwnWebsite(payload.website ?? null);
+  const partitioned = partitionManualBusinessUrls({
+    website: payload.website,
+    social_links: payload.social_links,
+    maps_url: payload.maps_url,
+    address: payload.address
+  });
+  const detectedWebsite = detectOwnWebsite(partitioned.website);
 
   await assertNoManualDuplicate(payload.name, payload.address ?? null, context, deps);
 
   return deps.insertManualBusiness(
-    buildManualBusinessInsert(payload, detectedWebsite.website, detectedWebsite.has_website),
+    buildManualBusinessInsert(
+      {
+        ...payload,
+        social_links: partitioned.social_links
+      },
+      detectedWebsite.website,
+      detectedWebsite.has_website,
+      partitioned.maps_url
+    ),
     context
   );
 }
@@ -152,16 +168,51 @@ export async function updateBusiness(
 
   let website: string | null | undefined;
   let hasWebsite: boolean | undefined;
+  let mapsUrl: string | null | undefined;
+  let socialLinks: string[] | undefined;
+  const updatePayload: BusinessUpdate = { ...payload };
 
-  if (Object.hasOwn(payload, "website")) {
+  const shouldPartitionMaps =
+    existing.source === "manual" &&
+    (Object.hasOwn(payload, "website") ||
+      Object.hasOwn(payload, "social_links") ||
+      Object.hasOwn(payload, "maps_url") ||
+      Object.hasOwn(payload, "address"));
+
+  if (shouldPartitionMaps) {
+    const partitioned = partitionManualBusinessUrls({
+      website: Object.hasOwn(payload, "website") ? payload.website : existing.website,
+      social_links: Object.hasOwn(payload, "social_links")
+        ? (payload.social_links ?? [])
+        : existing.social_links,
+      maps_url: Object.hasOwn(payload, "maps_url") ? payload.maps_url : existing.maps_url,
+      address: Object.hasOwn(payload, "address") ? payload.address : existing.address
+    });
+
+    mapsUrl = partitioned.maps_url;
+    socialLinks = partitioned.social_links;
+
+    if (Object.hasOwn(payload, "website")) {
+      const detectedWebsite = detectOwnWebsite(partitioned.website);
+      website = detectedWebsite.website;
+      hasWebsite = detectedWebsite.has_website;
+    }
+  } else if (Object.hasOwn(payload, "website")) {
     const detectedWebsite = detectOwnWebsite(payload.website ?? null);
     website = detectedWebsite.website;
     hasWebsite = detectedWebsite.has_website;
   }
 
+  if (socialLinks !== undefined) {
+    updatePayload.social_links = socialLinks;
+  }
+  if (mapsUrl !== undefined) {
+    updatePayload.maps_url = mapsUrl;
+  }
+
   return deps.updateBusinessFields(
     id,
-    buildBusinessFieldUpdate(payload, website, hasWebsite),
+    buildBusinessFieldUpdate(updatePayload, website, hasWebsite),
     context
   );
 }

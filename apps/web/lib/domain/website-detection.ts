@@ -8,6 +8,8 @@ const NON_OWNED_WEBSITE_DOMAINS = [
   "beacons.ai",
   "google.com",
   "maps.google.com",
+  "maps.app.goo.gl",
+  "goo.gl",
   "yelp.com",
   "tripadvisor.com",
 ] as const;

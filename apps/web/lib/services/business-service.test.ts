@@ -97,6 +97,38 @@ describe("business service", () => {
     expect(result).toEqual({ id: "business-1", source: "manual" });
   });
 
+  it("stores Google Maps short links in maps_url instead of website", async () => {
+    const findManualBusinessDuplicate = vi.fn().mockResolvedValue(null);
+    const insertManualBusiness = vi.fn().mockResolvedValue({ id: "business-2", source: "manual" });
+
+    await createManualBusiness(
+      {
+        name: "Maps Clinic",
+        website: "https://maps.app.goo.gl/SHBnkegGadJ1i78q8",
+        address: "Calle 2"
+      },
+      context,
+      {
+        findBusinesses: vi.fn(),
+        findBusinessesForExport: vi.fn(),
+        findBusinessById: vi.fn(),
+        findManualBusinessDuplicate,
+        insertManualBusiness,
+        updateBusinessFields: vi.fn(),
+        updateBusinessLeadStatus: vi.fn()
+      }
+    );
+
+    expect(insertManualBusiness).toHaveBeenCalledWith(
+      expect.objectContaining({
+        website: null,
+        has_website: false,
+        maps_url: "https://maps.app.goo.gl/SHBnkegGadJ1i78q8"
+      }),
+      context
+    );
+  });
+
   it("throws conflict when a manual duplicate exists", async () => {
     const findManualBusinessDuplicate = vi.fn().mockResolvedValue({ id: "dup-1" });
 
@@ -157,7 +189,10 @@ describe("business service", () => {
       id: "business-1",
       source: "manual",
       name: "Clinica",
-      address: "Calle 1"
+      address: "Calle 1",
+      website: null,
+      social_links: [],
+      maps_url: null
     });
     const findManualBusinessDuplicate = vi.fn().mockResolvedValue(null);
     const updateBusinessFields = vi.fn().mockResolvedValue({ id: "business-1", has_website: true });
@@ -182,6 +217,8 @@ describe("business service", () => {
       {
         website: "https://clinica.example",
         has_website: true,
+        maps_url: null,
+        social_links: [],
         notes: "Corregido"
       },
       context
