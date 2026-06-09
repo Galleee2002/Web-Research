@@ -492,11 +492,50 @@
   gap: 0.3rem;
 }
 
+.scans-action-feedback {
+  margin: 0 0 0.85rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border-soft));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-01));
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+}
+
+.scan-card__retry-cta,
+.scan-card__delete-cta {
+  width: auto;
+  min-width: 44px;
+  padding: 0 0.7rem;
+  gap: 0.35rem;
+}
+
+.scan-card__retry-cta {
+  color: var(--accent);
+}
+
+.scan-card__retry-cta-label {
+  display: inline;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.12px;
+  color: inherit;
+}
+
+.scan-card__retry-cta:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 .scan-card__delete-cta {
   color: #d92d20;
 }
 
 .scan-card__delete-cta-label {
+  display: inline;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.12px;
   color: inherit;
 }
 
@@ -626,11 +665,22 @@
   .scan-card__actions {
     justify-self: center;
     width: 100%;
-    max-width: 18rem;
+    max-width: 22rem;
     margin: 0.35rem auto 0;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.7rem;
+  }
+
+  .scan-card__retry-cta.businesses-icon-button {
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border-soft));
+    background: color-mix(in srgb, var(--accent) 6%, var(--surface-01));
+    color: var(--accent);
+  }
+
+  .scan-card__retry-cta.businesses-icon-button:hover {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border-soft));
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface-01));
   }
 
   .scan-card__details-cta.businesses-icon-button:hover {
@@ -669,7 +719,8 @@
     color: var(--text-primary);
   }
 
-  .scan-card__delete-cta-label {
+  .scan-card__delete-cta-label,
+  .scan-card__retry-cta-label {
     color: inherit;
   }
 

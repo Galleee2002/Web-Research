@@ -105,6 +105,70 @@ export async function createSearchRun(
   return body as SearchRead;
 }
 
+export type WorkerTriggerResponse = {
+  started: boolean;
+  reason?: string;
+};
+
+export async function retryWorkerRun(
+  init?: RequestInit
+): Promise<WorkerTriggerResponse> {
+  const csrfHeader = getCsrfHeader("POST");
+  const response = await fetch("/api/search/worker", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      ...csrfHeader
+    },
+    ...init
+  });
+
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    const error = toApiClientError(
+      response,
+      body,
+      `Request failed with status ${response.status}`
+    );
+    throw new SearchRunsApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
+  }
+
+  return body as WorkerTriggerResponse;
+}
+
+export async function cancelSearchRun(
+  searchRunId: string,
+  init?: RequestInit
+): Promise<{ id: string }> {
+  const csrfHeader = getCsrfHeader("DELETE");
+  const response = await fetch(`/api/search/${searchRunId}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+      ...csrfHeader
+    },
+    ...init
+  });
+
+  const body = await readJsonBody(response);
+  if (!response.ok) {
+    const error = toApiClientError(
+      response,
+      body,
+      `Request failed with status ${response.status}`
+    );
+    throw new SearchRunsApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
+  }
+
+  return body as { id: string };
+}
+
 /**
  * GET /api/businesses — same-origin fetch from the browser or RSC.
  * @see docs/architecture/frontend-backend-connection.md
