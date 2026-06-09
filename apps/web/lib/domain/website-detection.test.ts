@@ -30,6 +30,7 @@ describe("detectOwnWebsite", () => {
       "https://wa.me/541112345678",
       "https://linktr.ee/clinicadentalcentro",
       "https://maps.google.com/?cid=123",
+      "https://maps.app.goo.gl/SHBnkegGadJ1i78q8",
       "https://yelp.com/biz/clinica-dental-centro",
     ]) {
       expect(detectOwnWebsite(rawUrl)).toEqual({

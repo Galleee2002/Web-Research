@@ -16,6 +16,8 @@ import {
   ChevronDown,
   Eye,
   LaptopMinimalCheck,
+  Pencil,
+  Plus,
   RefreshCcw,
   Save,
   Search,
@@ -27,6 +29,7 @@ import type { SearchRead } from "@shared/index";
 
 import {
   BusinessesApiError,
+  createManualBusiness,
   createSearchRun,
   fetchBusinessById,
   fetchBusinessesPage,
@@ -37,6 +40,18 @@ import {
 } from "@/lib/api/businesses-client";
 import { leadStatusLabel } from "@/app/shared/model/status-label";
 import { SelectMenu } from "@/app/shared/ui/select-menu";
+import { resolveBusinessMapEmbedUrl } from "@/lib/domain/maps-url-detection";
+
+import {
+  buildManualBusinessCreatePayload,
+  buildManualBusinessUpdatePayload,
+  businessDetailToFormState,
+  EMPTY_MANUAL_BUSINESS_FORM
+} from "./manual-business-form";
+import {
+  ManualBusinessFormFields,
+  type ManualBusinessFormState
+} from "./manual-business-form-fields";
 
 type StatusFilter = LeadStatus | "all";
 type WebsiteFilter = "all" | "yes" | "no";
@@ -168,13 +183,15 @@ function BusinessesTableWebCell({
 }
 
 function buildMapEmbedUrl(detail: BusinessDetailRead): string | null {
-  if (detail.lat !== null && detail.lng !== null) {
-    return `https://www.google.com/maps?q=${detail.lat},${detail.lng}&output=embed`;
-  }
-  if (detail.maps_url && detail.maps_url.trim().length > 0) {
-    return detail.maps_url;
-  }
-  return null;
+  return resolveBusinessMapEmbedUrl({
+    lat: detail.lat,
+    lng: detail.lng,
+    maps_url: detail.maps_url,
+    website: detail.website,
+    social_links: detail.social_links,
+    address: detail.address,
+    notes: detail.notes
+  });
 }
 
 const DEFAULT_BUSINESSES_PAGE_SIZE = 20;
@@ -225,6 +242,16 @@ export function BusinessesPage() {
   const [notesSaveError, setNotesSaveError] = useState<string | null>(null);
   const [selectionSaving, setSelectionSaving] = useState(false);
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [isAddBusinessOpen, setIsAddBusinessOpen] = useState(false);
+  const [addBusinessForm, setAddBusinessForm] =
+    useState<ManualBusinessFormState>(EMPTY_MANUAL_BUSINESS_FORM);
+  const [addBusinessSaving, setAddBusinessSaving] = useState(false);
+  const [addBusinessError, setAddBusinessError] = useState<string | null>(null);
+  const [isDetailEditMode, setIsDetailEditMode] = useState(false);
+  const [editBusinessForm, setEditBusinessForm] =
+    useState<ManualBusinessFormState>(EMPTY_MANUAL_BUSINESS_FORM);
+  const [editBusinessSaving, setEditBusinessSaving] = useState(false);
+  const [editBusinessError, setEditBusinessError] = useState<string | null>(null);
   const [inFlightSearchRuns, setInFlightSearchRuns] = useState(0);
   const [inFlightSearchDetails, setInFlightSearchDetails] = useState<SearchRead[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -478,6 +505,12 @@ export function BusinessesPage() {
   }, [activeBusinessId]);
 
   useEffect(() => {
+    setIsDetailEditMode(false);
+    setEditBusinessError(null);
+    setEditBusinessSaving(false);
+  }, [activeBusinessId]);
+
+  useEffect(() => {
     const next = activeBusiness?.notes ?? "";
     setNotesDraft(next);
     setNotesDirty(false);
@@ -488,8 +521,57 @@ export function BusinessesPage() {
     setSelectionError(null);
   }, [activeBusiness]);
 
+  const closeAddBusinessModal = useCallback(() => {
+    setIsAddBusinessOpen(false);
+    setAddBusinessForm(EMPTY_MANUAL_BUSINESS_FORM);
+    setAddBusinessError(null);
+    setAddBusinessSaving(false);
+  }, []);
+
+  const openAddBusinessModal = useCallback(() => {
+    setAddBusinessForm(EMPTY_MANUAL_BUSINESS_FORM);
+    setAddBusinessError(null);
+    setIsAddBusinessOpen(true);
+  }, []);
+
+  const updateAddBusinessField = useCallback(
+    <K extends keyof ManualBusinessFormState>(key: K, value: ManualBusinessFormState[K]) => {
+      setAddBusinessForm((prev) => ({ ...prev, [key]: value }));
+      setAddBusinessError(null);
+    },
+    []
+  );
+
+  const openDetailEditMode = useCallback(() => {
+    if (!activeBusiness || activeBusiness.source !== "manual") {
+      return;
+    }
+    setEditBusinessForm(businessDetailToFormState(activeBusiness));
+    setEditBusinessError(null);
+    setIsDetailEditMode(true);
+  }, [activeBusiness]);
+
+  const closeDetailEditMode = useCallback(() => {
+    setIsDetailEditMode(false);
+    setEditBusinessError(null);
+  }, []);
+
+  const updateEditBusinessField = useCallback(
+    <K extends keyof ManualBusinessFormState>(key: K, value: ManualBusinessFormState[K]) => {
+      setEditBusinessForm((prev) => ({ ...prev, [key]: value }));
+      setEditBusinessError(null);
+    },
+    []
+  );
+
   useEffect(() => {
-    if (!activeBusinessId && !isFetchConfirmOpen && !isFetchSetupOpen && !isAddLocationOpen) {
+    if (
+      !activeBusinessId &&
+      !isFetchConfirmOpen &&
+      !isFetchSetupOpen &&
+      !isAddLocationOpen &&
+      !isAddBusinessOpen
+    ) {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -506,6 +588,10 @@ export function BusinessesPage() {
           setIsFetchConfirmOpen(false);
           return;
         }
+        if (isAddBusinessOpen) {
+          closeAddBusinessModal();
+          return;
+        }
         if (activeBusinessId) {
           setActiveBusinessId(null);
         }
@@ -517,7 +603,14 @@ export function BusinessesPage() {
       document.removeEventListener("keydown", onKeyDown);
       document.body.style.overflow = "";
     };
-  }, [activeBusinessId, isAddLocationOpen, isFetchConfirmOpen, isFetchSetupOpen]);
+  }, [
+    activeBusinessId,
+    closeAddBusinessModal,
+    isAddBusinessOpen,
+    isAddLocationOpen,
+    isFetchConfirmOpen,
+    isFetchSetupOpen
+  ]);
 
   const triggerBusinessesFetch = useCallback(async () => {
     if (loading || apiRequestPending || !pendingFetchRequest) return;
@@ -582,6 +675,127 @@ export function BusinessesPage() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const showingStart = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const showingEnd = total === 0 ? 0 : Math.min(currentPage * pageSize, total);
+
+  const handleSaveEditedBusiness = useCallback(async () => {
+    if (!activeBusiness || editBusinessSaving || activeBusiness.source !== "manual") {
+      return;
+    }
+
+    const trimmedName = editBusinessForm.name.trim();
+    if (!trimmedName) {
+      setEditBusinessError("Business name is required.");
+      return;
+    }
+
+    setEditBusinessSaving(true);
+    setEditBusinessError(null);
+
+    try {
+      const updated = await patchBusinessById(
+        activeBusiness.id,
+        buildManualBusinessUpdatePayload(editBusinessForm)
+      );
+
+      setActiveBusiness(updated);
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === updated.id
+            ? {
+                ...item,
+                name: updated.name,
+                category: updated.category,
+                address: updated.address,
+                city: updated.city,
+                phone: updated.phone,
+                email: updated.email,
+                social_links: updated.social_links,
+                website: updated.website,
+                has_website: updated.has_website,
+                status: updated.status,
+                maps_url: updated.maps_url
+              }
+            : item
+        )
+      );
+      setIsDetailEditMode(false);
+    } catch (error) {
+      const message =
+        error instanceof BusinessesApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Could not save business.";
+      setEditBusinessError(message);
+    } finally {
+      setEditBusinessSaving(false);
+    }
+  }, [activeBusiness, editBusinessForm, editBusinessSaving]);
+
+  const handleSaveNewBusiness = useCallback(async () => {
+    if (addBusinessSaving) {
+      return;
+    }
+
+    const trimmedName = addBusinessForm.name.trim();
+    if (!trimmedName) {
+      setAddBusinessError("Business name is required.");
+      return;
+    }
+
+    setAddBusinessSaving(true);
+    setAddBusinessError(null);
+
+    try {
+      let created = await createManualBusiness(
+        buildManualBusinessCreatePayload(addBusinessForm)
+      );
+
+      if (addBusinessForm.status !== "new") {
+        created = await patchBusinessById(created.id, {
+          status: addBusinessForm.status
+        });
+      }
+
+      const refreshed = await fetchBusinessesPage(
+        {
+          page: currentPage,
+          page_size: pageSize,
+          ...(normalizedQuery !== "" ? { query: normalizedQuery } : {}),
+          ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+          ...(websiteFilter === "yes"
+            ? { has_website: true }
+            : websiteFilter === "no"
+              ? { has_website: false }
+              : {}),
+          order_by: "created_at"
+        },
+        { cache: "no-store" }
+      );
+
+      setItems(refreshed.items);
+      setTotal(refreshed.total);
+      closeAddBusinessModal();
+    } catch (error) {
+      const message =
+        error instanceof BusinessesApiError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : "Could not save business.";
+      setAddBusinessError(message);
+    } finally {
+      setAddBusinessSaving(false);
+    }
+  }, [
+    addBusinessForm,
+    addBusinessSaving,
+    closeAddBusinessModal,
+    currentPage,
+    normalizedQuery,
+    pageSize,
+    statusFilter,
+    websiteFilter
+  ]);
 
   const handleSaveNotes = useCallback(async () => {
     if (!activeBusiness || notesSaving || (!notesDirty && !statusDirty)) return;
@@ -750,17 +964,29 @@ export function BusinessesPage() {
     >
       <header className="dashboard-content__header businesses-page__header">
         <h2 id="businesses-title">Businesses</h2>
-        <button
-          type="button"
-          className="businesses-load-cta"
-          onClick={openFetchSetupModal}
-          disabled={loading || apiRequestPending}
-          aria-haspopup="dialog"
-          aria-controls="businesses-fetch-setup"
-        >
-          <RefreshCcw className="businesses-load-cta__icon" aria-hidden />
-          Fetch Businesses
-        </button>
+        <div className="businesses-page__header-actions">
+          <button
+            type="button"
+            className="businesses-load-cta"
+            onClick={openFetchSetupModal}
+            disabled={loading || apiRequestPending}
+            aria-haspopup="dialog"
+            aria-controls="businesses-fetch-setup"
+          >
+            <RefreshCcw className="businesses-load-cta__icon" aria-hidden />
+            Fetch Businesses
+          </button>
+          <button
+            type="button"
+            className="businesses-add-cta"
+            onClick={openAddBusinessModal}
+            aria-haspopup="dialog"
+            aria-controls="businesses-add-modal"
+          >
+            <Plus className="businesses-add-cta__icon" strokeWidth={2.25} aria-hidden />
+            Add Business
+          </button>
+        </div>
       </header>
 
       <div className="businesses-page__body">
@@ -1242,6 +1468,68 @@ export function BusinessesPage() {
           </section>
         </div>
       ) : null}
+      {isAddBusinessOpen ? (
+        <div
+          className="business-modal-backdrop"
+          role="presentation"
+          onClick={closeAddBusinessModal}
+        >
+          <section
+            id="businesses-add-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="businesses-add-title"
+            className="business-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="business-modal__header">
+              <div className="business-modal__title-row">
+                <h3 id="businesses-add-title" className="business-modal__title">
+                  Add Business
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="business-modal__close"
+                aria-label="Close add business form"
+                onClick={closeAddBusinessModal}
+              >
+                <X className="business-modal__close-icon" aria-hidden />
+              </button>
+            </header>
+
+            <div className="business-modal__content">
+              <ManualBusinessFormFields
+                idPrefix="add-business"
+                form={addBusinessForm}
+                onFieldChange={updateAddBusinessField}
+              />
+
+              {addBusinessError ? (
+                <p className="business-modal__notes-error" role="alert">
+                  {addBusinessError}
+                </p>
+              ) : null}
+
+              <section className="business-modal__section business-modal__section--cta">
+                <div className="business-modal__opportunity-cta-wrap">
+                  <button
+                    type="button"
+                    className="business-modal__save-business"
+                    onClick={() => {
+                      void handleSaveNewBusiness();
+                    }}
+                    disabled={addBusinessSaving}
+                  >
+                    <Save className="business-modal__save-business-icon" aria-hidden />
+                    {addBusinessSaving ? "Saving..." : "Save Business"}
+                  </button>
+                </div>
+              </section>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {activeBusinessId ? (
         <div
           className="business-modal-backdrop"
@@ -1258,13 +1546,30 @@ export function BusinessesPage() {
             <header className="business-modal__header">
               <div className="business-modal__title-row">
                 <h3 id="business-detail-title" className="business-modal__title">
-                  {activeBusiness?.name ?? "Business Detail"}
+                  {isDetailEditMode
+                    ? "Edit Business"
+                    : (activeBusiness?.name ?? "Business Detail")}
                 </h3>
-                <span
-                  className={`businesses-status-pill businesses-status-pill--${activeBusiness?.status ?? "new"}`}
-                >
-                  {leadStatusLabel(activeBusiness?.status ?? "new")}
-                </span>
+                {!isDetailEditMode ? (
+                  <div className="business-modal__title-meta">
+                    <span
+                      className={`businesses-status-pill businesses-status-pill--${activeBusiness?.status ?? "new"}`}
+                    >
+                      {leadStatusLabel(activeBusiness?.status ?? "new")}
+                    </span>
+                    {activeBusiness?.source === "manual" && !detailLoading ? (
+                      <button
+                        type="button"
+                        className="business-modal__edit"
+                        onClick={openDetailEditMode}
+                        aria-label={`Edit ${activeBusiness.name}`}
+                      >
+                        <Pencil className="business-modal__edit-icon" aria-hidden />
+                        Edit
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -1336,6 +1641,44 @@ export function BusinessesPage() {
                 >
                   {detailError ? (
                     <p className="business-modal__state business-modal__state--error">{detailError}</p>
+                  ) : activeBusiness && isDetailEditMode ? (
+                    <>
+                      <ManualBusinessFormFields
+                        idPrefix="edit-business"
+                        form={editBusinessForm}
+                        onFieldChange={updateEditBusinessField}
+                      />
+
+                      {editBusinessError ? (
+                        <p className="business-modal__notes-error" role="alert">
+                          {editBusinessError}
+                        </p>
+                      ) : null}
+
+                      <section className="business-modal__section business-modal__section--cta">
+                        <div className="business-modal__form-actions">
+                          <button
+                            type="button"
+                            className="business-modal__form-action business-modal__form-action--secondary"
+                            onClick={closeDetailEditMode}
+                            disabled={editBusinessSaving}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="business-modal__save-business"
+                            onClick={() => {
+                              void handleSaveEditedBusiness();
+                            }}
+                            disabled={editBusinessSaving}
+                          >
+                            <Save className="business-modal__save-business-icon" aria-hidden />
+                            {editBusinessSaving ? "Saving..." : "Save Business"}
+                          </button>
+                        </div>
+                      </section>
+                    </>
                   ) : activeBusiness ? (
                     <>
                       <section className="business-modal__section">

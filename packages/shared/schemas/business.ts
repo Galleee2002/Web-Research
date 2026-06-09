@@ -31,6 +31,7 @@ const BUSINESS_UPDATE_FIELDS = [
   "phone",
   "social_links",
   "website",
+  "maps_url",
   "notes",
   "address",
   "status",
@@ -259,6 +260,9 @@ export function parseBusinessCreate(input: unknown): ValidationResult<BusinessCr
   const website = Object.hasOwn(input, "website")
     ? parseOptionalWebsite(input.website, errors)
     : undefined;
+  const mapsUrl = Object.hasOwn(input, "maps_url")
+    ? parseOptionalWebsite(input.maps_url, errors)
+    : undefined;
   const notes = Object.hasOwn(input, "notes")
     ? parseNullableStringField(input.notes, "notes", INPUT_LIMITS.notes, errors)
     : undefined;
@@ -276,6 +280,7 @@ export function parseBusinessCreate(input: unknown): ValidationResult<BusinessCr
   if (phone !== undefined) value.phone = phone;
   if (socialLinks !== undefined) value.social_links = socialLinks ?? [];
   if (website !== undefined) value.website = website;
+  if (mapsUrl !== undefined) value.maps_url = mapsUrl;
   if (notes !== undefined) value.notes = notes;
   if (address !== undefined) value.address = address;
 
@@ -345,6 +350,14 @@ export function parseBusinessUpdate(input: unknown): ValidationResult<BusinessUp
     const parsed = parseOptionalWebsite(input.website, errors);
     if (parsed !== undefined) {
       value.website = parsed;
+    }
+    hasField = true;
+  }
+
+  if (Object.hasOwn(input, "maps_url")) {
+    const parsed = parseOptionalWebsite(input.maps_url, errors);
+    if (parsed !== undefined) {
+      value.maps_url = parsed;
     }
     hasField = true;
   }

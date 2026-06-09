@@ -52,6 +52,7 @@ export interface ManualBusinessInsert {
   social_links: string[];
   website: string | null;
   has_website: boolean;
+  maps_url: string | null;
   notes: string | null;
   address: string | null;
 }
@@ -64,6 +65,7 @@ export interface BusinessFieldUpdate {
   social_links?: string[];
   website?: string | null;
   has_website?: boolean;
+  maps_url?: string | null;
   notes?: string | null;
   address?: string | null;
   status?: LeadStatus;
@@ -415,10 +417,11 @@ export async function insertManualBusiness(
           social_links,
           website,
           has_website,
+          maps_url,
           notes,
           address
         )
-        values ('manual', $1, $2, $3, $4, $5::text[], $6, $7, $8, $9)
+        values ('manual', $1, $2, $3, $4, $5::text[], $6, $7, $8, $9, $10)
         returning id
       `,
       [
@@ -429,6 +432,7 @@ export async function insertManualBusiness(
         payload.social_links,
         payload.website,
         payload.has_website,
+        payload.maps_url,
         payload.notes,
         payload.address
       ]
@@ -501,6 +505,9 @@ export async function updateBusinessFields(
   if (fields.has_website !== undefined) {
     addSet("has_website", fields.has_website);
   }
+  if (fields.maps_url !== undefined) {
+    addSet("maps_url", fields.maps_url);
+  }
   if (fields.notes !== undefined) {
     addSet("notes", fields.notes);
   }
@@ -564,7 +571,8 @@ export async function updateBusinessLeadStatus(
 export function buildManualBusinessInsert(
   payload: BusinessCreate,
   website: string | null,
-  hasWebsite: boolean
+  hasWebsite: boolean,
+  mapsUrl: string | null
 ): ManualBusinessInsert {
   return {
     name: payload.name,
@@ -574,6 +582,7 @@ export function buildManualBusinessInsert(
     social_links: payload.social_links ?? [],
     website,
     has_website: hasWebsite,
+    maps_url: mapsUrl,
     notes: payload.notes ?? null,
     address: payload.address ?? null
   };
@@ -598,6 +607,7 @@ export function buildBusinessFieldUpdate(
   if (payload.status !== undefined) fields.status = payload.status;
   if (website !== undefined) fields.website = website;
   if (hasWebsite !== undefined) fields.has_website = hasWebsite;
+  if (payload.maps_url !== undefined) fields.maps_url = payload.maps_url;
 
   return fields;
 }

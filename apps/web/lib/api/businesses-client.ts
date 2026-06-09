@@ -1,7 +1,9 @@
 import type {
+  BusinessCreate,
   BusinessDetailRead,
   BusinessRead,
   BusinessStatusUpdate,
+  BusinessUpdate,
   LeadStatus,
   PaginatedResponse,
   SearchCreate,
@@ -192,6 +194,42 @@ export async function fetchOpportunitiesPage(
 }
 
 /**
+ * POST /api/businesses — create a manual business lead.
+ */
+export async function createManualBusiness(
+  payload: BusinessCreate,
+  init?: RequestInit
+): Promise<BusinessDetailRead> {
+  const csrfHeader = getCsrfHeader("POST");
+  const res = await fetch("/api/businesses", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...csrfHeader
+    },
+    body: JSON.stringify(payload),
+    ...init
+  });
+
+  const body = await readJsonBody(res);
+
+  if (!res.ok) {
+    const error = toApiClientError(
+      res,
+      body,
+      `Request failed with status ${res.status}`
+    );
+    throw new BusinessesApiError(error.message, error.status, {
+      code: error.code,
+      correlationId: error.correlationId
+    });
+  }
+
+  return body as BusinessDetailRead;
+}
+
+/**
  * GET /api/businesses/{id} — detail for modal/sheet.
  */
 export async function fetchBusinessById(
@@ -222,11 +260,11 @@ export async function fetchBusinessById(
 }
 
 /**
- * PATCH /api/businesses/{id} — update lead status/notes.
+ * PATCH /api/businesses/{id} — partial update (profile, status, notes).
  */
 export async function patchBusinessById(
   id: string,
-  payload: BusinessStatusUpdate,
+  payload: BusinessUpdate | BusinessStatusUpdate,
   init?: RequestInit
 ): Promise<BusinessDetailRead> {
   const csrfHeader = getCsrfHeader("PATCH");
