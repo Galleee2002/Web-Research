@@ -109,6 +109,18 @@ function dayBoundaryIso(ymd: string, end: boolean): string {
   return dt.toISOString();
 }
 
+function scanTitleParts(scan: ScanListItem): { query: string; location: string } | null {
+  const query = scan.query?.trim() ?? "";
+  const location = scan.location?.trim() ?? "";
+  if (!query && !location) {
+    return null;
+  }
+  return {
+    query: query ? `"${query}"` : "—",
+    location: location || "—"
+  };
+}
+
 function matchesIdQuery(scan: ScanListItem, q: string): boolean {
   const needle = q.trim().toLowerCase();
   if (needle.length === 0) return true;
@@ -483,6 +495,7 @@ export function ScansPage() {
             {visibleScans.map((scan) => {
               const runId = scanRunId(scan);
               const providerName = scan.provider?.trim() || "—";
+              const titleParts = scanTitleParts(scan);
               const corr = scan.correlationId?.trim() || "—";
               const statusInfo = scanStatusLine(scan);
               const isErrorStatus = statusInfo.variant === "error";
@@ -494,7 +507,16 @@ export function ScansPage() {
                 <article key={scan.id} className="scan-card">
                   <div className="scan-card__row">
                     <div className="scan-card__lead">
-                      <h3 className="scan-card__title">{providerName}</h3>
+                      <h3 className="scan-card__title">
+                        {titleParts ? (
+                          <>
+                            <span className="scan-card__title-query">{titleParts.query}</span>
+                            <span className="scan-card__title-location">{titleParts.location}</span>
+                          </>
+                        ) : (
+                          providerName
+                        )}
+                      </h3>
                       <div className="scan-card__detail">
                         <span className="scan-card__detail-label">Run ID</span>
                         <span className="scan-card__detail-value scan-card__detail-value--mono">

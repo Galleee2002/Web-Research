@@ -23,6 +23,8 @@ describe("scans service", () => {
       {
         id: "test-id-1",
         searchRunId: "test-id-1",
+        query: "dentists",
+        location: "Buenos Aires, Argentina",
         provider: "google_places",
         providerEndpoint: "google_places",
         httpStatus: null,
