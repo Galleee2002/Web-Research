@@ -346,11 +346,27 @@
 .scan-card__title {
   margin: 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: -0.12px;
   color: var(--text-primary);
   line-height: 1.25;
+}
+
+.scan-card__title-query {
+  min-width: 0;
+}
+
+.scan-card__title-location {
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  line-height: 1.3;
 }
 
 .scan-card__detail {

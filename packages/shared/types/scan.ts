@@ -3,6 +3,8 @@ import type { SearchRunStatus } from "../constants/domain";
 export interface ScanListItem {
   id: string;
   searchRunId: string | null;
+  query: string | null;
+  location: string | null;
   provider: string | null;
   providerEndpoint: string | null;
   httpStatus: number | null;

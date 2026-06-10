@@ -4,6 +4,8 @@ import { query } from "./pool";
 
 interface SearchRunRow {
   id: string;
+  query: string | null;
+  location: string | null;
   provider: string | null;
   started_at: Date | string | null;
   completed_at: Date | string | null;
@@ -62,6 +64,8 @@ export async function getProviderCalls(
   const sql = `
     SELECT
       id,
+      query,
+      location,
       source as provider,
       source as provider_endpoint,
       started_at,
@@ -82,6 +86,8 @@ export async function getProviderCalls(
   const rows = (result.rows as SearchRunRow[]).map((row) => ({
     id: row.id,
     searchRunId: row.id,
+    query: row.query,
+    location: row.location,
     provider: row.provider,
     providerEndpoint: row.provider,
     httpStatus: null,
